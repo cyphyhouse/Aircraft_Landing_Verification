@@ -1,0 +1,69 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\title{Simulation Parameter Description}
+\author{James Jackson \\ Brigham Young University}
+\date{March 2017}
+
+\begin{document}
+\maketitle
+
+\section{ROSflight Software-In-The-Loop}
+
+Using ROSflight Software-In-The-Loop (SIL) is a higher-fidelity model of simulation which attemps to incorporate actual motor dynamics into the simulation model.  It does this by using a quadratic fit for the steady-state response of the ESC-Motor-Propeller system, with a first-order filter to simulate the lag in response to control input. This model has been derived primarily to mimic the actual observed response of motors in static thrust tests.  This neglects any effect of relative airspeed on thrust or torque production, but has been shown to be effective in simulation.
+
+Steady-state input is calculated using the following method.
+
+\begin{equation}
+\begin{aligned}
+	F_{ss}[t] &= f_1 x[t]^2 + f_2 x[t] + f_3 \\
+	T_{ss} &= \tau_1 x^2 + \tau_2 x + \tau_3
+\end{aligned}
+\end{equation}
+
+where $x[t]$ is the current motor signal in microseconds, and $f_1$, $f_2$, $f_3$, $\tau_1$, $\tau_2$, and $\tau_3$ are constants determined experimentally.  These constants for the "mikey" quadcopter can be found in \verb|magicc_sim/magicc_sim/agents/mikey/mikey.yaml|.
+
+After the steady state "desired" responses have been calculated, the transient response is approximated using a simple $\alpha$ filter with the following implementation:
+
+\begin{equation}
+\begin{aligned}
+	F[t] &= (1 - \alpha)F[t-1] + \alpha F_{ss}[t] \\
+	T[t] &= (1 - \alpha)T[t-1] + \alpha T_{ss}[t]
+\end{aligned}
+\end{equation}
+
+where 
+
+\begin{equation}
+\begin{aligned}
+	\alpha = \dfrac{dt}{\tau + dt}
+\end{aligned}
+\end{equation}
+
+The $\tau$ used to calculate alpha usually has a different value if the motor is increasing thrust or decreasing thrust (the motor generally is slower to slow down than speed up). These values can also be determined experimentally.
+
+The position and orientation of each propeller is also carefully measured and forces and torques are applied respectively.
+
+We used the RCBenchmark Dynamometer to actually determine these constants used in simulation with the actual hardware we used on the multirotor.
+
+In both simulation styles, a constant $\mu$ is used to simulate a ``drag force'' on the multirotor.  This is simply calculated as 
+
+\begin{equation}
+\begin{aligned}
+	f_{drag,linear} &= -\mu_{linear} V \\
+	f_{drag,angular} &= -\mu_{angular} \omega
+	\end{aligned}
+\end{equation}
+
+where $V$ is the current linear velocity and $\omega$ is the current angular velocity.
+
+\section{Simple Forces And Moments}
+The simplified method for simulation multirotors instead of simulating individual motors and propellers, simulates applied torques about the $x$, $y$, and $z$ axes, and a single force vector in the negative $z$ (upwards) direction.
+
+First order dynamics are applied to these forces and moments using the same time constants and a linear approximation of force and torque found for the full simulation.
+
+The drawback of using the simple forces and moments approach is that the simulation will not take into account motor saturation in aggressive maneuvers.  (That is, a real multirotor cannot apply a full roll torque while also commanded full throttle because of actuator limitations).  This method assumes that these forces are independent and will therefore be able to achieve greater than realistic performance.
+
+\end{document}
+

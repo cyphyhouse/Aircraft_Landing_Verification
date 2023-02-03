@@ -1,0 +1,48 @@
+<package>
+  <name>magicc_sim</name>
+  <version>2.0.1</version>
+  <description>The magicc_sim package</description>
+
+  <maintainer email="superjax08@gmail.com">James Jackson</maintainer>
+
+  <author>Fadri Furrer</author>
+  <author>Michael Burri</author>
+  <author>Mina Kamel</author>
+  <author>Janosch Nikolic</author>
+  <author>Markus Achtelik</author>
+  <author>James Jackson</author>
+
+  <license>ASL 2.0</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- Dependencies needed to compile this package. -->
+  <build_depend>gazebo_plugins</build_depend>
+  <build_depend>gazebo_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>cmake_modules</build_depend>
+  <build_depend>message_generation</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>trajectory_msgs</build_depend>
+  <build_depend>gazebo_ros</build_depend>
+
+  <!-- Dependencies needed after this package is compiled. -->
+  <run_depend>gazebo_plugins</run_depend>
+  <run_depend>gazebo_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>message_runtime</run_depend>
+  <run_depend>std_msgs</run_depend>
+  <run_depend>trajectory_msgs</run_depend>
+  <run_depend>gazebo_ros</run_depend>
+
+
+  <!-- change environmnet variable for models path -->
+  <export>
+    <gazebo_ros gazebo_model_path="${prefix}/models" />
+  </export>
+
+</package>

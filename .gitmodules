@@ -1,0 +1,6 @@
+[submodule "rosflight"]
+	path = rosflight
+	url = https://github.com/rosflight/rosflight.git
+[submodule "rosflight_plugins"]
+	path = rosflight_plugins
+	url = https://github.com/byu-magicc/rosflight_plugins

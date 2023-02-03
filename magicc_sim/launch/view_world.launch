@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- <arg name="world_name" default="basic.world"/> -->
+  <!-- <arg name="world_name" default="better_crazy_world.sdf"/> -->
+  <!-- <arg name="world_name" default="course.world"/> -->
+  <!-- <arg name="world_name" default="crazy_world.sdf"/> -->
+  <!-- <arg name="world_name" default="cylinders.world"/> -->
+  <!-- <arg name="world_name" default="fixed_wing.world"/> -->
+  <!-- <arg name="world_name" default="hilly_town_1.world"/> -->
+  <!-- <arg name="world_name" default="mocap_room.world"/> -->
+  <!-- <arg name="world_name" default="powerplant.world"/> -->
+  <!-- <arg name="world_name" default="smaller_crazy_world.sdf"/> -->
+  <!-- <arg name="world_name" default="test_city.world"/> -->
+  <!-- <arg name="world_name" default="valley_town_1.world"/> -->
+  <arg name="world_name" default="valley_town_2.world"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find magicc_sim)/worlds/$(arg world_name)"/>
+    <arg name="paused" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="verbose" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+</launch>
