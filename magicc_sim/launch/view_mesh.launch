@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- <arg name="mav_name" default="Millennium_Falcon"/> --> <!-- this one may be broken -->
+  <!-- <arg name="mav_name" default="c130"/> -->
+  <!-- <arg name="mav_name" default="firefly"/> -->
+  <!-- <arg name="mav_name" default="hummingbird"/> -->
+  <!-- <arg name="mav_name" default="ju_87"/> -->
+  <arg name="mav_name" default="pelican"/>
+  <!-- <arg name="mav_name" default="propeller_ccw"/> -->
+  <!-- <arg name="mav_name" default="propeller_cw"/> -->
+  <!-- <arg name="mav_name" default="x_wing"/> -->
+
+  <!-- start gazebo -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="paused" value="true"/>
+    <arg name="gui" value="true"/>
+  </include>
+
+  <!-- spawn model -->
+  <param name="robot_description" command="xacro --inorder '$(find magicc_sim)/agents/visuals/$(arg mav_name).xacro'"/>
+  <node name="spawn_$(arg mav_name)" pkg="gazebo_ros" type="spawn_model"
+    args="-param robot_description
+          -urdf
+          -x 0
+          -y 0
+          -z 1
+          -Y 0
+          -model $(arg mav_name)"
+    respawn="false" output="screen">
+  </node>
+
+</launch>
