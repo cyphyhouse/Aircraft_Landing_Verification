@@ -1,0 +1,29 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/magicc_sim_plugins/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosflight/rosflight/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosflight/rosflight_firmware/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosflight_plugins/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosflight/rosflight_sim/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosflight/rosflight_utils/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosplane/include/**",
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/rosplane_sim/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:macro
+    name="velodyne_custom"
+    params="namespace
+            parent_link
+            visualize
+            update_rate
+            *origin">
+    <xacro:laser_scanner
+      namespace="${namespace}"
+      parent_link="${parent_link}"
+      visualize="${visualize}"
+      min_range="0.1"
+      max_range="40"
+      resolution="0.03"
+      update_rate="40"
+      horizontal_range="2.0944"
+      vertical_range="0.1"
+      num_horizontal_points="40"
+      num_vertical_points="2">
+      <xacro:insert_block name="origin"/>
+    </xacro:laser_scanner>
+  </xacro:macro>
+
+  <!-- Macro to add a velodyne laser scanner. -->
+  <xacro:macro
+    name="laser_scanner"
+    params="namespace
+            parent_link
+            visualize
+            min_range
+            max_range
+            resolution
+            update_rate
+            horizontal_range
+            vertical_range
+            num_horizontal_points
+            num_vertical_points
+            *origin">
+    <link name="${namespace}/laser_link">
+      <collision>
+        <xacro:insert_block name="origin"/>
+        <geometry>
+          <cylinder length="0.01" radius="0.007" />
+        </geometry>
+      </collision>
+      <inertial>
+        <xacro:insert_block name="origin"/>
+        <mass value="1e-4"/>
+        <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4" />
+      </inertial>
+    </link>
+
+    <joint name="${namespace}/laser_joint" type="revolute">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent_link}"/>
+      <child link="${namespace}/laser_link"/>
+      <limit upper="0" lower="0" effort="0" velocity="0" />
+    </joint>
+
+    <gazebo reference="${namespace}/laser_link">
+    <sensor type="ray" name="laser_scanner">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>${visualize}</visualize>
+      <update_rate>${update_rate}</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>${num_horizontal_points}</samples>
+            <min_angle>${-horizontal_range/2.0}</min_angle>
+            <max_angle>${horizontal_range/2.0}</max_angle>
+          </horizontal>
+          <vertical>
+            <samples>${num_vertical_points}</samples>
+            <min_angle>${-vertical_range/2.0}</min_angle>
+            <max_angle>${vertical_range/2.0}</max_angle>
+          </vertical>
+        </scan>
+        <range>
+          <min>${min_range}</min>
+          <max>${max_range}</max>
+          <resolution>${resolution}</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="${namespace}_laser" filename="libgazebo_ros_block_laser.so">
+        <topicName>scan</topicName>
+        <frameName>laser_link</frameName>
+      </plugin>
+    </sensor>
+  </gazebo>
+  </xacro:macro>
+
+
+</robot>

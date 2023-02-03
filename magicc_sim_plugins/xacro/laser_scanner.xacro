@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Hokuyo UTM-30LX-->
+  <xacro:macro
+    name="hokuyo_UTM-30LX"
+    params="namespace
+            parent_link
+            visualize
+            *origin">
+    <xacro:laser_scanner
+      namespace="${namespace}"
+      parent_link="${parent_link}"
+      num_samples="720"
+      visualize="${visualize}"
+      min_range="0.1"
+      max_range="10"
+      res_range="0.03"
+      min_angle="-pi/2"
+      max_angle="pi/2"
+      update_rate="40">
+      <xacro:insert_block name="origin"/>
+    </xacro:laser_scanner>
+  </xacro:macro>
+
+    <!-- RPLIDAR-A2 -->
+  <xacro:macro
+    name="RPLIDAR-A2"
+    params="namespace
+            parent_link
+            visualize
+            *origin">
+    <xacro:laser_scanner
+      namespace="${namespace}"
+      parent_link="${parent_link}"
+      num_samples="400"
+      visualize="${visualize}"
+      min_range="0.15"
+      max_range="6"
+      res_range="0.01"
+      min_angle="-3.14159"
+      max_angle="3.14159"
+      update_rate="10">
+      <xacro:insert_block name="origin"/>
+    </xacro:laser_scanner>
+  </xacro:macro>
+
+  <!-- Macro to add a laser scanner. -->
+  <xacro:macro
+    name="laser_scanner"
+    params="namespace
+            parent_link
+            num_samples
+            visualize
+            min_range
+            max_range
+            res_range
+            min_angle
+            max_angle
+            update_rate
+            *origin">
+    <link name="${namespace}/laser_link">
+      <collision>
+        <xacro:insert_block name="origin"/>
+        <geometry>
+          <cylinder length="0.01" radius="0.007" />
+        </geometry>
+      </collision>
+      <inertial>
+        <xacro:insert_block name="origin"/>
+        <mass value="1e-4"/>
+        <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4" />
+      </inertial>
+    </link>
+
+    <joint name="${namespace}/laser_joint" type="revolute">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent_link}"/>
+      <child link="${namespace}/laser_link"/>
+      <limit upper="0" lower="0" effort="0" velocity="0" />
+    </joint>
+
+    <gazebo reference="${namespace}/laser_link">
+    <sensor type="ray" name="laser_scanner">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>${visualize}</visualize>
+      <update_rate>${update_rate}</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>720</samples>
+            <resolution>1</resolution>
+            <min_angle>${min_angle}</min_angle>
+            <max_angle>${max_angle}</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.10</min>
+          <max>30.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="${namespace}_laser" filename="libgazebo_ros_laser.so">
+        <topicName>${namespace}/scan</topicName>
+        <frameName>${namespace}/base_laser_link</frameName>
+      </plugin>
+    </sensor>
+  </gazebo>
+  </xacro:macro>
+
+
+</robot>

@@ -1,0 +1,14 @@
+actions: []
+authors: Martin Schuck <martin.schuck@tum.de>
+brief: ''
+bugtracker: ''
+depends:
+- catkin
+description: The airport_sim package
+license: BSD
+maintainers: Martin Schuck <martin.schuck@tum.de>
+msgs: []
+package_type: package
+repo_url: ''
+srvs: []
+url: https://github.com/amacati/airport_sim

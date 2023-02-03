@@ -1,0 +1,4 @@
+# Settings for the DynamicLightLoader.
+odom_topic: "/ground_truth/odom"  # Robot position ground truth ROS topic.
+distance_threshold: 100  # Maximum FoV distance to the robot.
+max_lights: 20  # Maximum number of lights allowed within the FoV.

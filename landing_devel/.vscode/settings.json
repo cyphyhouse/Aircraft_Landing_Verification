@@ -1,0 +1,12 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages",
+        "/home/lucas/Desktop/GRAIC/Carla/PythonAPI/carla/dist/carla-0.9.11-py3.7-linux-x86_64.egg"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/devel/lib/python3/dist-packages",
+        "/opt/ros/noetic/lib/python3/dist-packages",
+        "/home/lucas/Desktop/GRAIC/Carla/PythonAPI/carla/dist/carla-0.9.11-py3.7-linux-x86_64.egg"
+    ]
+}

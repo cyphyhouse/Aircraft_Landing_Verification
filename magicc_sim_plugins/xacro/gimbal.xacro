@@ -1,0 +1,159 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <!-- Configure ZENMUSE Gimbal -->
+    <xacro:macro
+      name="gimbal_ZENMUSE"
+      params="namespace
+              parent_link
+              image_topic
+              camera_info_topic
+	            frame_rate
+              pose_topic
+              command_topic
+              use_slipring
+              *origin">
+    <xacro:gimbal_plugin_macro
+      namespace="${namespace}"
+      parent_link="${parent_link}"
+      image_topic="${image_topic}"
+      camera_info_topic="${camera_info_topic}"
+      frame_rate="${frame_rate}"
+      pose_topic="${pose_topic}"
+      command_topic="${command_topic}"
+      mass="0.00001"
+      x_rotation_range="1000000000"
+      y_rotation_range="1000000000"
+      z_rotation_range="1000000000"
+      time_constant="0.25">
+      <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+      <xacro:insert_block name="origin" />
+    </xacro:gimbal_plugin_macro>
+  </xacro:macro>
+
+    <!-- Macro to add a Gimbal -->
+  <xacro:macro
+    name="gimbal_plugin_macro"
+    params="namespace parent_link image_topic camera_info_topic frame_rate pose_topic command_topic
+      mass x_rotation_range y_rotation_range z_rotation_range time_constant
+      *inertia *origin">
+
+    <!-- Base Link  -->
+    <link name="${namespace}/gimbal/base_link">
+      <inertial>
+        <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+        <mass value="${mass}" />
+        <xacro:insert_block name="origin" />
+      </inertial>
+    </link>
+
+
+    <!-- Base Joint -->
+    <joint name="${namespace}/gimbal_base_joint" type="revolute">
+      <xacro:insert_block name="origin" />
+      <parent link="${parent_link}" />
+      <child link="${namespace}/gimbal/base_link" />
+      <limit upper="0" lower="0" effort="0" velocity="0"/>
+    </joint>
+
+    <!-- Yaw Link -->
+    <link name="${namespace}/gimbal/yaw_link">
+      <inertial>
+        <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+        <mass value="${mass}" />
+        <origin xyz="0 0 0" rpy = "0 0 0"/>
+      </inertial>
+    </link>
+
+    <!-- Yaw joint -->
+    <joint name="${namespace}/gimbal_yaw_joint" type="revolute">
+      <pose xyz="0 0 0" rpy = "0 0 0"/>
+      <parent link="${namespace}/gimbal/base_link" />
+      <child link="${namespace}/gimbal/yaw_link" />
+      <limit upper="${z_rotation_range}" lower="${-1.0*z_rotation_range}" effort="1000" velocity="5000"/>
+    </joint>
+
+    <!-- Roll Link -->
+    <link name="${namespace}/gimbal/roll_link">
+      <inertial>
+        <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+        <mass value="${mass}" />
+        <origin xyz="0 0 0" rpy = "0 0 0"/>
+      </inertial>
+    </link>
+
+    <!-- Roll joint -->
+    <joint name="${namespace}/gimbal_roll_joint" type="revolute">
+      <origin xyz="0 0 0" rpy = "0 0 0"/>
+      <parent link="${namespace}/gimbal/yaw_link" />
+      <child link="${namespace}/gimbal/roll_link" />
+      <limit upper="${x_rotation_range}" lower="${-1.0*x_rotation_range}" effort="1000" velocity="5000"/>
+    </joint>
+
+    <!-- Pitch Link -->
+    <link name="${namespace}/gimbal/pitch_link">
+      <inertial>
+        <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+        <mass value="${mass}" />
+        <origin xyz="0 0 0" rpy = "0 0 0"/>
+      </inertial>
+    </link>
+
+    <!-- Pitch joint -->
+    <joint name="${namespace}/gimbal_pitch_joint" type="revolute">
+      <origin xyz="0 0 0" rpy = "0 0 0"/>
+      <parent link="${namespace}/gimbal/roll_link" />
+      <child link="${namespace}/gimbal/pitch_link" />
+      <limit upper="${x_rotation_range}" lower="${-1.0*x_rotation_range}" effort="1000" velocity="5000"/>
+    </joint>
+
+    <!-- Attach a Camera -->
+    <gazebo reference="${namespace}/gimbal/pitch_link">
+      <sensor type="camera" name="gimbal/camera">
+        <always_on>true</always_on>
+	      <update_rate>${frame_rate}</update_rate>
+        <camera>
+          <horizontal_fov>2</horizontal_fov>
+          <image>
+            <format>R8G8B8</format>
+            <width>640</width>
+            <height>480</height>
+          </image>
+          <clip>
+            <near>0.01</near>
+            <far>1000</far>
+          </clip>
+        </camera>
+	<plugin filename="libmagicc_sim_camera_plugin.so" name="${namespace}/gimbal_camera">
+          <robotNamespace>${namespace}</robotNamespace>
+          <alwaysOn>true</alwaysOn>
+	        <updateRate>${frame_rate}</updateRate>
+          <cameraName>gimbal/camera</cameraName>
+          <imageTopicName>${image_topic}</imageTopicName>
+          <cameraInfoTopicName>${camera_info_topic}</cameraInfoTopicName>
+          <frameName>gimbal_camera</frameName>
+          <distortionK1>0.0</distortionK1>
+          <distortionK2>0.0</distortionK2>
+          <distortionK3>0.0</distortionK3>
+          <distortionT1>0.0</distortionT1>
+          <distortionT2>0.0</distortionT2>
+        </plugin>
+      </sensor>
+    </gazebo>
+
+    <!-- Load Gimbal Controller Plugin -->
+    <gazebo>
+      <plugin filename="libgimbal_plugin.so" name="magicc_sim_gimbal_plugin">
+        <namespace>${namespace}</namespace>
+        <yawJoint>${namespace}/gimbal_yaw_joint</yawJoint>
+        <pitchJoint>${namespace}/gimbal_pitch_joint</pitchJoint>
+        <rollJoint>${namespace}/gimbal_roll_joint</rollJoint>
+        <timeConstant>${time_constant}</timeConstant>
+        <commandTopic>${command_topic}</commandTopic>
+        <poseTopic>${pose_topic}</poseTopic>
+        <useSlipring>${use_slipring}</useSlipring>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+</robot>

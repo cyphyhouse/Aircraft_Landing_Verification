@@ -1,0 +1,17 @@
+<?xml version="1.0" ?>
+<launch>
+
+	<!-- doc Launches the airport world, spawns the robot and initializes the dynamic light loader-->
+	<param name="/use_sim_time" value="true"/>
+	<include file="$(find gazebo_ros)/launch/empty_world.launch">
+		<arg name="world_name" value="$(find airport_sim)/gazebo/worlds/airport_day.world"/>
+		<env name="GAZEBO_MODEL_PATH" value="$(find airport_sim)/gazebo/models"/>
+	</include>
+
+	<include file="$(find robot_sim)/launch/tas_car.launch">
+		<arg name="pos_x" value="-44"/>
+		<arg name="pos_y" value="-149"/>
+	</include>
+
+	<node name="dynamic_light_loader" type="dynamic_light_loader.py" pkg="airport_sim" output="screen"/>
+</launch>
