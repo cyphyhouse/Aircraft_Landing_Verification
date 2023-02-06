@@ -24,6 +24,7 @@ class Perception():
     def __init__(self, name=''):
         self.name = name
 
+        rospy.Subscriber("/gazebo/model_states", ModelStates, self.state_callback)
         rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, self.image_callback)
         self.bridge = CvBridge()
         # cv2.namedWindow("Image Window", 1)
@@ -43,12 +44,22 @@ class Perception():
                                         (-91.10, 11.20, 0), # purple marker
                                         (-93.17, -2.39, 0), # cyan marker
                                         (-92.11, 4.16, 0), # yellow marker
+                                        # (-134.77, 27.14, 0), # light red marker
+                                        # (-134.04, 12.08, 0), # light blue marker
+                                        # (-139.79, 2.48, 0) # light green marker
+                                        (-106.38, -12.04, 0), # orange marker
+                                        (-102.21, 25.83, 0) # white marker
                                     ])
-    
+        self.pose = None
+
+    def state_callback(self, msg):
+        pos = msg.pose[1].position
+        self.pose = [pos.x, pos.y, pos.z]
+
     def image_callback(self, img_msg):
         # Log some info about the image topic
         # rospy.loginfo(img_msg.header)
-
+        cur_pos = self.pose
         self.count += 1
         if self.count % 100 != 0:
             return
@@ -59,6 +70,38 @@ class Perception():
 
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
+            # # Find the red marker
+            # mask_red_1 = cv2.inRange(hsv, (0, 200, 20), (5, 255, 255))
+            # mask_red_2 = cv2.inRange(hsv, (175, 200, 20), (180 ,255, 255))
+
+            # mask_red = cv2.bitwise_or(mask_red_1, mask_red_2)
+            # img_red = cv2.bitwise_and(cv_image, cv_image, mask=mask_red)
+            # red_image_gray = cv2.cvtColor(img_red, cv2.COLOR_BGR2GRAY)
+
+            # # Find the green marker
+            # mask_green = cv2.inRange(hsv, np.array([50, 200, 100]), np.array([70, 255, 255]))
+            # img_green = cv2.bitwise_and(cv_image, cv_image, mask=mask_green)
+            # green_image_gray = cv2.cvtColor(img_green, cv2.COLOR_BGR2GRAY)
+
+            # # Find the blue marker
+            # mask_blue = cv2.inRange(hsv, np.array([100, 200, 0]), np.array([140, 255, 255]))
+            # img_blue = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue)
+            # blue_image_gray = cv2.cvtColor(img_blue, cv2.COLOR_BGR2GRAY)
+
+            # # Find the purple marker
+            # mask_purple = cv2.inRange(hsv, np.array([140, 200, 70]), np.array([160, 250, 250]))
+            # img_purple = cv2.bitwise_and(cv_image, cv_image, mask=mask_purple)
+            # purple_image_gray = cv2.cvtColor(img_purple, cv2.COLOR_BGR2GRAY)
+
+            # # Find the cyan marker
+            # mask_cyan = cv2.inRange(hsv, np.array([80, 200, 70]), np.array([90, 250, 250]))
+            # img_cyan = cv2.bitwise_and(cv_image, cv_image, mask=mask_cyan)
+            # cyan_image_gray = cv2.cvtColor(img_cyan, cv2.COLOR_BGR2GRAY)
+
+            # # Find the yellow marker
+            # mask_yellow = cv2.inRange(hsv, np.array([20, 200, 100]), np.array([30, 255, 255]))
+            # img_yellow = cv2.bitwise_and(cv_image, cv_image, mask=mask_yellow)
+            # yellow_image_gray = cv2.cvtColor(img_yellow, cv2.COLOR_BGR2GRAY)
             # Find the red marker
             mask_red_1 = cv2.inRange(hsv, (0, 50, 20), (5, 255, 255))
             mask_red_2 = cv2.inRange(hsv, (175, 50, 20), (180 ,255, 255))
@@ -91,9 +134,38 @@ class Perception():
             mask_yellow = cv2.inRange(hsv, np.array([20, 100, 100]), np.array([30, 255, 255]))
             img_yellow = cv2.bitwise_and(cv_image, cv_image, mask=mask_yellow)
             yellow_image_gray = cv2.cvtColor(img_yellow, cv2.COLOR_BGR2GRAY)
+            # Find the orange marker
+            mask_orange = cv2.inRange(hsv, np.array([10, 200, 100]), np.array([19, 255, 255]))
+            img_orange = cv2.bitwise_and(cv_image, cv_image, mask=mask_orange)
+            orange_image_gray = cv2.cvtColor(img_orange, cv2.COLOR_BGR2GRAY)
+
+            # Find the white marker
+            mask_white = cv2.inRange(hsv, np.array([0, 0, 200]), np.array([0, 255, 255]))
+            img_white = cv2.bitwise_and(cv_image, cv_image, mask=mask_white)
+            white_image_gray = cv2.cvtColor(img_white, cv2.COLOR_BGR2GRAY)
+            # # Find the light red marker
+            # mask_red_light_1 = cv2.inRange(hsv, (0, 50, 20), (5, 150, 255))
+            # mask_red_light_2 = cv2.inRange(hsv, (175, 50, 20), (180 ,150, 255))
+
+            # mask_red_light = cv2.bitwise_or(mask_red_light_1, mask_red_light_2)
+            # # mask_red_light = cv2.inRange(hsv, np.array([140, 50, 70]), np.array([160, 150, 250]))
+            # img_red_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_red_light)
+            # light_red_image_gray = cv2.cvtColor(img_red_light, cv2.COLOR_BGR2GRAY)
+
+            # # Find the light blue marker
+            # mask_blue_light = cv2.inRange(hsv, np.array([80, 50, 70]), np.array([90, 150, 250]))
+            # img_blue_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue_light)
+            # light_blue_image_gray = cv2.cvtColor(img_blue_light, cv2.COLOR_BGR2GRAY)
+
+            # # Find the light green marker
+            # mask_green_light = cv2.inRange(hsv, np.array([50, 100, 100]), np.array([70, 150, 255]))
+            # img_green_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_green_light)
+            # light_green_image_gray = cv2.cvtColor(img_green_light, cv2.COLOR_BGR2GRAY)
 
             # print(cv_image)
-            kp, absent_markers = self.get_feature_points(np.array([red_image_gray, green_image_gray, blue_image_gray, purple_image_gray, cyan_image_gray, yellow_image_gray]))
+            kp, absent_markers = self.get_feature_points(np.array([red_image_gray, green_image_gray, blue_image_gray, 
+                                                        purple_image_gray, cyan_image_gray, yellow_image_gray, 
+                                                        orange_image_gray, white_image_gray]))
             kp_img = cv2.drawKeypoints(cv_image, kp, None, color=(0, 255, 0), flags=0)
 
             cv2.imwrite(os.path.join(img_path, "img_{0}.jpg".format(self.count)), kp_img)
@@ -105,7 +177,7 @@ class Perception():
         obj_pts = []
         # print(kp)
         kps = []
-        for i in range(6):
+        for i in range(8):
             if absent_markers[i] == 0:
                 obj_pts.append(self.marker_points[i])
         for i in range(len(kp)):
@@ -118,12 +190,22 @@ class Perception():
             # print("Translation: ", translation_vector)
             # print("")
             Rot = cv2.Rodrigues(rotation_vector)[0]
-            camera_position = -np.matrix(Rot).T*translation_vector
-            camera_roll = atan2(-Rot[2][1], Rot[2][2])
-            camera_pitch = asin(Rot[2][0])
-            camera_yaw = atan2(-Rot[1][0], Rot[0][0])
+            # P = np.hstack((Rot, translation_vector))
+            # euler_angles_radians = -cv2.decomposeProjectionMatrix(P)[6]
+            # euler_angles_degrees = 180 * euler_angles_radians/pi
+
+            camera_position = -np.matrix(Rot).T*np.matrix(translation_vector)
+            _, _, _, Qx, Qy, Qz = cv2.RQDecomp3x3(Rot)
+            camera_roll = atan2(Qx[2][1], Qx[2][2])
+            camera_pitch = atan2(-Qy[2][0], sqrt(Qy[2][1]**2 + Qy[2][2]**2))
+            camera_yaw = atan2(Qz[1][0], Qz[0][0])
+            # camera_roll = atan2(-Rot[2][1], Rot[2][2])
+            # camera_pitch = asin(Rot[2][0])
+            # camera_yaw = atan2(-Rot[1][0], Rot[0][0])
             print("Camera position: ", camera_position)
             print("Camera orientation: ", camera_roll, camera_pitch, camera_yaw)
+            print("")
+            print("Aircraft position: ", cur_pos)
             print("")
         else:
             print("Pose Estimation Failed.")
@@ -142,9 +224,15 @@ class Perception():
         kp_purple = orb.detect(imgs[3])
         kp_cyan = orb.detect(imgs[4])
         kp_yellow = orb.detect(imgs[5])
+
+        kp_orange = orb.detect(imgs[6])
+        kp_white = orb.detect(imgs[7])
+        # kp_red_light = orb.detect(imgs[6])
+        # kp_blue_light = orb.detect(imgs[7])
+        # kp_green_light = orb.detect(imgs[8])
         # print(kp_green)
-        all_kps = [kp_red, kp_green, kp_blue, kp_purple, kp_cyan, kp_yellow]
-        absent_color = np.zeros(6)
+        all_kps = [kp_red, kp_green, kp_blue, kp_purple, kp_cyan, kp_yellow, kp_orange, kp_white]
+        absent_color = np.zeros(len(all_kps))
         kps = []
         for i in range(len(all_kps)):
             if len(all_kps[i]) == 0:
@@ -279,7 +367,7 @@ class Aircraft():
 
         return np.array(trace)
 
-def path(t, pathArgs, x = 62.15, y = -30.0, z = 30.0, yaw = 3.038):
+def path(t, pathArgs, x = 60, y = -30.0, z = 30.0, yaw = 3.038):
     return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
     # return [x, y, z, yaw], [0, 0, 0]
 
@@ -308,7 +396,7 @@ def update_aircraft_position():
     pathArgs = None
 
     controlArgs = (testPath, K1, K2, 5, pathArgs, 'tracking')
-    initial_state = [80.0, -30.0, 30.0, 3.038, 0, 0]
+    initial_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
 
     agent = Aircraft(controlArgs)
     perception = Perception()
@@ -320,7 +408,7 @@ def update_aircraft_position():
     except rospy.ServiceException:
         print("Service call failed")
 
-    cur_state = [80.0, -30.0, 30.0, 3.038, 0, 0]
+    cur_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
 
     while not rospy.is_shutdown():
         cur_trace = agent.TC_simulate(cur_state, 0.011, 0.01)
