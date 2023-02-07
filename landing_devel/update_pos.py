@@ -271,6 +271,8 @@ class Aircraft():
         pitch = pitch%(2*pi)
         if pitch > pi:
             pitch = pitch - 2*pi
+        if velocity > 10:
+            velocity = 10
 
         # Here we get the reference "state" ([x, y, z, heading]) and the reference "input" ([v_xy_ref, v_z_ref, heading_rate_ref])
         ref_state, ref_input = self.path(self.time + t, self.pathArgs)
@@ -392,10 +394,10 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 def update_aircraft_position():
     testPath = path # Predicted path that the agent will be following over the time horizon
     K1 =  [10, 10, 1, 1] # Control gains for getting reference velocities
-    K2 = [10, 10]
+    K2 = [0.01, 10]
     pathArgs = None
 
-    controlArgs = (testPath, K1, K2, 5, pathArgs, 'tracking')
+    controlArgs = (testPath, K1, K2, 30, pathArgs, 'tracking')
     initial_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
 
     agent = Aircraft(controlArgs)
@@ -412,6 +414,7 @@ def update_aircraft_position():
 
     while not rospy.is_shutdown():
         cur_trace = agent.TC_simulate(cur_state, 0.011, 0.01)
+        agent.time += 0.011
         # print(cur_trace)
         cur_state = cur_trace[-1][1:]
 
