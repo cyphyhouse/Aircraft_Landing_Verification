@@ -19,7 +19,7 @@ from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
 
 import os
-img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
+img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
 class Perception():
     def __init__(self, name=''):
         self.name = name
@@ -61,7 +61,7 @@ class Perception():
         # rospy.loginfo(img_msg.header)
         cur_pos = self.pose
         self.count += 1
-        if self.count % 100 != 0:
+        if self.count % 10 != 0:
             return
         # Try to convert the ROS image to a CV2 image
         try:
@@ -169,6 +169,8 @@ class Perception():
             kp_img = cv2.drawKeypoints(cv_image, kp, None, color=(0, 255, 0), flags=0)
 
             cv2.imwrite(os.path.join(img_path, "img_{0}.jpg".format(self.count)), kp_img)
+            cv2.imwrite(os.path.join(img_path, "img_orig_{0}.jpg".format(self.count)), cv_image)
+            self.show_image(kp_img)
             # cv2.waitKey(100)
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {0}".format(e))
@@ -212,7 +214,7 @@ class Perception():
 
     def show_image(self, img):
         cv2.imshow("Image Window", img)
-        # cv2.waitKey(3)
+        cv2.waitKey(3)
 
     def get_feature_points(self, imgs):
         # Initiate ORB detector
