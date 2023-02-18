@@ -50,7 +50,7 @@
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>370 200</size>
+              <size>3700 2000</size>
             </plane>
           </geometry>
           <material>

@@ -19,7 +19,8 @@ from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
 
 import os
-img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
+# img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
+img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
 class Perception():
     def __init__(self, name=''):
         self.name = name
@@ -70,38 +71,6 @@ class Perception():
 
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
-            # # Find the red marker
-            # mask_red_1 = cv2.inRange(hsv, (0, 200, 20), (5, 255, 255))
-            # mask_red_2 = cv2.inRange(hsv, (175, 200, 20), (180 ,255, 255))
-
-            # mask_red = cv2.bitwise_or(mask_red_1, mask_red_2)
-            # img_red = cv2.bitwise_and(cv_image, cv_image, mask=mask_red)
-            # red_image_gray = cv2.cvtColor(img_red, cv2.COLOR_BGR2GRAY)
-
-            # # Find the green marker
-            # mask_green = cv2.inRange(hsv, np.array([50, 200, 100]), np.array([70, 255, 255]))
-            # img_green = cv2.bitwise_and(cv_image, cv_image, mask=mask_green)
-            # green_image_gray = cv2.cvtColor(img_green, cv2.COLOR_BGR2GRAY)
-
-            # # Find the blue marker
-            # mask_blue = cv2.inRange(hsv, np.array([100, 200, 0]), np.array([140, 255, 255]))
-            # img_blue = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue)
-            # blue_image_gray = cv2.cvtColor(img_blue, cv2.COLOR_BGR2GRAY)
-
-            # # Find the purple marker
-            # mask_purple = cv2.inRange(hsv, np.array([140, 200, 70]), np.array([160, 250, 250]))
-            # img_purple = cv2.bitwise_and(cv_image, cv_image, mask=mask_purple)
-            # purple_image_gray = cv2.cvtColor(img_purple, cv2.COLOR_BGR2GRAY)
-
-            # # Find the cyan marker
-            # mask_cyan = cv2.inRange(hsv, np.array([80, 200, 70]), np.array([90, 250, 250]))
-            # img_cyan = cv2.bitwise_and(cv_image, cv_image, mask=mask_cyan)
-            # cyan_image_gray = cv2.cvtColor(img_cyan, cv2.COLOR_BGR2GRAY)
-
-            # # Find the yellow marker
-            # mask_yellow = cv2.inRange(hsv, np.array([20, 200, 100]), np.array([30, 255, 255]))
-            # img_yellow = cv2.bitwise_and(cv_image, cv_image, mask=mask_yellow)
-            # yellow_image_gray = cv2.cvtColor(img_yellow, cv2.COLOR_BGR2GRAY)
             # Find the red marker
             mask_red_1 = cv2.inRange(hsv, (0, 50, 20), (5, 255, 255))
             mask_red_2 = cv2.inRange(hsv, (175, 50, 20), (180 ,255, 255))
@@ -143,26 +112,7 @@ class Perception():
             mask_white = cv2.inRange(hsv, np.array([0, 0, 200]), np.array([0, 255, 255]))
             img_white = cv2.bitwise_and(cv_image, cv_image, mask=mask_white)
             white_image_gray = cv2.cvtColor(img_white, cv2.COLOR_BGR2GRAY)
-            # # Find the light red marker
-            # mask_red_light_1 = cv2.inRange(hsv, (0, 50, 20), (5, 150, 255))
-            # mask_red_light_2 = cv2.inRange(hsv, (175, 50, 20), (180 ,150, 255))
 
-            # mask_red_light = cv2.bitwise_or(mask_red_light_1, mask_red_light_2)
-            # # mask_red_light = cv2.inRange(hsv, np.array([140, 50, 70]), np.array([160, 150, 250]))
-            # img_red_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_red_light)
-            # light_red_image_gray = cv2.cvtColor(img_red_light, cv2.COLOR_BGR2GRAY)
-
-            # # Find the light blue marker
-            # mask_blue_light = cv2.inRange(hsv, np.array([80, 50, 70]), np.array([90, 150, 250]))
-            # img_blue_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue_light)
-            # light_blue_image_gray = cv2.cvtColor(img_blue_light, cv2.COLOR_BGR2GRAY)
-
-            # # Find the light green marker
-            # mask_green_light = cv2.inRange(hsv, np.array([50, 100, 100]), np.array([70, 150, 255]))
-            # img_green_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_green_light)
-            # light_green_image_gray = cv2.cvtColor(img_green_light, cv2.COLOR_BGR2GRAY)
-
-            # print(cv_image)
             kp, absent_markers = self.get_feature_points(np.array([red_image_gray, green_image_gray, blue_image_gray, 
                                                         purple_image_gray, cyan_image_gray, yellow_image_gray, 
                                                         orange_image_gray, white_image_gray]))
@@ -229,10 +179,7 @@ class Perception():
 
         kp_orange = orb.detect(imgs[6])
         kp_white = orb.detect(imgs[7])
-        # kp_red_light = orb.detect(imgs[6])
-        # kp_blue_light = orb.detect(imgs[7])
-        # kp_green_light = orb.detect(imgs[8])
-        # print(kp_green)
+
         all_kps = [kp_red, kp_green, kp_blue, kp_purple, kp_cyan, kp_yellow, kp_orange, kp_white]
         absent_color = np.zeros(len(all_kps))
         kps = []
@@ -336,7 +283,9 @@ class Aircraft():
         heading_rate = heading_rate_rf + v_xy_rf*(self.K1[1]*err_y + self.K1[2]*sin(err_heading))
 
         v = sqrt(v_xy**2 + v_z**2)
-        pitch = atan2(v_z, v_xy)
+        # pitch = atan2(v_z, v_xy)
+        # Approach the runway with 3 degree slope.
+        pitch = np.deg2rad(-3)
 
         input_signal = [v, pitch, heading_rate]
 
@@ -371,8 +320,11 @@ class Aircraft():
 
         return np.array(trace)
 
-def path(t, pathArgs, x = 60, y = -30.0, z = 30.0, yaw = 3.038):
-    return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
+def path(t, pathArgs, x = 1653.639038, y = -543.820251, z = 15.7, yaw = -0.230609+pi):
+    k = np.tan(3*(pi/180))
+    v = 0.1
+    # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
+    return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
     # return [x, y, z, yaw], [0, 0, 0]
 
 
@@ -396,14 +348,15 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 def update_aircraft_position():
     testPath = path # Predicted path that the agent will be following over the time horizon
     K1 =  [10, 10, 1, 1] # Control gains for getting reference velocities
-    K2 = [0.01, 10]
+    K2 = [1, 10]
     pathArgs = None
 
     controlArgs = (testPath, K1, K2, 30, pathArgs, 'tracking')
-    initial_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
+    # The relative orientation of the runway with respect to the world frame is given by yaw = -0.230609+pi radians
+    initial_state = [1653.639038, -543.820251, 15.7, -0.230609+pi, 0, 0]
 
     agent = Aircraft(controlArgs)
-    perception = Perception()
+    # perception = Perception()
     init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
     rospy.wait_for_service('/gazebo/set_model_state')
     try:
@@ -412,14 +365,15 @@ def update_aircraft_position():
     except rospy.ServiceException:
         print("Service call failed")
 
-    cur_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
+    cur_state = [1653.639038, -543.820251, 15.7, -0.230609+pi, 0, 0]
 
     while not rospy.is_shutdown():
         cur_trace = agent.TC_simulate(cur_state, 0.011, 0.01)
+        # print(cur_trace)
         agent.time += 0.011
         # print(cur_trace)
         cur_state = cur_trace[-1][1:]
-
+        print(cur_state)
         state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[3])
 
         rospy.wait_for_service('/gazebo/set_model_state')
