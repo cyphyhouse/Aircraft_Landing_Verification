@@ -21,14 +21,9 @@ from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
 
-# import torch
-# import torch.nn.functional as F
-# from unet import UNet
-# from utils.data_loading import BasicDataset
 import os
-img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
-data_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/data'
-# img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
+img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
+data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/data'
 class Perception():
     def __init__(self, name=''):
         self.name = name
@@ -78,10 +73,6 @@ class Perception():
         # rospy.loginfo(img_msg.header)
         cur_pos = self.pose
         self.count += 1
-        # if self.count % 10 != 0:
-        #     return
-        # self.pic_index += 1
-
         # Try to convert the ROS image to a CV2 image
         try:
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
@@ -93,57 +84,6 @@ class Perception():
         #     # cv2.waitKey(100)
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {0}".format(e))
-        
-
-        # # Key points detection using trained nn.
-        # keypoints_mask1 = self.detect_keypoints(self.nets[0], img, self.device)
-        # keypoints_mask2 = self.detect_keypoints(self.nets[1], img, self.device)
-        # keypoints_mask3 = self.detect_keypoints(self.nets[2], img, self.device)
-        # keypoints_mask4 = self.detect_keypoints(self.nets[3], img, self.device)
-        # keypoints_mask5 = self.detect_keypoints(self.nets[4], img, self.device)
-
-        # # # Pose estimation using PnP
-        # keypoints_list = [keypoints_mask1, keypoints_mask2, keypoints_mask3, keypoints_mask4, keypoints_mask5]
-        # keypoints_detected = []
-        # keypoints_ground_truth = []
-        # for i in range(5):
-        #     for j in range(4):
-        #         if keypoints_list[i] is None:
-        #             continue
-        #         if len(keypoints_list[i][j][0]) == 0:
-        #             continue
-        #         keypoints_detected.append([keypoints_list[i][j][0][0], keypoints_list[i][j][1][0]])
-        #         # print(keypoints_list[i][j])
-        #         keypoints_ground_truth.append(self.keypoints['mask{0}'.format(i+1)][j])
-        # #     kps.append(kp[i].pt)
-        # print(keypoints_detected)
-        # self.show_image(cv_image, keypoints_detected)
-        # # success, rotation_vector, translation_vector = self.pose_estimation(np.array(keypoints_detected), np.array(keypoints_ground_truth), self.K)
-        # # if success:
-        # #     # print("Rotation: ", rotation_vector)
-        # #     # print("Translation: ", translation_vector)
-        # #     # print("")
-        # #     Rot = cv2.Rodrigues(rotation_vector)[0]
-        # #     # P = np.hstack((Rot, translation_vector))
-        # #     # euler_angles_radians = -cv2.decomposeProjectionMatrix(P)[6]
-        # #     # euler_angles_degrees = 180 * euler_angles_radians/pi
-
-        # #     camera_position = -np.matrix(Rot).T*np.matrix(translation_vector)
-        # #     _, _, _, Qx, Qy, Qz = cv2.RQDecomp3x3(Rot)
-        # #     camera_roll = atan2(Qx[2][1], Qx[2][2])
-        # #     camera_pitch = atan2(-Qy[2][0], sqrt(Qy[2][1]**2 + Qy[2][2]**2))
-        # #     camera_yaw = atan2(Qz[1][0], Qz[0][0])
-        # #     # camera_roll = atan2(-Rot[2][1], Rot[2][2])
-        # #     # camera_pitch = asin(Rot[2][0])
-        # #     # camera_yaw = atan2(-Rot[1][0], Rot[0][0])
-        # #     print("Camera position: ", camera_position)
-        # #     print("")
-        # #     print("Camera orientation: ", camera_roll, camera_pitch, camera_yaw)
-        # #     print("")
-        # #     # print("Aircraft position: ", cur_pos)
-        # #     # print("")
-        # # else:
-        #     print("Pose Estimation Failed.")
 
     def show_image(self, img, keypoints):
         # kp_img = cv2.drawKeypoints(img, keypoints, None, color=(0, 255, 0), flags=0)
@@ -152,23 +92,6 @@ class Perception():
             kp_img = cv2.circle(kp_img, keypoints[i], radius=1, color=(0, 0, 255))
         cv2.imshow("Image Window", kp_img)
         cv2.waitKey(3)
-
-    # def predict_img(self, net, full_img, device, scale_factor=0.5, out_threshold=0.5):
-    #     net.eval()
-    #     img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
-    #     img = img.unsqueeze(0)
-    #     img = img.to(device=device, dtype=torch.float32)
-
-    #     with torch.no_grad():
-    #         output = net(img).cpu()
-    #         output = F.interpolate(output, (full_img.size[1], full_img.size[0]), mode='bilinear')
-    #         if net.n_classes > 1:
-    #             mask = output.argmax(dim=1)
-    #         else:
-    #             mask = torch.sigmoid(output) > out_threshold
-
-    #     return mask[0].long().squeeze().numpy()
-
 
     def mask_to_image(self, mask: np.ndarray, mask_values):
         if isinstance(mask_values[0], list):
@@ -205,43 +128,6 @@ class Perception():
                             v3 = k
                             v4 = l        
         return v[[v1, v2, v3, v4], :]
-    
-    # def detect_keypoints(self, net, img, device):
-    #     mask = self.predict_img(net=net, full_img=img, device=device)
-
-    #     pixels = np.where(mask>0)
-    #     pixels_array = np.vstack((pixels[1],pixels[0])).T
-
-    #     if pixels_array.size == 0:
-    #         return None
-        
-    #     hull = scipy.spatial.ConvexHull(pixels_array)
-    #     hull_vertices = pixels_array[hull.vertices,:]
-    #     center_point = np.mean(hull_vertices,axis=0)
-    #     # plt.plot(center_point[0], center_point[1], 'b*')
-
-    #     pts = self.find_largest_polytope(hull_vertices)
-        
-    #     upleft = np.where((pts[:,0]<center_point[0]) & (pts[:,1]<center_point[1]))
-    #     upleft_vertices = pts[upleft[0],:]
-    #     upleft_vertex = [upleft_vertices[:,0],upleft_vertices[:,1]]
-    #     # plt.plot(upleft_vertices[:,0],upleft_vertices[:,1],'r*')
-
-    #     bottomleft = np.where((pts[:,0]<center_point[0]) & (pts[:,1]>center_point[1]))
-    #     bottomleft_vertices = pts[bottomleft[0],:]
-    #     bottomleft_vertex = [bottomleft_vertices[:,0],bottomleft_vertices[:,1]]
-    #     # plt.plot(bottomleft_vertices[:,0],bottomleft_vertices[:,1],'g*')
-
-    #     bottomright = np.where((pts[:,0]>center_point[0]) & (pts[:,1]>center_point[1]))
-    #     bottomright_vertices = pts[bottomright[0],:]
-    #     bottomright_vertex = [bottomright_vertices[:,0],bottomright_vertices[:,1]]
-    #     # plt.plot(bottomright_vertices[:,0],bottomright_vertices[:,1],'b*')
-
-    #     upright = np.where((pts[:,0]>center_point[0]) & (pts[:,1]<center_point[1]))
-    #     upright_vertices = pts[upright[0],:]
-    #     upright_vertex = [upright_vertices[:,0],upright_vertices[:,1]]
-    #     # plt.plot(upright_vertices[:,0],upright_vertices[:,1],'y*')
-    #     return [upleft_vertex, bottomleft_vertex, bottomright_vertex, upright_vertex]
 
     def pose_estimation(self, object_points, image_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
         return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
@@ -374,26 +260,12 @@ class Aircraft():
 
         return np.array(trace)
 
-# For the default map
-# def path(t, pathArgs, x = 1653.639038, y = -543.820251, z = 55.7, yaw = -0.230609+pi):
-#     k = np.tan(3*(pi/180))
-#     v = 0.1
-#     # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
-#     return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
-#     # return [x, y, z, yaw], [0, 0, 0]
-
-def path(t, pathArgs, x = 2049.805183026255, y = 37.79750966976688, z = 125.96311171321648, yaw = -0.0063+pi):
-    k = np.tan(3*(pi/180))
-    v = 0.2
-    # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
-    if  z - k*v*t <= 0:
-        return  [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, 0, yaw], [-v, 0.0, 0]
-    return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
-
-# def path(t, pathArgs, x = 1200.0, y = 39.470692, z = 50.0, yaw = -0.0063+pi):
+# def path(t, pathArgs, x = 2049.805183026255, y = 37.79750966976688, z = 125.96311171321648, yaw = -0.0063+pi):
 #     k = np.tan(3*(pi/180))
 #     v = 0.2
 #     # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
+#     if  z - k*v*t <= 0:
+#         return  [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, 0, yaw], [-v, 0.0, 0]
 #     return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
@@ -416,9 +288,9 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 def update_aircraft_position():
     # Predicted path that the agent will be following over the time horizon
 
-    def path(t, pathArgs, x = -1500, y = 0, z = 125.96311171321648, yaw = 0):
+    def path(t, pathArgs, x = -3000.0, y = 0, z = 100.0, yaw = 0):
         k = np.tan(3*(pi/180))
-        v = 0.2
+        v = 5.0
         # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
         if  z - k*v*t <= 0:
             return  [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, 0, yaw], [-v, 0.0, 0]
@@ -430,11 +302,7 @@ def update_aircraft_position():
     pathArgs = None
 
     controlArgs = (testPath, K1, K2, 30, pathArgs, 'tracking')
-    # The relative orientation of the runway with respect to the world frame is given by yaw = -0.230609+pi radians
-    # initial_state = [1653.639038, -543.820251, 55.7, -0.230609+pi, 0, 0]
-    # initial_state = [1649.813721, 40.317493, 55.0, -0.0063+pi, 0, 0]
-    # initial_state = [1200.0, 39.470692, 50.0, -0.0063+pi, 0, 0]
-    initial_state = [-1500, 0, 125.96311171321648, 0, 0, 0]
+    initial_state =  [-3000.0, 0.0, 100.0, 0, 0, 0]
 
     agent = Aircraft(controlArgs)
     perception = Perception()
@@ -446,9 +314,6 @@ def update_aircraft_position():
     except rospy.ServiceException:
         print("Service call failed")
 
-    # cur_state = [1653.639038, -543.820251, 55.7, -0.230609+pi, 0, 0]
-    # cur_state = [1649.813721, 40.317493, 55.0, -0.0063+pi, 0, 0]
-    # cur_state = [1200.0, 39.470692, 50.0, -0.0063+pi, 0, 0]
     cur_state = initial_state
 
     idx = 0

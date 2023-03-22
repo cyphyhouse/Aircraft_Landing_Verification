@@ -1,0 +1,111 @@
+import numpy as np 
+import matplotlib.pyplot as plt 
+
+
+ground_truth_position = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/ground_truth.npy')
+estimate_pos = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/estimation.npy')
+
+print(len(ground_truth_position), len(estimate_pos))
+
+ground_truth_position = np.array(ground_truth_position)
+estimate_pos = np.array(estimate_pos).squeeze()
+
+plt.figure()
+plt.plot(np.linalg.norm(ground_truth_position-estimate_pos, axis=1), label='Errors')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('Estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_error.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,0], 'g', label='Ground Truth')
+plt.plot(estimate_pos[:,0], 'b', label='Estimation Truth')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('x position', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_x.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,0], np.abs(estimate_pos[:,0] - ground_truth_position[:,0]), label='Errors')
+plt.xlabel('Ground truth x position', fontsize=20)
+plt.ylabel('x estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_x_error.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,1], 'g', label='Ground Truth')
+plt.plot(estimate_pos[:,1], 'b', label='Estimation Truth')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('y position', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_y.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,1], np.abs(estimate_pos[:,1] - ground_truth_position[:,1]), label='Errors')
+plt.xlabel('Ground truth y position', fontsize=20)
+plt.ylabel('y estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_y_error.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,2], 'g', label='Ground Truth')
+plt.plot(estimate_pos[:,2], 'b', label='Estimation Truth')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('z position', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_z.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,2], np.abs(estimate_pos[:,2] - ground_truth_position[:,2]), label='Errors')
+plt.xlabel('Ground truth z position', fontsize=20)
+plt.ylabel('z estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_z_error.png')
+
+
+plt.figure()
+plt.plot(ground_truth_position[:,3], 'g', label='Ground Truth')
+plt.plot(estimate_pos[:,3], 'b', label='Estimation Truth')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('roll', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_roll.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,3], np.abs(estimate_pos[:,3] - ground_truth_position[:,3]), label='Errors')
+plt.xlabel('Ground truth roll', fontsize=20)
+plt.ylabel('roll estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_roll_error.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,4], 'g', label='Ground Truth')
+plt.plot(estimate_pos[:,4], 'b', label='Estimation Truth')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('pitch', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_pitch.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,4], np.abs(estimate_pos[:,4] - ground_truth_position[:,4]), label='Errors')
+plt.xlabel('Ground truth pitch', fontsize=20)
+plt.ylabel('pitch estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_pitch_error.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,5], 'g', label='Ground Truth')
+plt.plot(estimate_pos[:,5], 'b', label='Estimation Truth')
+plt.xlabel('Time step', fontsize=20)
+plt.ylabel('yaw', fontsize=20)
+plt.legend()
+plt.savefig('estimation_comparison_yaw.png')
+
+plt.figure()
+plt.plot(ground_truth_position[:,5], np.abs(estimate_pos[:,5] - ground_truth_position[:,5]), label='Errors')
+plt.xlabel('Ground truth yaw', fontsize=20)
+plt.ylabel('yaw estimation error', fontsize=20)
+plt.legend()
+plt.savefig('estimation_yaw_error.png')
+
+plt.show()
