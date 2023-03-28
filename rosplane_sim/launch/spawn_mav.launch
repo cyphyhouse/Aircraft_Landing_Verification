@@ -4,10 +4,10 @@
   <arg name="mav_name" default="default_fixedwing"/>
   <arg name="model" default="$(find rosplane_sim)/xacro/$(arg mav_name)/$(arg mav_name).xacro"/>
   <arg name="tf_prefix" default="$(optenv ROS_NAMESPACE)"/>
-  <arg name="x" default="1653.639038"/>
-  <arg name="y" default="-543.82025"/>
-  <arg name="yaw" default="2.91098"/>
-  <arg name="z" default="15.7"/>
+  <arg name="x" default="-3000.0"/>
+  <arg name="y" default="0.0"/>
+  <arg name="yaw" default="0.0"/>
+  <arg name="z" default="100.0"/>
   <arg name="enable_logging" default="false"/>
   <arg name="enable_ground_truth" default="true"/>
   <arg name="log_file" default="$(arg mav_name)"/>

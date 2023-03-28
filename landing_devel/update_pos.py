@@ -30,6 +30,10 @@ import os
 
 from scipy.spatial.transform import Rotation 
 import matplotlib.pyplot as plt 
+
+from aircraft_model import *
+from aircraft_mpc import *
+from aircraft_simulator import *
 # img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
 img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
 class Perception():
@@ -39,10 +43,10 @@ class Perception():
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.state_callback)
         rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, self.image_callback)
         self.bridge = CvBridge()
-        # cv2.namedWindow("Image Window", 1)
 
         self.count = -1
         self.pic_index = 0
+
         # Camera matrix
         self.K = np.array([[1253.2215566867008, 0.0, 320.5], [0.0, 1253.2215566867008, 240.5], [0.0, 0.0, 1.0]])
 
@@ -73,17 +77,6 @@ class Perception():
         self.state = [pos.x, pos.y, pos.z, ori.x, ori.y, ori.z, ori.w]
 
     def image_callback(self, img_msg):
-        # Log some info about the image topic
-        # rospy.loginfo(img_msg.header)
-        # cur_pos = self.state
-        # self.count += 1
-        # if self.count < 2000:
-        #     return
-        # print(self.count)
-        # if self.count % 10 != 0:
-        #     return
-        # self.pic_index += 1
-
         # Try to convert the ROS image to a CV2 image
         try:
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
@@ -91,30 +84,21 @@ class Perception():
             img = PILImage.fromarray(cv_image, mode='RGB')
 
             output = self.predict_img(img)
-            # cv2.imshow("Image Window", cv_image)
-            # cv2.waitKey(3)
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {0}".format(e))
         
 
         # Key points detection using trained nn.
         keypoints = []
-        # kps = []
         for i in range(14):
             p = (((output[0,i,:,:]==torch.max(output[0,i,:,:])).nonzero())/args.scale).tolist()
             p[0].reverse()
             keypoints.append(p[0])
-            # kps += p
-        # print(keypoints)
-        # print('')
 
         # # Pose estimation using PnP
         # self.show_image(cv_image, keypoints)
         success, rotation_vector, translation_vector = self.pose_estimation(np.array(keypoints), np.array(self.keypoints), self.K)
         if success:
-            # print("Rotation: ", rotation_vector)
-            # print("Translation: ", translation_vector.flatten())
-            # print("")
             Rot = cv2.Rodrigues(rotation_vector)[0]
             RotT = np.matrix(Rot).T
             camera_position = -RotT*np.matrix(translation_vector)
@@ -126,7 +110,7 @@ class Perception():
                 z1 = atan2(R[2,0], R[2,1])     # around z1-axis
                 x = atan2(sin_x,  R[2,2])     # around x-axis
                 z2 = atan2(R[0,2], -R[1,2])    # around z2-axis
-            else: # gimbal lock
+            else:
                 z1 = 0                                         # around z1-axis
                 x = atan2(sin_x,  R[2,2])     # around x-axis
                 z2 = 0                                         # around z2-axis
@@ -137,29 +121,8 @@ class Perception():
             yawpitchroll_angles[1,0] = -(yawpitchroll_angles[1,0]+pi/2)
             if yawpitchroll_angles[0,0] > pi:
                 yawpitchroll_angles[0,0] -= 2*pi
-            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2,0], yawpitchroll_angles[1,0], yawpitchroll_angles[0,0]]
-            
-            # Rot = np.linalg.inv(((((Rotation.from_euler('xyz', [-np.pi/2, -np.pi/2, 0])).inv()).as_matrix())*Rot))
-            # T = np.eye(4)
-            # T[0:3, 0:3] = R
-            # T[0:3, 3] = translation_vector.flatten()
-            # RotX = np.eye(4)
-            # RotX[0:3, 0:3] = ((Rotation.from_euler('xyz',[np.pi/2, 0, np.pi/2]))).as_matrix()
-            # Rot = T@RotX
-            # print(Rot)
-            # camera_roll = atan2(-Rot[2][1], Rot[2][2])
-            # camera_pitch = np.arcsin(Rot[2][0])
-            # camera_yaw = atan2(-Rot[1][0], Rot[0][0])
-            # camera_roll = atan2(-Rot[2, 1], Rot[2, 2])
-            # camera_pitch = np.arcsin(Rot[2, 0])
-            # camera_yaw = atan2(-Rot[1, 0], Rot[0, 0])
-            # print("Camera position: ", camera_position)
-            # print("")
-            # print("Camera orientation: ", yawpitchroll_angles[2, 0], yawpitchroll_angles[1, 0], yawpitchroll_angles[0, 0])
-            # print("")
-            # print("Aircraft position: ", cur_pos)
-            # print("")
 
+            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2,0], yawpitchroll_angles[1,0], yawpitchroll_angles[0,0]]
         else:
             print("Pose Estimation Failed.")
 
@@ -206,140 +169,31 @@ class Perception():
     def pose_estimation(self, image_points, object_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
         return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
 
-class Aircraft():
-    def __init__(self, ctrlArgs):
-        # self.airspeed = ctrlArgs[0] # Air speed velocity of the aircraft
-        self.gravity = 9.81 # Acceleration due to gravity
+def run_controller(x_cur, x_ref, v_max=10, acc_max=1, beta_max=1, omega_max=1):
+    model = aircraft_model(x_ref)
+    mpc = aircraft_mpc(model, v_max, acc_max, beta_max, omega_max)
+    simulator = aircraft_simulator(model)
+    simulator.x0 = x_cur
+    mpc.x0 = x_cur
 
-        self.path = ctrlArgs[0] # Predicted path that the agent will be following over the time horizon
-        # path function should be of the form path(time, pathArgs), and will return the reference state of the form ([x,y,z],[v_xy, v_z, heading_rate]) at the time specified
+    u_init = np.full((3, 1), 0.0)
+    mpc.u0 = u_init
+    simulator.u0 = u_init
+    mpc.set_initial_guess()
 
-        self.K1 = ctrlArgs[1] # Control gains for getting reference velocities
+    u0 = mpc.make_step(x_cur)
+    x_next = simulator.make_step(u0)
 
-        self.K2 = ctrlArgs[2] # Control gains for getting inputs to hovercraft
+    return x_next
 
-        self.time = ctrlArgs[3] # Current time
-
-        self.pathArgs = ctrlArgs[4] # Arguments needed for the path that the aircraft is tracking
-
-        self.ctrlType = ctrlArgs[5] # What kind of controller is the aircraft applying
-
-    def aircraft_dynamics(self, state, t, control_type):
-        # This function are the "tracking" dynamics used for the dubin's aircraft
-        heading, pitch, velocity = state[3:]
-
-        heading = heading%(2*pi)
-        if heading > pi:
-            heading = heading - 2*pi
-        pitch = pitch%(2*pi)
-        if pitch > pi:
-            pitch = pitch - 2*pi
-        if velocity > 10:
-            velocity = 10
-
-        # Here we get the reference "state" ([x, y, z, heading]) and the reference "input" ([v_xy_ref, v_z_ref, heading_rate_ref])
-        ref_state, ref_input = self.path(self.time + t, self.pathArgs)
-        # print(ref_state, ref_input)
-        # Now we use a PID controller to get the actual inputs to the aircraft dynamics
-        heading_rate, pitch_rate, acceleration = self.aircraft_tracking_control(state, ref_state, ref_input)
-
-        # Time derivative of the states
-        dxdt = velocity*cos(heading)*cos(pitch)
-        dydt = velocity*sin(heading)*cos(pitch)
-        dzdt = velocity*sin(pitch)
-        dheadingdt = heading_rate
-        dpitchdt = pitch_rate
-        dveldt = acceleration
-
-        # accel_max = 10
-        accel_max = 20
-        # accel_max = 100
-        heading_rate_max = pi/2
-        # heading_rate_max = pi/3
-        pitch_rate_max = pi/2
-        # pitch_rate_max = pi/3
-        if abs(dveldt)>accel_max:
-            dveldt = np.sign(dveldt)*accel_max
-        if abs(dpitchdt)>pitch_rate_max*1:
-            dpitchdt = np.sign(dpitchdt)*pitch_rate_max
-        if abs(dheadingdt)>heading_rate_max:
-            dheadingdt = np.sign(dheadingdt)*heading_rate_max
-
-        # print(acceleration)
-        return [dxdt, dydt, dzdt, dheadingdt, dpitchdt, dveldt]
-        
-    def aircraft_tracking_control(self, state, ref_state, ref_input):
-        # This is a PID controller used to track some trajectory
-        x, y, z, heading, pitch, velocity = state
-        v_rf, pitch_rf, heading_rate_rf = self.hover_tracking_control([x, y, z, heading], ref_state, ref_input)
-
-        heading_rate = heading_rate_rf
-        pitch_rate = self.K2[0]*(pitch_rf - pitch)
-        acceleration = np.sign(v_rf - velocity)*min(abs(self.K2[1]*(v_rf - velocity)),100)
-        acceleration = self.K2[1]*(v_rf - velocity)
-
-        return [heading_rate, pitch_rate, acceleration]
-
-    def hover_tracking_control(self, state, ref_state, ref_input):
-        # This is a Lyapunov based feedback controller for the kinematic vehicle (which we call "hover" vehicle)
-        # This is taken from the FACTEST work
-        x, y, z, heading = state
-        x_rf, y_rf, z_rf, heading_rf = ref_state
-        v_xy_rf, v_z_rf, heading_rate_rf = ref_input
-
-        err_x = cos(heading)*(x_rf - x) + sin(heading)*(y_rf - y)
-        err_y = -sin(heading)*(x_rf - x) + cos(heading)*(y_rf - y)
-        err_z = z_rf - z
-        err_heading = heading_rf - heading
-
-        v_xy = v_xy_rf*cos(err_heading) + self.K1[0]*err_x
-        v_z = v_z_rf + self.K1[3]*err_z
-        heading_rate = heading_rate_rf + v_xy_rf*(self.K1[1]*err_y + self.K1[2]*sin(err_heading))
-
-        v = sqrt(v_xy**2 + v_z**2)
-        # pitch = atan2(v_z, v_xy)
-        # Approach the runway with 3 degree slope.
-        pitch = np.deg2rad(-3)
-
-        input_signal = [v, pitch, heading_rate]
-
-        return input_signal
-
-    def update_state(self, state, time_step, time_bound, control_type = 'tracking'):
-        sol = odeint(self.aircraft_dynamics, state, np.arange(0, time_bound, time_step), args = (control_type,))
-        ref_state, ref_input = self.path(self.time + time_bound, self.pathArgs)
-        # print('goal_state', ref_state, ref_input)
-        return sol
-
-    def TC_simulate(self, initialCondition, time_horizon, time_step) -> np.ndarray:
-        '''Inputs for TC_simulate function are as follows:
-            mode: mode that the system is operating in (ONLY NORMAL MODE FOR OUR CAR EXAMPLE)
-            initialCondition (list): initial condition for simulation
-            time_bound (float): simulation time
-            time_step (float): time step between time stamps
-            LEAVE lane_map AS NONE
-        Output for TC_simulate function:
-            trace (np.ndarray): Simulation trace of the form np.ndarray([[t0, state0],
-                                                                         [t1, state1],
-                                                                              ...    ])
-        '''
-
-        trace = []
-        state = initialCondition
-
-        new_states = self.update_state(state, time_step, time_horizon, control_type = self.ctrlType)
-
-        for i, new_state in enumerate(new_states):
-            trace.append([i * time_step] + list(new_state))
-
-        return np.array(trace)
-
-def path(t, pathArgs, x = -3000.0, y = 0, z = 100, yaw = 0):
-    k = np.tan(3*(pi/180))
-    v = 5.0
+def path(t, x = -3000.0, y = 0, z = 100, yaw = 0):
+    approaching_angle = 3
+    k = np.tan(approaching_angle*(pi/180))
+    v = 100.0
+    # Straight line along x-axis
     if  z - k*v*t <= 0:
-        return  [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, 0, yaw], [-v, 0.0, 0]
-    return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
+        return  [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), 0, yaw], [-v, 0.0, 0]
+    return [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), z - k*v*t, yaw], [-v, -k*v, 0]
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -348,7 +202,6 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg.pose.position.y = y
     state_msg.pose.position.z = z
 
-    # print(roll, pitch, yaw)
     q = squaternion.Quaternion.from_euler(roll, pitch, yaw)
     
     state_msg.pose.orientation.x = q.x
@@ -361,16 +214,8 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel'
 
 def update_aircraft_position(net, device):
-    testPath = path # Predicted path that the agent will be following over the time horizon
-    K1 =  [10, 10, 1, 1] # Control gains for getting reference velocities
-    K2 = [1, 10]
-    pathArgs = None
+    initial_state = [-3000.0, 0, 100, 0, 0, 0]
 
-    controlArgs = (testPath, K1, K2, 30, pathArgs, 'tracking')
-    # The relative orientation of the runway with respect to the world frame is given by yaw = -0.230609+pi radians
-    initial_state = [-3000.0, 0.0, 100, 0, 0, 0]
-
-    agent = Aircraft(controlArgs)
     perception = Perception(net, device)
     init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
     rospy.wait_for_service('/gazebo/set_model_state')
@@ -380,20 +225,18 @@ def update_aircraft_position(net, device):
     except rospy.ServiceException:
         print("Service call failed")
 
-    cur_state = [-3000.0, 0.0, 100, 0, 0, 0]
+    cur_state = [-3000.0, 0, 100, 0, 0, 0]
     
     idx = 0
 
     true_states = []
     estimated_states = []
+    cur_time = 0
     while not rospy.is_shutdown():
-        cur_trace = agent.TC_simulate(cur_state, 0.011, 0.01)
-        # print(cur_trace)
-        agent.time += 0.011
-        # print(cur_trace)
-        cur_state = cur_trace[-1][1:]
-        # print(cur_state)
-        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[3])
+        ref_state, _ = path(cur_time)
+        cur_time += 0.1
+        cur_state = run_controller(np.array(cur_state), [ref_state[0], ref_state[1], ref_state[2], 0, -3*(pi/180), ref_state[3]])
+        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[5])
 
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
@@ -409,17 +252,15 @@ def update_aircraft_position(net, device):
         time.sleep(0.01)
 
         
-        # true_state = [cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[3]]
+        true_state = [cur_state[0], cur_state[1], cur_state[2], cur_state[3], cur_state[4], cur_state[5]]
         # print("State: ", true_state)
         # print("Estimation: ", perception.estimated_state)
-        # true_states.append(true_state)
-        # estimated_states.append(perception.estimated_state)
+        true_states.append(true_state)
+        estimated_states.append(perception.estimated_state)
         perception.count = idx
-        idx += 1
-        # print("idx", idx)
-        # print(true_states)
-        # np.save("ground_truth", np.array(true_states))
-        # np.save("estimation", np.array(estimated_states))
+        # idx += 1
+        np.save("ground_truth", np.array(true_states))
+        np.save("estimation", np.array(estimated_states))
 
 import argparse
 import logging
