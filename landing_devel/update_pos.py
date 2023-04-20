@@ -134,7 +134,7 @@ class Perception():
         cv2.imshow("Image Window", kp_img)
         cv2.waitKey(3)
 
-    def predict_img(self, full_img, scale_factor=0.5, out_threshold=0.5):
+    def predict_img(self, full_img, scale_factor=1.0, out_threshold=0.5):
         img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
         img = img.unsqueeze(0)
         img = img.to(device=self.device, dtype=torch.float32)
@@ -169,11 +169,12 @@ class Perception():
     def pose_estimation(self, image_points, object_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
         return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
 
-def run_controller(x_cur, x_ref, v_max=10, acc_max=1, beta_max=1, omega_max=1):
-    model = aircraft_model(x_ref)
+def run_controller(x_true, x_cur, x_ref, scalings, v_max=50, acc_max=10, beta_max=0.02, omega_max=0.03):
+    model = aircraft_model(x_ref, scalings)
     mpc = aircraft_mpc(model, v_max, acc_max, beta_max, omega_max)
     simulator = aircraft_simulator(model)
-    simulator.x0 = x_cur
+    # simulator.x0 = x_cur
+    simulator.x0 = np.array(x_true)
     mpc.x0 = x_cur
 
     u_init = np.full((3, 1), 0.0)
@@ -186,14 +187,25 @@ def run_controller(x_cur, x_ref, v_max=10, acc_max=1, beta_max=1, omega_max=1):
 
     return x_next
 
-def path(t, x = -3000.0, y = 0, z = 100, yaw = 0):
+# def path(t, x = -3000.0, y = 0, z = 100, yaw = 0):
+#     approaching_angle = 3
+#     k = np.tan(approaching_angle*(pi/180))
+#     v = 100.0
+#     # Straight line along x-axis
+#     if  z - k*v*t <= 0:
+#         return  [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), 0, yaw], [-v, 0.0, 0]
+#     return [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), z - k*v*t, yaw], [-v, -k*v, 0]
+
+def path(cur_state, yaw = 0, dt=0.1):
     approaching_angle = 3
     k = np.tan(approaching_angle*(pi/180))
-    v = 100.0
-    # Straight line along x-axis
-    if  z - k*v*t <= 0:
-        return  [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), 0, yaw], [-v, 0.0, 0]
-    return [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), z - k*v*t, yaw], [-v, -k*v, 0]
+    v = 50.0
+    # if (cur_state[1])**2 > 25:
+    #     return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw], [1, 100, 1, 1]
+    # else:
+    # return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw], [1, 1, 1, 
+    return [v*dt + cur_state[0], 0, -(60/2500)*(v*dt + cur_state[0]), yaw], [1, 1, 1, 1]
+    
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -214,7 +226,9 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel'
 
 def update_aircraft_position(net, device):
-    initial_state = [-3000.0, 0, 100, 0, 0, 0]
+    # initial_state = [-3000.0, 0, 100, 0, 0, 0]
+    initial_state = [-2500.0, 0, 60, 0, 0, 0]
+    # initial_state = [-2200.0, 0, 60, 0, -3*np.pi/180, 0]
 
     perception = Perception(net, device)
     init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
@@ -225,18 +239,32 @@ def update_aircraft_position(net, device):
     except rospy.ServiceException:
         print("Service call failed")
 
-    cur_state = [-3000.0, 0, 100, 0, 0, 0]
-    
+    cur_state = initial_state
+    true_state = cur_state
     idx = 0
 
     true_states = []
     estimated_states = []
+    averaged_states = []
+    ref_states = []
     cur_time = 0
+    y_average = np.zeros(50)
     while not rospy.is_shutdown():
-        ref_state, _ = path(cur_time)
+        time.sleep(0.01)
+        if perception.estimated_state is None or len(perception.estimated_state) == 0:
+            continue
+        estimated_state = perception.estimated_state
+        # print(estimated_state)
+        # print(y_average)
+        y_average[idx%50] = estimated_state[1]
+        estimated_state[1] = np.mean(y_average)
+        ref_state, scalings = path(estimated_state)
+
+        ref_states.append(ref_state)
+
         cur_time += 0.1
-        cur_state = run_controller(np.array(cur_state), [ref_state[0], ref_state[1], ref_state[2], 0, -3*(pi/180), ref_state[3]])
-        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[5])
+        cur_state = run_controller(true_state, np.array(estimated_state), [ref_state[0], ref_state[1], ref_state[2], -3*(pi/180)], scalings)
+        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4])
 
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
@@ -246,21 +274,22 @@ def update_aircraft_position(net, device):
         except rospy.ServiceException:
             print("Service call failed")
 
-        if perception.estimated_state is None:
-            continue
 
         time.sleep(0.01)
 
         
-        true_state = [cur_state[0], cur_state[1], cur_state[2], cur_state[3], cur_state[4], cur_state[5]]
+        true_state = [cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4]]
         # print("State: ", true_state)
         # print("Estimation: ", perception.estimated_state)
         true_states.append(true_state)
         estimated_states.append(perception.estimated_state)
+        averaged_states.append(np.mean(y_average))
         perception.count = idx
-        # idx += 1
+        idx += 1
         np.save("ground_truth", np.array(true_states))
         np.save("estimation", np.array(estimated_states))
+        np.save("ref_states", np.array(ref_states))
+        np.save("averaged_states", np.array(averaged_states))
 
 import argparse
 import logging
@@ -276,7 +305,7 @@ def get_args():
     parser.add_argument('--no-save', '-n', action='store_true', help='Do not save the output masks')
     parser.add_argument('--mask-threshold', '-t', type=float, default=0.5,
                         help='Minimum probability value to consider a mask pixel white')
-    parser.add_argument('--scale', '-s', type=float, default=0.5,
+    parser.add_argument('--scale', '-s', type=float, default=1.0,
                         help='Scale factor for the input images')
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
     parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
@@ -290,7 +319,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
     # net = UNet(in_channels=3, out_classes=16)
-    net = UNet(n_channels=3, n_classes=16, bilinear=args.bilinear)
+    net = UNet(n_channels=3, n_classes=14, bilinear=args.bilinear)
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

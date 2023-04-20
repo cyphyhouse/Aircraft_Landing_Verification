@@ -13,6 +13,7 @@ import squaternion
 import scipy.spatial 
 import pathlib
 import PIL 
+from scipy.spatial.transform import Rotation 
 
 from gazebo_msgs.msg import ModelState 
 from gazebo_msgs.srv import SetModelState
@@ -21,253 +22,31 @@ from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
 
+from aircraft_model import *
+from aircraft_mpc import *
+from aircraft_simulator import *
+
 import os
+import random
 img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
 data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/data'
-class Perception():
-    def __init__(self, name=''):
-        self.name = name
 
-        rospy.Subscriber("/gazebo/model_states", ModelStates, self.state_callback)
-        rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, self.image_callback)
-        self.bridge = CvBridge()
-        # cv2.namedWindow("Image Window", 1)
+keypoints = [[-1221.370483, 16.052534, 0.0],
+            [-1279.224854, 16.947235, 0.0],
+            [-1279.349731, 8.911615, 0.0],
+            [-1221.505737, 8.033512, 0.0],
+            [-1221.438110, -8.496282, 0.0],
+            [-1279.302002, -8.493725, 0.0],
+            [-1279.315796, -16.504263, 0.0],
+            [-1221.462402, -16.498976, 0.0],
+            [-1520.81, 26.125700, 0.0],
+            [-1559.122925, 26.101082, 0.0],
+            [-1559.157471, -30.753305, 0.0],
+            [-1520.886353,  -30.761044, 0.0],
+            [-1561.039063, 31.522200, 0.0],
+            [-1561.039795, -33.577713, 0.0]]
 
-        self.count = -1
-        self.pic_index = 0
-        # Camera matrix
-        self.K = np.array([[205.46963709898583, 0.0, 320.5],
-                    [0.0, 205.46963709898583, 240.5],
-                    [0.0, 0.0, 1.0]])
-
-        self.keypoints = {'mask1': np.array([[1512.482910, 19.944490, 0.0], 
-                                            [1533.836304, 19.864525, 0.0],
-                                            [1533.663940, 59.833881, 0.0],
-                                            [1512.343628, 60.201397, 0.0]]),
-                        'mask2': np.array([[1288.145264, 27.234539, 0.0], 
-                                            [1311.588867, 27.199703, 0.0],
-                                            [1311.613647, 33.277550, 0.0],
-                                            [1288.210205, 33.304169, 0.0]]),
-                        'mask3': np.array([[1288.173828, 49.396580, 0.0], 
-                                            [1311.551392, 49.298294, 0.0],
-                                            [1311.529663, 55.166191, 0.0],
-                                            [1288.167969, 55.420048, 0.0]]),
-                        'mask4': np.array([[940.801270, 24.622738, 0.0], 
-                                            [961.428162, 24.701952, 0.0],
-                                            [961.460388, 36.956326, 0.0],
-                                            [940.611572, 37.158779, 0.0]]),
-                        'mask5': np.array([[940.572083, 49.993092, 0.0], 
-                                            [961.221802, 49.856434, 0.0],
-                                            [961.204834, 62.050415, 0.0],
-                                            [940.693848, 62.294289, 0.0]])}
-        self.pose = None
-        self.img = None
-
-
-    def state_callback(self, msg):
-        pos = msg.pose[1].position
-        self.pose = [pos.x, pos.y, pos.z]
-
-    def image_callback(self, img_msg):
-        # Log some info about the image topic
-        # rospy.loginfo(img_msg.header)
-        cur_pos = self.pose
-        self.count += 1
-        # Try to convert the ROS image to a CV2 image
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
-            cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-            # img = PIL.Image.fromarray(cv_image)
-            self.img = cv_image
-        #     hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-            # self.show_image(cv_image)
-        #     # cv2.waitKey(100)
-        except CvBridgeError as e:
-            rospy.logerr("CvBridge Error: {0}".format(e))
-
-    def show_image(self, img, keypoints):
-        # kp_img = cv2.drawKeypoints(img, keypoints, None, color=(0, 255, 0), flags=0)
-        kp_img = img
-        for i in range(len(keypoints)):
-            kp_img = cv2.circle(kp_img, keypoints[i], radius=1, color=(0, 0, 255))
-        cv2.imshow("Image Window", kp_img)
-        cv2.waitKey(3)
-
-    def mask_to_image(self, mask: np.ndarray, mask_values):
-        if isinstance(mask_values[0], list):
-            out = np.zeros((mask.shape[-2], mask.shape[-1], len(mask_values[0])), dtype=np.uint8)
-        elif mask_values == [0, 1]:
-            out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=bool)
-        else:
-            out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=np.uint8)
-
-        if mask.ndim == 3:
-            mask = np.argmax(mask, axis=0)
-
-        for i, v in enumerate(mask_values):
-            out[mask == i] = v
-
-        return Image.fromarray(out)
-
-    def find_largest_polytope(self, v):
-        v1 = 0
-        v2 = 1
-        v3 = 2
-        v4 = 3
-        largest_area = -1
-        for i in range(v.shape[0]-3):
-            for j in range(i+1,v.shape[0]-2):
-                for k in range(j+1, v.shape[0]-1):
-                    for l in range(k+1, v.shape[0]):
-                        area = 1/2*((v[i,0]*v[j,1]+v[j,0]*v[k,1]+v[k,0]*v[l,1]+v[l,0]*v[i,1])-\
-                            (v[j,0]*v[i,1]+v[k,0]*v[j,1]+v[l,0]*v[k,1]+v[i,0]*v[l,1]))
-                        if area > largest_area:
-                            largest_area = area 
-                            v1 = i 
-                            v2 = j 
-                            v3 = k
-                            v4 = l        
-        return v[[v1, v2, v3, v4], :]
-
-    def pose_estimation(self, object_points, image_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
-        return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
-
-class Aircraft():
-    def __init__(self, ctrlArgs):
-        # self.airspeed = ctrlArgs[0] # Air speed velocity of the aircraft
-        self.gravity = 9.81 # Acceleration due to gravity
-
-        self.path = ctrlArgs[0] # Predicted path that the agent will be following over the time horizon
-        # path function should be of the form path(time, pathArgs), and will return the reference state of the form ([x,y,z],[v_xy, v_z, heading_rate]) at the time specified
-
-        self.K1 = ctrlArgs[1] # Control gains for getting reference velocities
-
-        self.K2 = ctrlArgs[2] # Control gains for getting inputs to hovercraft
-
-        self.time = ctrlArgs[3] # Current time
-
-        self.pathArgs = ctrlArgs[4] # Arguments needed for the path that the aircraft is tracking
-
-        self.ctrlType = ctrlArgs[5] # What kind of controller is the aircraft applying
-
-    def aircraft_dynamics(self, state, t, control_type):
-        # This function are the "tracking" dynamics used for the dubin's aircraft
-        heading, pitch, velocity = state[3:]
-
-        heading = heading%(2*pi)
-        if heading > pi:
-            heading = heading - 2*pi
-        pitch = pitch%(2*pi)
-        if pitch > pi:
-            pitch = pitch - 2*pi
-        if velocity > 10:
-            velocity = 10
-
-        # Here we get the reference "state" ([x, y, z, heading]) and the reference "input" ([v_xy_ref, v_z_ref, heading_rate_ref])
-        ref_state, ref_input = self.path(self.time + t, self.pathArgs)
-        # print(ref_state, ref_input)
-        # Now we use a PID controller to get the actual inputs to the aircraft dynamics
-        heading_rate, pitch_rate, acceleration = self.aircraft_tracking_control(state, ref_state, ref_input)
-
-        # Time derivative of the states
-        dxdt = velocity*cos(heading)*cos(pitch)
-        dydt = velocity*sin(heading)*cos(pitch)
-        dzdt = velocity*sin(pitch)
-        dheadingdt = heading_rate
-        dpitchdt = pitch_rate
-        dveldt = acceleration
-
-        # accel_max = 10
-        accel_max = 20
-        # accel_max = 100
-        heading_rate_max = pi/2
-        # heading_rate_max = pi/3
-        pitch_rate_max = pi/2
-        # pitch_rate_max = pi/3
-        if abs(dveldt)>accel_max:
-            dveldt = np.sign(dveldt)*accel_max
-        if abs(dpitchdt)>pitch_rate_max*1:
-            dpitchdt = np.sign(dpitchdt)*pitch_rate_max
-        if abs(dheadingdt)>heading_rate_max:
-            dheadingdt = np.sign(dheadingdt)*heading_rate_max
-
-        # print(acceleration)
-        return [dxdt, dydt, dzdt, dheadingdt, dpitchdt, dveldt]
-        
-    def aircraft_tracking_control(self, state, ref_state, ref_input):
-        # This is a PID controller used to track some trajectory
-        x, y, z, heading, pitch, velocity = state
-        v_rf, pitch_rf, heading_rate_rf = self.hover_tracking_control([x, y, z, heading], ref_state, ref_input)
-
-        heading_rate = heading_rate_rf
-        pitch_rate = self.K2[0]*(pitch_rf - pitch)
-        acceleration = np.sign(v_rf - velocity)*min(abs(self.K2[1]*(v_rf - velocity)),100)
-        acceleration = self.K2[1]*(v_rf - velocity)
-
-        return [heading_rate, pitch_rate, acceleration]
-
-    def hover_tracking_control(self, state, ref_state, ref_input):
-        # This is a Lyapunov based feedback controller for the kinematic vehicle (which we call "hover" vehicle)
-        # This is taken from the FACTEST work
-        x, y, z, heading = state
-        x_rf, y_rf, z_rf, heading_rf = ref_state
-        v_xy_rf, v_z_rf, heading_rate_rf = ref_input
-
-        err_x = cos(heading)*(x_rf - x) + sin(heading)*(y_rf - y)
-        err_y = -sin(heading)*(x_rf - x) + cos(heading)*(y_rf - y)
-        err_z = z_rf - z
-        err_heading = heading_rf - heading
-
-        v_xy = v_xy_rf*cos(err_heading) + self.K1[0]*err_x
-        v_z = v_z_rf + self.K1[3]*err_z
-        heading_rate = heading_rate_rf + v_xy_rf*(self.K1[1]*err_y + self.K1[2]*sin(err_heading))
-
-        v = sqrt(v_xy**2 + v_z**2)
-        # pitch = atan2(v_z, v_xy)
-        # Approach the runway with 3 degree slope.
-        pitch = np.deg2rad(-3)
-
-        input_signal = [v, pitch, heading_rate]
-
-        return input_signal
-
-    def update_state(self, state, time_step, time_bound, control_type = 'tracking'):
-        sol = odeint(self.aircraft_dynamics, state, np.arange(0, time_bound, time_step), args = (control_type,))
-        ref_state, ref_input = self.path(self.time + time_bound, self.pathArgs)
-        # print('goal_state', ref_state, ref_input)
-        return sol
-
-    def TC_simulate(self, initialCondition, time_horizon, time_step) -> np.ndarray:
-        '''Inputs for TC_simulate function are as follows:
-            mode: mode that the system is operating in (ONLY NORMAL MODE FOR OUR CAR EXAMPLE)
-            initialCondition (list): initial condition for simulation
-            time_bound (float): simulation time
-            time_step (float): time step between time stamps
-            LEAVE lane_map AS NONE
-        Output for TC_simulate function:
-            trace (np.ndarray): Simulation trace of the form np.ndarray([[t0, state0],
-                                                                         [t1, state1],
-                                                                              ...    ])
-        '''
-
-        trace = []
-        state = initialCondition
-
-        new_states = self.update_state(state, time_step, time_horizon, control_type = self.ctrlType)
-
-        for i, new_state in enumerate(new_states):
-            trace.append([i * time_step] + list(new_state))
-
-        return np.array(trace)
-
-# def path(t, pathArgs, x = 2049.805183026255, y = 37.79750966976688, z = 125.96311171321648, yaw = -0.0063+pi):
-#     k = np.tan(3*(pi/180))
-#     v = 0.2
-#     # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
-#     if  z - k*v*t <= 0:
-#         return  [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, 0, yaw], [-v, 0.0, 0]
-#     return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
-
+K = np.array([[1253.2215566867008, 0.0, 320.5], [0.0, 1253.2215566867008, 240.5], [0.0, 0.0, 1.0]])
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
     state_msg.model_name = 'fixedwing'
@@ -285,27 +64,80 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 
     return state_msg
 
+cv_bridge = CvBridge()
+cv_img = None
+def image_callback(img_msg):
+    global cv_img
+    cv_img = cv_bridge.imgmsg_to_cv2(img_msg, "passthrough")
+    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+
+def sample_pose():
+    x = random.uniform(-2000, -3200)
+    y = random.uniform(-45, 45)
+    z = random.uniform(20, 150)
+    roll = random.uniform(-0.05, 0.05)
+    pitch = random.uniform(-0.1, 0.1)
+    yaw = random.uniform(-0.1, 0.1)
+
+    return [x, y, z, roll, pitch, yaw]
+
+def convert_to_image(world_pos, ego_pos, ego_ori):
+    objectPoints = np.array(world_pos) 
+    R = Rotation.from_quat(ego_ori)
+    R2 = Rotation.from_euler('xyz',[-np.pi/2, -np.pi/2, 0])
+    R_roted = R2*R.inv()
+
+    #TODO: The way of converting rvec is wrong
+    rvec = R_roted.as_rotvec()
+    tvec = -R_roted.apply(np.array(ego_pos))
+    cameraMatrix = np.array([[1253.2215566867008, 0.0, 320.5], [0.0, 1253.2215566867008, 240.5], [0.0, 0.0, 1.0]])
+    distCoeffs = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+    pnt,_ = cv2.projectPoints(objectPoints,rvec,tvec,cameraMatrix,distCoeffs)
+    return pnt  
+
+def pose_estimation(image_points, object_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
+        return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
+
+def check_valid_img(success, rotation_vector, translation_vector, state_ground_truth, tolr=1):
+    if success:
+        Rot = cv2.Rodrigues(rotation_vector)[0]
+        RotT = np.matrix(Rot).T
+        camera_position = -RotT*np.matrix(translation_vector)
+
+        R = Rot
+        sin_x = sqrt(R[2,0] * R[2,0] +  R[2,1] * R[2,1])    
+        singular  = sin_x < 1e-6
+        if not singular:
+            z1 = atan2(R[2,0], R[2,1])     # around z1-axis
+            x = atan2(sin_x,  R[2,2])     # around x-axis
+            z2 = atan2(R[0,2], -R[1,2])    # around z2-axis
+        else:
+            z1 = 0                                         # around z1-axis
+            x = atan2(sin_x,  R[2,2])     # around x-axis
+            z2 = 0                                         # around z2-axis
+        angles = np.array([[z1], [x], [z2]])
+        yawpitchroll_angles = -angles
+        yawpitchroll_angles[0,0] = (yawpitchroll_angles[0,0] + (5/2)*pi)%(2*pi) # change rotation sense if needed, comment this line otherwise
+        yawpitchroll_angles[1,0] = -(yawpitchroll_angles[1,0]+pi/2)
+
+        if yawpitchroll_angles[0,0] > pi:
+            yawpitchroll_angles[0,0] -= 2*pi
+
+        estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2,0]-pi, yawpitchroll_angles[1,0], yawpitchroll_angles[0,0]]
+        estimation_error = np.linalg.norm(np.array(estimated_state) - np.array(state_ground_truth))
+        print("State estimation: ", estimated_state)
+        print("State ground truth: ", state_ground_truth)
+        if 0.5*(abs(estimated_state[0] - state_ground_truth[0]) + abs(estimated_state[1] - state_ground_truth[1]) + abs(estimated_state[2] - state_ground_truth[2])) + (abs(estimated_state[3] - state_ground_truth[3]) + abs(estimated_state[4] - state_ground_truth[4]) + abs(estimated_state[5] - state_ground_truth[5])) > 1:
+            return False, estimation_error, estimated_state
+        return True, estimation_error, estimated_state
+    else:
+        return False, math.inf, []
+
 def update_aircraft_position():
+    global cv_img
+    rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
-
-    def path(t, pathArgs, x = -3000.0, y = 0, z = 100.0, yaw = 0):
-        k = np.tan(3*(pi/180))
-        v = 5.0
-        # return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
-        if  z - k*v*t <= 0:
-            return  [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, 0, yaw], [-v, 0.0, 0]
-        return [cos(yaw)*(v*t) + x, sin(yaw)*(v*t) + y, z - k*v*t, yaw], [-v, -k*v, 0]
-
-    testPath = path 
-    K1 =  [10, 10, 1, 1] # Control gains for getting reference velocities
-    K2 = [1, 10]
-    pathArgs = None
-
-    controlArgs = (testPath, K1, K2, 30, pathArgs, 'tracking')
     initial_state =  [-3000.0, 0.0, 100.0, 0, 0, 0]
-
-    agent = Aircraft(controlArgs)
-    perception = Perception()
     init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
     rospy.wait_for_service('/gazebo/set_model_state')
     try:
@@ -316,39 +148,57 @@ def update_aircraft_position():
 
     cur_state = initial_state
 
+    data_fn = os.path.join(data_path, f"data.txt")
+    with open(data_fn,'w+') as f:
+        pass    
+
     idx = 0
     while not rospy.is_shutdown():
-        cur_trace = agent.TC_simulate(cur_state, 0.011, 0.01)
-        # print(cur_trace)
-        agent.time += 0.011
-        # print(cur_trace)
-        cur_state = cur_trace[-1][1:]
-        # print(cur_state)
-        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[3])
+        state_rand = sample_pose()
+        state_msg = create_state_msd(state_rand[0], state_rand[1], state_rand[2], state_rand[3], state_rand[4], state_rand[5])
 
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
             set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-            resp = set_state( state_msg )
-
+            _ = set_state( state_msg )
         except rospy.ServiceException:
             print("Service call failed")
 
-        if perception.img is None:
-            continue
-
         time.sleep(0.01)
-        data_fn = os.path.join(data_path, f"data.txt")
-        q = squaternion.Quaternion.from_euler(0, cur_state[4], cur_state[3])
-        with open(data_fn,'a+') as f:
-            f.write(f"\n{idx},{cur_state[0]},{cur_state[1]},{cur_state[2]},{q.x},{q.y},{q.z},{q.w}")
+        q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
+        offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
+        aircraft_pos = np.array([state_rand[0], state_rand[1], state_rand[2]]) # x,y,z
+        aircraft_ori = [q.x, q.y, q.z, q.w] # x,y,z,w
+        R = Rotation.from_quat(aircraft_ori)
+        aircraft_pos += offset_vec
 
-        cv2.imshow('camera',perception.img)
+        keypoint_position_in_image = []
+        for i in range(len(keypoints)):
+            image_coordinate = convert_to_image(keypoints[i], aircraft_pos, aircraft_ori).flatten()
+            if image_coordinate[0] > 640 or image_coordinate[0] < 0 or image_coordinate[1] > 480 or image_coordinate[1] < 0:
+                break
+            keypoint_position_in_image.append(image_coordinate)
+        if len(np.array(keypoint_position_in_image)) < 14:
+            continue
+        # print(keypoint_position_in_image)
+        # print(np.array(keypoints).shape)
+        success, rotation_vector, translation_vector = pose_estimation(np.array(keypoint_position_in_image), np.array(keypoints), K)
+        valid_img, error, estimated_state = check_valid_img(success, rotation_vector, translation_vector, state_rand)
+        q_estimated = squaternion.Quaternion.from_euler(estimated_state[3], estimated_state[4], estimated_state[5])
+        if not valid_img:
+            continue
+        with open(data_fn,'a+') as f:
+            # f.write(f"\n{idx},{state_rand[0]},{state_rand[1]},{state_rand[2]},{q.x},{q.y},{q.z},{q.w},{error},{estimated_state[0]},{estimated_state[1]},{estimated_state[2]},{q_estimated.x},{q_estimated.y},{q_estimated.z},{q_estimated.w}")
+            f.write(f"\n{idx},{state_rand[0]},{state_rand[1]},{state_rand[2]},{q.x},{q.y},{q.z},{q.w}")
+        cv2.imshow('camera', cv_img)
         cv2.waitKey(3)
         path = os.path.join(img_path, f"img_{idx}.png")
-        if perception.img is not None:
-            cv2.imwrite(path, perception.img)
+        if cv_img is not None:
+            print(path)
+            cv2.imwrite(path, cv_img)
         idx += 1
+        if idx > 100000:
+            break
 
 
 if __name__ == "__main__":

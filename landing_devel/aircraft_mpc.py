@@ -20,18 +20,20 @@ def aircraft_mpc(model, v_max, acc_max, beta_max, omega_max):
 
     mpc.set_param(**setup_mpc)
   
-    mterm = 100*model.aux['terminal_cost']
-    lterm = 100*model.aux['cost'] 
+    mterm = 10*model.aux['terminal_cost']
+    lterm = 10*model.aux['cost'] 
 
     mpc.set_objective(mterm=mterm, lterm=lterm)
 
-    mpc.set_rterm(u=np.array([[1],[1],[1]]))
+    mpc.set_rterm(u=np.array([[0],[100],[100]]))
+    # mpc.set_rterm(u=np.array([[0],[0],[0]]))
     max_input = np.array([[acc_max], [beta_max], [omega_max]])
     mpc.bounds['lower', '_u', 'u'] = -max_input
     mpc.bounds['upper', '_u', 'u'] = max_input
-    x_bounds = np.array([[math.inf], [math.inf], [math.inf], [v_max], [math.inf], [math.inf]])
-    mpc.bounds['lower', '_x', 'x'] = -x_bounds
-    mpc.bounds['upper', '_x', 'x'] = x_bounds
+    x_bounds_max = np.array([[math.inf], [math.inf], [math.inf], [v_max], [3*pi/180], [pi/180]])
+    x_bounds_min = np.array([[-math.inf], [-math.inf], [-math.inf], [-v_max], [-3*pi/180], [-4*pi/180]])
+    mpc.bounds['lower', '_x', 'x'] = x_bounds_min
+    mpc.bounds['upper', '_x', 'x'] = x_bounds_max
 
     mpc.setup()
 
