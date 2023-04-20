@@ -1,3 +1,6 @@
 .vscode/
 **/.vscode/
 landing_devel/imgs/
+landing_devel/data/
+**/__pycache__/
+**.pth

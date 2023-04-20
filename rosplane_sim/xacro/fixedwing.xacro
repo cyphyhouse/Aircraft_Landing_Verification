@@ -88,7 +88,7 @@
   <xacro:simple_camera
     namespace="${namespace}/chase"
     frame_rate="30"
-    rgb_range="1000"
+    rgb_range="3000"
     parent_link="${namespace}/base_link"
     image_topic="rgb"
     image_camera_info_topic="camera_info">

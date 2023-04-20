@@ -10,6 +10,10 @@ import rospkg
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import squaternion 
+import scipy.spatial 
+import pathlib
+# import PIL 
+from PIL import Image as PILImage
 
 from gazebo_msgs.msg import ModelState 
 from gazebo_msgs.srv import SetModelState
@@ -18,359 +22,190 @@ from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
 
+import torch
+import torch.nn.functional as F
+from unet import UNet
+from utils.data_loading import BasicDataset
 import os
+
+from scipy.spatial.transform import Rotation 
+import matplotlib.pyplot as plt 
+
+from aircraft_model import *
+from aircraft_mpc import *
+from aircraft_simulator import *
+# img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
 img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
 class Perception():
-    def __init__(self, name=''):
+    def __init__(self, net, device, name=''):
         self.name = name
 
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.state_callback)
         rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, self.image_callback)
         self.bridge = CvBridge()
-        # cv2.namedWindow("Image Window", 1)
 
         self.count = -1
+        self.pic_index = 0
 
         # Camera matrix
-        self.K = np.array([[205.46963709898583, 0.0, 320.5],
-                    [0.0, 205.46963709898583, 240.5],
-                    [0.0, 0.0, 1.0]])
-        
-        # 3D locations of the six markers
-        self.marker_points = np.array([
-                                        (-124.19, 18.33, 0), # red marker
-                                        (-125.06, 12.72, 0), # green marker
-                                        (-125.29, 6.26, 0), # blue marker
-                                        (-91.10, 11.20, 0), # purple marker
-                                        (-93.17, -2.39, 0), # cyan marker
-                                        (-92.11, 4.16, 0), # yellow marker
-                                        # (-134.77, 27.14, 0), # light red marker
-                                        # (-134.04, 12.08, 0), # light blue marker
-                                        # (-139.79, 2.48, 0) # light green marker
-                                        (-106.38, -12.04, 0), # orange marker
-                                        (-102.21, 25.83, 0) # white marker
-                                    ])
-        self.pose = None
+        self.K = np.array([[1253.2215566867008, 0.0, 320.5], [0.0, 1253.2215566867008, 240.5], [0.0, 0.0, 1.0]])
+
+        self.net = net
+        self.device = device
+        self.keypoints = [[-1221.370483, 16.052534, 0.0],
+                        [-1279.224854, 16.947235, 0.0],
+                        [-1279.349731, 8.911615, 0.0],
+                        [-1221.505737, 8.033512, 0.0],
+                        [-1221.438110, -8.496282, 0.0],
+                        [-1279.302002, -8.493725, 0.0],
+                        [-1279.315796, -16.504263, 0.0],
+                        [-1221.462402, -16.498976, 0.0],
+                        [-1520.81, 26.125700, 0.0],
+                        [-1559.122925, 26.101082, 0.0],
+                        [-1559.157471, -30.753305, 0.0],
+                        [-1520.886353,  -30.761044, 0.0],
+                        [-1561.039063, 31.522200, 0.0],
+                        [-1561.039795, -33.577713, 0.0]]
+                        # [-600.0, 31.5, 0.0],
+                        # [-600.0, -23.5, 0.0]]
+        self.state = None
+        self.estimated_state = None
 
     def state_callback(self, msg):
         pos = msg.pose[1].position
-        self.pose = [pos.x, pos.y, pos.z]
+        ori = msg.pose[1].orientation
+        self.state = [pos.x, pos.y, pos.z, ori.x, ori.y, ori.z, ori.w]
 
     def image_callback(self, img_msg):
-        # Log some info about the image topic
-        # rospy.loginfo(img_msg.header)
-        cur_pos = self.pose
-        self.count += 1
-        if self.count % 100 != 0:
-            return
         # Try to convert the ROS image to a CV2 image
         try:
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+            img = PILImage.fromarray(cv_image, mode='RGB')
 
-            hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-
-            # # Find the red marker
-            # mask_red_1 = cv2.inRange(hsv, (0, 200, 20), (5, 255, 255))
-            # mask_red_2 = cv2.inRange(hsv, (175, 200, 20), (180 ,255, 255))
-
-            # mask_red = cv2.bitwise_or(mask_red_1, mask_red_2)
-            # img_red = cv2.bitwise_and(cv_image, cv_image, mask=mask_red)
-            # red_image_gray = cv2.cvtColor(img_red, cv2.COLOR_BGR2GRAY)
-
-            # # Find the green marker
-            # mask_green = cv2.inRange(hsv, np.array([50, 200, 100]), np.array([70, 255, 255]))
-            # img_green = cv2.bitwise_and(cv_image, cv_image, mask=mask_green)
-            # green_image_gray = cv2.cvtColor(img_green, cv2.COLOR_BGR2GRAY)
-
-            # # Find the blue marker
-            # mask_blue = cv2.inRange(hsv, np.array([100, 200, 0]), np.array([140, 255, 255]))
-            # img_blue = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue)
-            # blue_image_gray = cv2.cvtColor(img_blue, cv2.COLOR_BGR2GRAY)
-
-            # # Find the purple marker
-            # mask_purple = cv2.inRange(hsv, np.array([140, 200, 70]), np.array([160, 250, 250]))
-            # img_purple = cv2.bitwise_and(cv_image, cv_image, mask=mask_purple)
-            # purple_image_gray = cv2.cvtColor(img_purple, cv2.COLOR_BGR2GRAY)
-
-            # # Find the cyan marker
-            # mask_cyan = cv2.inRange(hsv, np.array([80, 200, 70]), np.array([90, 250, 250]))
-            # img_cyan = cv2.bitwise_and(cv_image, cv_image, mask=mask_cyan)
-            # cyan_image_gray = cv2.cvtColor(img_cyan, cv2.COLOR_BGR2GRAY)
-
-            # # Find the yellow marker
-            # mask_yellow = cv2.inRange(hsv, np.array([20, 200, 100]), np.array([30, 255, 255]))
-            # img_yellow = cv2.bitwise_and(cv_image, cv_image, mask=mask_yellow)
-            # yellow_image_gray = cv2.cvtColor(img_yellow, cv2.COLOR_BGR2GRAY)
-            # Find the red marker
-            mask_red_1 = cv2.inRange(hsv, (0, 50, 20), (5, 255, 255))
-            mask_red_2 = cv2.inRange(hsv, (175, 50, 20), (180 ,255, 255))
-
-            mask_red = cv2.bitwise_or(mask_red_1, mask_red_2)
-            img_red = cv2.bitwise_and(cv_image, cv_image, mask=mask_red)
-            red_image_gray = cv2.cvtColor(img_red, cv2.COLOR_BGR2GRAY)
-
-            # Find the green marker
-            mask_green = cv2.inRange(hsv, np.array([50, 100, 100]), np.array([70, 255, 255]))
-            img_green = cv2.bitwise_and(cv_image, cv_image, mask=mask_green)
-            green_image_gray = cv2.cvtColor(img_green, cv2.COLOR_BGR2GRAY)
-
-            # Find the blue marker
-            mask_blue = cv2.inRange(hsv, np.array([100, 150, 0]), np.array([140, 255, 255]))
-            img_blue = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue)
-            blue_image_gray = cv2.cvtColor(img_blue, cv2.COLOR_BGR2GRAY)
-
-            # Find the purple marker
-            mask_purple = cv2.inRange(hsv, np.array([140, 50, 70]), np.array([160, 250, 250]))
-            img_purple = cv2.bitwise_and(cv_image, cv_image, mask=mask_purple)
-            purple_image_gray = cv2.cvtColor(img_purple, cv2.COLOR_BGR2GRAY)
-
-            # Find the cyan marker
-            mask_cyan = cv2.inRange(hsv, np.array([80, 50, 70]), np.array([90, 250, 250]))
-            img_cyan = cv2.bitwise_and(cv_image, cv_image, mask=mask_cyan)
-            cyan_image_gray = cv2.cvtColor(img_cyan, cv2.COLOR_BGR2GRAY)
-
-            # Find the yellow marker
-            mask_yellow = cv2.inRange(hsv, np.array([20, 100, 100]), np.array([30, 255, 255]))
-            img_yellow = cv2.bitwise_and(cv_image, cv_image, mask=mask_yellow)
-            yellow_image_gray = cv2.cvtColor(img_yellow, cv2.COLOR_BGR2GRAY)
-            # Find the orange marker
-            mask_orange = cv2.inRange(hsv, np.array([10, 200, 100]), np.array([19, 255, 255]))
-            img_orange = cv2.bitwise_and(cv_image, cv_image, mask=mask_orange)
-            orange_image_gray = cv2.cvtColor(img_orange, cv2.COLOR_BGR2GRAY)
-
-            # Find the white marker
-            mask_white = cv2.inRange(hsv, np.array([0, 0, 200]), np.array([0, 255, 255]))
-            img_white = cv2.bitwise_and(cv_image, cv_image, mask=mask_white)
-            white_image_gray = cv2.cvtColor(img_white, cv2.COLOR_BGR2GRAY)
-            # # Find the light red marker
-            # mask_red_light_1 = cv2.inRange(hsv, (0, 50, 20), (5, 150, 255))
-            # mask_red_light_2 = cv2.inRange(hsv, (175, 50, 20), (180 ,150, 255))
-
-            # mask_red_light = cv2.bitwise_or(mask_red_light_1, mask_red_light_2)
-            # # mask_red_light = cv2.inRange(hsv, np.array([140, 50, 70]), np.array([160, 150, 250]))
-            # img_red_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_red_light)
-            # light_red_image_gray = cv2.cvtColor(img_red_light, cv2.COLOR_BGR2GRAY)
-
-            # # Find the light blue marker
-            # mask_blue_light = cv2.inRange(hsv, np.array([80, 50, 70]), np.array([90, 150, 250]))
-            # img_blue_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_blue_light)
-            # light_blue_image_gray = cv2.cvtColor(img_blue_light, cv2.COLOR_BGR2GRAY)
-
-            # # Find the light green marker
-            # mask_green_light = cv2.inRange(hsv, np.array([50, 100, 100]), np.array([70, 150, 255]))
-            # img_green_light = cv2.bitwise_and(cv_image, cv_image, mask=mask_green_light)
-            # light_green_image_gray = cv2.cvtColor(img_green_light, cv2.COLOR_BGR2GRAY)
-
-            # print(cv_image)
-            kp, absent_markers = self.get_feature_points(np.array([red_image_gray, green_image_gray, blue_image_gray, 
-                                                        purple_image_gray, cyan_image_gray, yellow_image_gray, 
-                                                        orange_image_gray, white_image_gray]))
-            kp_img = cv2.drawKeypoints(cv_image, kp, None, color=(0, 255, 0), flags=0)
-
-            cv2.imwrite(os.path.join(img_path, "img_{0}.jpg".format(self.count)), kp_img)
-            # cv2.waitKey(100)
+            output = self.predict_img(img)
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {0}".format(e))
         
-        # Pose estimation using PnP
-        obj_pts = []
-        # print(kp)
-        kps = []
-        for i in range(8):
-            if absent_markers[i] == 0:
-                obj_pts.append(self.marker_points[i])
-        for i in range(len(kp)):
-            # print(kp[i].pt)
-            kps.append(kp[i].pt)
 
-        success, rotation_vector, translation_vector = self.pose_estimation(np.array(obj_pts), np.array(kps), self.K)
+        # Key points detection using trained nn.
+        keypoints = []
+        for i in range(14):
+            p = (((output[0,i,:,:]==torch.max(output[0,i,:,:])).nonzero())/args.scale).tolist()
+            p[0].reverse()
+            keypoints.append(p[0])
+
+        # # Pose estimation using PnP
+        # self.show_image(cv_image, keypoints)
+        success, rotation_vector, translation_vector = self.pose_estimation(np.array(keypoints), np.array(self.keypoints), self.K)
         if success:
-            # print("Rotation: ", rotation_vector)
-            # print("Translation: ", translation_vector)
-            # print("")
             Rot = cv2.Rodrigues(rotation_vector)[0]
-            # P = np.hstack((Rot, translation_vector))
-            # euler_angles_radians = -cv2.decomposeProjectionMatrix(P)[6]
-            # euler_angles_degrees = 180 * euler_angles_radians/pi
+            RotT = np.matrix(Rot).T
+            camera_position = -RotT*np.matrix(translation_vector)
 
-            camera_position = -np.matrix(Rot).T*np.matrix(translation_vector)
-            _, _, _, Qx, Qy, Qz = cv2.RQDecomp3x3(Rot)
-            camera_roll = atan2(Qx[2][1], Qx[2][2])
-            camera_pitch = atan2(-Qy[2][0], sqrt(Qy[2][1]**2 + Qy[2][2]**2))
-            camera_yaw = atan2(Qz[1][0], Qz[0][0])
-            # camera_roll = atan2(-Rot[2][1], Rot[2][2])
-            # camera_pitch = asin(Rot[2][0])
-            # camera_yaw = atan2(-Rot[1][0], Rot[0][0])
-            print("Camera position: ", camera_position)
-            print("Camera orientation: ", camera_roll, camera_pitch, camera_yaw)
-            print("")
-            print("Aircraft position: ", cur_pos)
-            print("")
+            R = Rot
+            sin_x = sqrt(R[2,0] * R[2,0] +  R[2,1] * R[2,1])    
+            singular  = sin_x < 1e-6
+            if not singular:
+                z1 = atan2(R[2,0], R[2,1])     # around z1-axis
+                x = atan2(sin_x,  R[2,2])     # around x-axis
+                z2 = atan2(R[0,2], -R[1,2])    # around z2-axis
+            else:
+                z1 = 0                                         # around z1-axis
+                x = atan2(sin_x,  R[2,2])     # around x-axis
+                z2 = 0                                         # around z2-axis
+
+            angles = np.array([[z1], [x], [z2]])
+            yawpitchroll_angles = -angles
+            yawpitchroll_angles[0,0] = (yawpitchroll_angles[0,0] + (5/2)*pi)%(2*pi) # change rotation sense if needed, comment this line otherwise
+            yawpitchroll_angles[1,0] = -(yawpitchroll_angles[1,0]+pi/2)
+            if yawpitchroll_angles[0,0] > pi:
+                yawpitchroll_angles[0,0] -= 2*pi
+
+            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2,0], yawpitchroll_angles[1,0], yawpitchroll_angles[0,0]]
         else:
             print("Pose Estimation Failed.")
 
-    def show_image(self, img):
-        cv2.imshow("Image Window", img)
-        # cv2.waitKey(3)
+        self.show_image(cv_image, keypoints)
+    def show_image(self, cv_image, keypoints):
+        kp_img = cv_image
+        for i in range(len(keypoints)):
+           kp_img = cv2.circle(kp_img, (int(keypoints[i][0]), int(keypoints[i][1])), radius=2, color=(0, 0, 255))
+        cv2.imshow("Image Window", kp_img)
+        cv2.waitKey(3)
 
-    def get_feature_points(self, imgs):
-        # Initiate ORB detector
-        orb = cv2.ORB_create()
-        # find the keypoints and compute the descriptors with ORB
-        kp_red = orb.detect(imgs[0])
-        kp_green = orb.detect(imgs[1])
-        kp_blue = orb.detect(imgs[2])
-        kp_purple = orb.detect(imgs[3])
-        kp_cyan = orb.detect(imgs[4])
-        kp_yellow = orb.detect(imgs[5])
+    def predict_img(self, full_img, scale_factor=1.0, out_threshold=0.5):
+        img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
+        img = img.unsqueeze(0)
+        img = img.to(device=self.device, dtype=torch.float32)
 
-        kp_orange = orb.detect(imgs[6])
-        kp_white = orb.detect(imgs[7])
-        # kp_red_light = orb.detect(imgs[6])
-        # kp_blue_light = orb.detect(imgs[7])
-        # kp_green_light = orb.detect(imgs[8])
-        # print(kp_green)
-        all_kps = [kp_red, kp_green, kp_blue, kp_purple, kp_cyan, kp_yellow, kp_orange, kp_white]
-        absent_color = np.zeros(len(all_kps))
-        kps = []
-        for i in range(len(all_kps)):
-            if len(all_kps[i]) == 0:
-                absent_color[i] = 1
-            else:
-                kps.append(all_kps[i][0])
-        return kps, absent_color
+        with torch.no_grad():
+            output = self.net(img).cpu()
 
-    def pose_estimation(self, object_points, image_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
+            return output 
+
+
+    def mask_to_image(self, mask: np.ndarray, mask_values):
+        if isinstance(mask_values[0], list):
+            out = np.zeros((mask.shape[-2], mask.shape[-1], len(mask_values[0])), dtype=np.uint8)
+        elif mask_values == [0, 1]:
+            out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=bool)
+        else:
+            out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=np.uint8)
+
+        if mask.ndim == 3:
+            mask = np.argmax(mask, axis=0)
+
+        for i, v in enumerate(mask_values):
+            out[mask == i] = v
+
+        return Image.fromarray(out)
+    
+    def detect_keypoints(self, net, img, device):
+        mask = self.predict_img(net=net, full_img=img, device=device)
+
+        return 
+
+    def pose_estimation(self, image_points, object_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
         return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
-class Aircraft():
-    def __init__(self, ctrlArgs):
-        # self.airspeed = ctrlArgs[0] # Air speed velocity of the aircraft
-        self.gravity = 9.81 # Acceleration due to gravity
 
-        self.path = ctrlArgs[0] # Predicted path that the agent will be following over the time horizon
-        # path function should be of the form path(time, pathArgs), and will return the reference state of the form ([x,y,z],[v_xy, v_z, heading_rate]) at the time specified
+def run_controller(x_true, x_cur, x_ref, scalings, v_max=50, acc_max=10, beta_max=0.02, omega_max=0.03):
+    model = aircraft_model(x_ref, scalings)
+    mpc = aircraft_mpc(model, v_max, acc_max, beta_max, omega_max)
+    simulator = aircraft_simulator(model)
+    # simulator.x0 = x_cur
+    simulator.x0 = np.array(x_true)
+    mpc.x0 = x_cur
 
-        self.K1 = ctrlArgs[1] # Control gains for getting reference velocities
+    u_init = np.full((3, 1), 0.0)
+    mpc.u0 = u_init
+    simulator.u0 = u_init
+    mpc.set_initial_guess()
 
-        self.K2 = ctrlArgs[2] # Control gains for getting inputs to hovercraft
+    u0 = mpc.make_step(x_cur)
+    x_next = simulator.make_step(u0)
 
-        self.time = ctrlArgs[3] # Current time
+    return x_next
 
-        self.pathArgs = ctrlArgs[4] # Arguments needed for the path that the aircraft is tracking
+# def path(t, x = -3000.0, y = 0, z = 100, yaw = 0):
+#     approaching_angle = 3
+#     k = np.tan(approaching_angle*(pi/180))
+#     v = 100.0
+#     # Straight line along x-axis
+#     if  z - k*v*t <= 0:
+#         return  [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), 0, yaw], [-v, 0.0, 0]
+#     return [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), z - k*v*t, yaw], [-v, -k*v, 0]
 
-        self.ctrlType = ctrlArgs[5] # What kind of controller is the aircraft applying
-
-    def aircraft_dynamics(self, state, t, control_type):
-        # This function are the "tracking" dynamics used for the dubin's aircraft
-        heading, pitch, velocity = state[3:]
-
-        heading = heading%(2*pi)
-        if heading > pi:
-            heading = heading - 2*pi
-        pitch = pitch%(2*pi)
-        if pitch > pi:
-            pitch = pitch - 2*pi
-
-        # Here we get the reference "state" ([x, y, z, heading]) and the reference "input" ([v_xy_ref, v_z_ref, heading_rate_ref])
-        ref_state, ref_input = self.path(self.time + t, self.pathArgs)
-        # print(ref_state, ref_input)
-        # Now we use a PID controller to get the actual inputs to the aircraft dynamics
-        heading_rate, pitch_rate, acceleration = self.aircraft_tracking_control(state, ref_state, ref_input)
-
-        # Time derivative of the states
-        dxdt = velocity*cos(heading)*cos(pitch)
-        dydt = velocity*sin(heading)*cos(pitch)
-        dzdt = velocity*sin(pitch)
-        dheadingdt = heading_rate
-        dpitchdt = pitch_rate
-        dveldt = acceleration
-
-        accel_max = 10
-        # accel_max = 20
-        # accel_max = 100
-        heading_rate_max = pi/2
-        # heading_rate_max = pi/3
-        pitch_rate_max = pi/2
-        # pitch_rate_max = pi/3
-        if abs(dveldt)>accel_max:
-            dveldt = np.sign(dveldt)*accel_max
-        if abs(dpitchdt)>pitch_rate_max*1:
-            dpitchdt = np.sign(dpitchdt)*pitch_rate_max
-        if abs(dheadingdt)>heading_rate_max:
-            dheadingdt = np.sign(dheadingdt)*heading_rate_max
-
-        # print(acceleration)
-        return [dxdt, dydt, dzdt, dheadingdt, dpitchdt, dveldt]
-        
-    def aircraft_tracking_control(self, state, ref_state, ref_input):
-        # This is a PID controller used to track some trajectory
-        x, y, z, heading, pitch, velocity = state
-        v_rf, pitch_rf, heading_rate_rf = self.hover_tracking_control([x, y, z, heading], ref_state, ref_input)
-
-        heading_rate = heading_rate_rf
-        pitch_rate = self.K2[0]*(pitch_rf - pitch)
-        acceleration = np.sign(v_rf - velocity)*min(abs(self.K2[1]*(v_rf - velocity)),100)
-        acceleration = self.K2[1]*(v_rf - velocity)
-
-        return [heading_rate, pitch_rate, acceleration]
-
-    def hover_tracking_control(self, state, ref_state, ref_input):
-        # This is a Lyapunov based feedback controller for the kinematic vehicle (which we call "hover" vehicle)
-        # This is taken from the FACTEST work
-        x, y, z, heading = state
-        x_rf, y_rf, z_rf, heading_rf = ref_state
-        v_xy_rf, v_z_rf, heading_rate_rf = ref_input
-
-        err_x = cos(heading)*(x_rf - x) + sin(heading)*(y_rf - y)
-        err_y = -sin(heading)*(x_rf - x) + cos(heading)*(y_rf - y)
-        err_z = z_rf - z
-        err_heading = heading_rf - heading
-
-        v_xy = v_xy_rf*cos(err_heading) + self.K1[0]*err_x
-        v_z = v_z_rf + self.K1[3]*err_z
-        heading_rate = heading_rate_rf + v_xy_rf*(self.K1[1]*err_y + self.K1[2]*sin(err_heading))
-
-        v = sqrt(v_xy**2 + v_z**2)
-        pitch = atan2(v_z, v_xy)
-
-        input_signal = [v, pitch, heading_rate]
-
-        return input_signal
-
-    def update_state(self, state, time_step, time_bound, control_type = 'tracking'):
-        sol = odeint(self.aircraft_dynamics, state, np.arange(0, time_bound, time_step), args = (control_type,))
-        ref_state, ref_input = self.path(self.time + time_bound, self.pathArgs)
-        # print('goal_state', ref_state, ref_input)
-        return sol
-
-    def TC_simulate(self, initialCondition, time_horizon, time_step) -> np.ndarray:
-        '''Inputs for TC_simulate function are as follows:
-            mode: mode that the system is operating in (ONLY NORMAL MODE FOR OUR CAR EXAMPLE)
-            initialCondition (list): initial condition for simulation
-            time_bound (float): simulation time
-            time_step (float): time step between time stamps
-            LEAVE lane_map AS NONE
-        Output for TC_simulate function:
-            trace (np.ndarray): Simulation trace of the form np.ndarray([[t0, state0],
-                                                                         [t1, state1],
-                                                                              ...    ])
-        '''
-
-        trace = []
-        state = initialCondition
-
-        new_states = self.update_state(state, time_step, time_horizon, control_type = self.ctrlType)
-
-        for i, new_state in enumerate(new_states):
-            trace.append([i * time_step] + list(new_state))
-
-        return np.array(trace)
-
-def path(t, pathArgs, x = 60, y = -30.0, z = 30.0, yaw = 3.038):
-    return [x - 0.001*t, y, z - 0.001*t, yaw], [-0.001, -0.001, 0]
-    # return [x, y, z, yaw], [0, 0, 0]
-
+def path(cur_state, yaw = 0, dt=0.1):
+    approaching_angle = 3
+    k = np.tan(approaching_angle*(pi/180))
+    v = 50.0
+    # if (cur_state[1])**2 > 25:
+    #     return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw], [1, 100, 1, 1]
+    # else:
+    # return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw], [1, 1, 1, 
+    return [v*dt + cur_state[0], 0, -(60/2500)*(v*dt + cur_state[0]), yaw], [1, 1, 1, 1]
+    
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -379,7 +214,6 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg.pose.position.y = y
     state_msg.pose.position.z = z
 
-    # print(roll, pitch, yaw)
     q = squaternion.Quaternion.from_euler(roll, pitch, yaw)
     
     state_msg.pose.orientation.x = q.x
@@ -389,17 +223,14 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 
     return state_msg
 
-def update_aircraft_position():
-    testPath = path # Predicted path that the agent will be following over the time horizon
-    K1 =  [10, 10, 1, 1] # Control gains for getting reference velocities
-    K2 = [10, 10]
-    pathArgs = None
+data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel'
 
-    controlArgs = (testPath, K1, K2, 5, pathArgs, 'tracking')
-    initial_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
+def update_aircraft_position(net, device):
+    # initial_state = [-3000.0, 0, 100, 0, 0, 0]
+    initial_state = [-2500.0, 0, 60, 0, 0, 0]
+    # initial_state = [-2200.0, 0, 60, 0, -3*np.pi/180, 0]
 
-    agent = Aircraft(controlArgs)
-    perception = Perception()
+    perception = Perception(net, device)
     init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
     rospy.wait_for_service('/gazebo/set_model_state')
     try:
@@ -408,14 +239,32 @@ def update_aircraft_position():
     except rospy.ServiceException:
         print("Service call failed")
 
-    cur_state = [60.0, -30.0, 30.0, 3.038, 0, 0]
+    cur_state = initial_state
+    true_state = cur_state
+    idx = 0
 
+    true_states = []
+    estimated_states = []
+    averaged_states = []
+    ref_states = []
+    cur_time = 0
+    y_average = np.zeros(50)
     while not rospy.is_shutdown():
-        cur_trace = agent.TC_simulate(cur_state, 0.011, 0.01)
-        # print(cur_trace)
-        cur_state = cur_trace[-1][1:]
+        time.sleep(0.01)
+        if perception.estimated_state is None or len(perception.estimated_state) == 0:
+            continue
+        estimated_state = perception.estimated_state
+        # print(estimated_state)
+        # print(y_average)
+        y_average[idx%50] = estimated_state[1]
+        estimated_state[1] = np.mean(y_average)
+        ref_state, scalings = path(estimated_state)
 
-        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[4], cur_state[3])
+        ref_states.append(ref_state)
+
+        cur_time += 0.1
+        cur_state = run_controller(true_state, np.array(estimated_state), [ref_state[0], ref_state[1], ref_state[2], -3*(pi/180)], scalings)
+        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4])
 
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
@@ -425,12 +274,66 @@ def update_aircraft_position():
         except rospy.ServiceException:
             print("Service call failed")
 
+
         time.sleep(0.01)
 
+        
+        true_state = [cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4]]
+        # print("State: ", true_state)
+        # print("Estimation: ", perception.estimated_state)
+        true_states.append(true_state)
+        estimated_states.append(perception.estimated_state)
+        averaged_states.append(np.mean(y_average))
+        perception.count = idx
+        idx += 1
+        np.save("ground_truth", np.array(true_states))
+        np.save("estimation", np.array(estimated_states))
+        np.save("ref_states", np.array(ref_states))
+        np.save("averaged_states", np.array(averaged_states))
+
+import argparse
+import logging
+def get_args():
+    model = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/model.pth'
+    parser = argparse.ArgumentParser(description='Predict masks from input images')
+    parser.add_argument('--model', '-m', default=model, metavar='FILE',
+                        help='Specify the file in which the model is stored')
+    # parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='Filenames of input images', required=True)
+    parser.add_argument('--output', '-o', metavar='OUTPUT', nargs='+', help='Filenames of output images')
+    parser.add_argument('--viz', '-v', action='store_true',
+                        help='Visualize the images as they are processed')
+    parser.add_argument('--no-save', '-n', action='store_true', help='Do not save the output masks')
+    parser.add_argument('--mask-threshold', '-t', type=float, default=0.5,
+                        help='Minimum probability value to consider a mask pixel white')
+    parser.add_argument('--scale', '-s', type=float, default=1.0,
+                        help='Scale factor for the input images')
+    parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
+    parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
+    
+    return parser.parse_args()
 
 if __name__ == "__main__":
+    args = get_args()
     rospy.init_node('update_poses', anonymous=True)
+
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
+    # net = UNet(in_channels=3, out_classes=16)
+    net = UNet(n_channels=3, n_classes=14, bilinear=args.bilinear)
+
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logging.info(f'Loading model {args.model}')
+    logging.info(f'Using device {device}')
+
+    net.to(device=device)
+    state_dict = torch.load(args.model, map_location=device)
+    # mask_values = state_dict.pop('mask_values', [0, 1])
+    net.load_state_dict(state_dict)
+    logging.info('Model loaded!')
+
     try:
-        update_aircraft_position()
+        update_aircraft_position(net, device)
     except rospy.exceptions.ROSInterruptException:
         rospy.loginfo("Stop updating aircraft positions.")
+        
