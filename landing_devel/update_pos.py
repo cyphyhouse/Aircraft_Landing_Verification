@@ -1,8 +1,6 @@
 import numpy as np
 from math import cos, sin, atan2, sqrt, pi, asin
 import rospy
-# import sys
-# from typing import List
 import time
 from scipy.integrate import odeint
 import rospy 
@@ -12,7 +10,6 @@ from cv_bridge import CvBridge, CvBridgeError
 import squaternion 
 import scipy.spatial 
 import pathlib
-# import PIL 
 from PIL import Image as PILImage
 
 from gazebo_msgs.msg import ModelState 
@@ -34,24 +31,26 @@ import matplotlib.pyplot as plt
 from aircraft_model import *
 from aircraft_mpc import *
 from aircraft_simulator import *
-# img_path = '/home/younger/work/Aircraft_landing_verification/src/landing_devel/imgs'
-img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
-class Perception():
-    def __init__(self, net, device, name=''):
-        self.name = name
 
+# Path to the image directory. 
+img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
+
+class Perception():
+    '''
+    Perception module
+    '''
+    def __init__(self, net, device):
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.state_callback)
         rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, self.image_callback)
         self.bridge = CvBridge()
 
-        self.count = -1
-        self.pic_index = 0
-
-        # Camera matrix
+        # Camera matrix (intrinsic matrix)
         self.K = np.array([[1253.2215566867008, 0.0, 320.5], [0.0, 1253.2215566867008, 240.5], [0.0, 0.0, 1.0]])
 
         self.net = net
         self.device = device
+
+        # The set of key points used for state estimation.
         self.keypoints = [[-1221.370483, 16.052534, 0.0],
                         [-1279.224854, 16.947235, 0.0],
                         [-1279.349731, 8.911615, 0.0],
@@ -68,8 +67,12 @@ class Perception():
                         [-1561.039795, -33.577713, 0.0]]
                         # [-600.0, 31.5, 0.0],
                         # [-600.0, -23.5, 0.0]]
+        # Latest ground truth of the aircraft state.
         self.state = None
+        # Latest estimation of the aircraft state.
         self.estimated_state = None
+        # Counter of the number of simulations.
+        self.count = 0 
 
     def state_callback(self, msg):
         pos = msg.pose[1].position
@@ -82,23 +85,23 @@ class Perception():
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
             img = PILImage.fromarray(cv_image, mode='RGB')
-
+            # Get probabilistic heat maps corresponding to the key points.
             output = self.predict_img(img)
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {0}".format(e))
         
 
-        # Key points detection using trained nn.
+        # Key points detection using trained nn. Extract pixels with highest probability.
         keypoints = []
         for i in range(14):
             p = (((output[0,i,:,:]==torch.max(output[0,i,:,:])).nonzero())/args.scale).tolist()
             p[0].reverse()
             keypoints.append(p[0])
 
-        # # Pose estimation using PnP
-        # self.show_image(cv_image, keypoints)
+        # Pose estimation via PnP.
         success, rotation_vector, translation_vector = self.pose_estimation(np.array(keypoints), np.array(self.keypoints), self.K)
         if success:
+            # TODO: THIS PART NEEDS TO BE REVISED.
             Rot = cv2.Rodrigues(rotation_vector)[0]
             RotT = np.matrix(Rot).T
             camera_position = -RotT*np.matrix(translation_vector)
@@ -127,6 +130,7 @@ class Perception():
             print("Pose Estimation Failed.")
 
         self.show_image(cv_image, keypoints)
+
     def show_image(self, cv_image, keypoints):
         kp_img = cv_image
         for i in range(len(keypoints)):
@@ -135,6 +139,9 @@ class Perception():
         cv2.waitKey(3)
 
     def predict_img(self, full_img, scale_factor=1.0, out_threshold=0.5):
+        '''
+        Unet.
+        '''
         img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
         img = img.unsqueeze(0)
         img = img.to(device=self.device, dtype=torch.float32)
@@ -144,36 +151,26 @@ class Perception():
 
             return output 
 
-
-    def mask_to_image(self, mask: np.ndarray, mask_values):
-        if isinstance(mask_values[0], list):
-            out = np.zeros((mask.shape[-2], mask.shape[-1], len(mask_values[0])), dtype=np.uint8)
-        elif mask_values == [0, 1]:
-            out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=bool)
-        else:
-            out = np.zeros((mask.shape[-2], mask.shape[-1]), dtype=np.uint8)
-
-        if mask.ndim == 3:
-            mask = np.argmax(mask, axis=0)
-
-        for i, v in enumerate(mask_values):
-            out[mask == i] = v
-
-        return Image.fromarray(out)
-    
-    def detect_keypoints(self, net, img, device):
-        mask = self.predict_img(net=net, full_img=img, device=device)
-
-        return 
-
     def pose_estimation(self, image_points, object_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
+        '''
+        Pose estimation via solvePnP.
+        '''
         return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
 
-def run_controller(x_true, x_cur, x_ref, scalings, v_max=50, acc_max=10, beta_max=0.02, omega_max=0.03):
-    model = aircraft_model(x_ref, scalings)
-    mpc = aircraft_mpc(model, v_max, acc_max, beta_max, omega_max)
-    simulator = aircraft_simulator(model)
-    # simulator.x0 = x_cur
+def run_controller(x_true, x_cur, x_ref, delta_t, v_max=50, acc_max=20, beta_max=0.02, omega_max=0.03):
+    '''
+    Controller.
+    x_true: ground truth of current state.
+    x_cur: estimation of current state.
+    x_ref: reference waypoint.
+    v_max: maximum speed.
+    acc_max: maximum acceleration.
+    beta_max: maximum yaw rate.
+    omage_max: maximum pitch rate.
+    '''
+    model = aircraft_model(x_ref)
+    mpc = aircraft_mpc(model, v_max, acc_max, beta_max, omega_max, delta_t)
+    simulator = aircraft_simulator(model, delta_t)
     simulator.x0 = np.array(x_true)
     mpc.x0 = x_cur
 
@@ -187,25 +184,17 @@ def run_controller(x_true, x_cur, x_ref, scalings, v_max=50, acc_max=10, beta_ma
 
     return x_next
 
-# def path(t, x = -3000.0, y = 0, z = 100, yaw = 0):
-#     approaching_angle = 3
-#     k = np.tan(approaching_angle*(pi/180))
-#     v = 100.0
-#     # Straight line along x-axis
-#     if  z - k*v*t <= 0:
-#         return  [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), 0, yaw], [-v, 0.0, 0]
-#     return [cos(yaw)*(v*t) + x, (sin(yaw)*(v*t) + y), z - k*v*t, yaw], [-v, -k*v, 0]
-
-def path(cur_state, yaw = 0, dt=0.1):
-    approaching_angle = 3
+def path(cur_state, ref_speed, approaching_angle, yaw = 0, dt=0.05):
+    '''
+    Planner.
+    Generate path for the aircraft to follow.
+    '''
     k = np.tan(approaching_angle*(pi/180))
-    v = 50.0
-    # if (cur_state[1])**2 > 25:
-    #     return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw], [1, 100, 1, 1]
-    # else:
-    # return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw], [1, 1, 1, 
-    return [v*dt + cur_state[0], 0, -(60/2500)*(v*dt + cur_state[0]), yaw], [1, 1, 1, 1]
-    
+    # Reference speed.
+    v = ref_speed
+
+    return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw]
+
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -226,46 +215,70 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel'
 
 def update_aircraft_position(net, device):
-    # initial_state = [-3000.0, 0, 100, 0, 0, 0]
-    initial_state = [-2500.0, 0, 60, 0, 0, 0]
-    # initial_state = [-2200.0, 0, 60, 0, -3*np.pi/180, 0]
+    '''
+    Main function.
+    '''
+    # Initial state of the aircraft.
+    initial_state = [-2500.0, 00, 78.6, 0, 0, 0]
 
+    # One simulation length.
+    delta_t = 0.02
+    # Reference speed
+    ref_speed = 50.0
+    # Angle of the aircraft relative to the ground (in degrees).
+    approaching_angle = 3
+
+    # Perception module.
     perception = Perception(net, device)
     init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
     rospy.wait_for_service('/gazebo/set_model_state')
     try:
+        # Set initial state.
         set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         resp = set_state(init_msg)
     except rospy.ServiceException:
         print("Service call failed")
 
     cur_state = initial_state
-    true_state = cur_state
+    true_state = initial_state
     idx = 0
 
+    # Surrogate model
+    # surrogate_model = tf.keras.models.load_model('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/surrogate_model/model.keras')
+
+    # Ground truth.
     true_states = []
+    # Estimated states.
     estimated_states = []
+    # Filtered states.
     averaged_states = []
+    # Reference states. (waypoints)
     ref_states = []
+    # Reference states projected to the nomial landing trajectory.
+    nominal_states = []
+    # # Estimated states given by the surrogate model.
+    # estimated_states_surrogate = []
+    # Time.
     cur_time = 0
+    # Average y coordinates.
     y_average = np.zeros(50)
+
     while not rospy.is_shutdown():
         time.sleep(0.01)
         if perception.estimated_state is None or len(perception.estimated_state) == 0:
             continue
         estimated_state = perception.estimated_state
-        # print(estimated_state)
-        # print(y_average)
-        y_average[idx%50] = estimated_state[1]
-        estimated_state[1] = np.mean(y_average)
-        ref_state, scalings = path(estimated_state)
 
+        ref_state = path(estimated_state, ref_speed, approaching_angle)
         ref_states.append(ref_state)
 
-        cur_time += 0.1
-        cur_state = run_controller(true_state, np.array(estimated_state), [ref_state[0], ref_state[1], ref_state[2], -3*(pi/180)], scalings)
-        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4])
+        cur_time += delta_t
 
+        cur_state = run_controller(true_state, np.array(estimated_state), [ref_state[0], ref_state[1], ref_state[2], -3*(pi/180)], delta_t)
+        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4])
+    
+        nominal_states.append([ref_speed*delta_t + cur_state[0], 0, cur_state[2] - np.tan(np.deg2rad(approaching_angle))*ref_speed*delta_t, 0])
+        
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
             set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
@@ -279,17 +292,22 @@ def update_aircraft_position(net, device):
 
         
         true_state = [cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4]]
-        # print("State: ", true_state)
-        # print("Estimation: ", perception.estimated_state)
+
         true_states.append(true_state)
         estimated_states.append(perception.estimated_state)
         averaged_states.append(np.mean(y_average))
+        # estimated_states_surrogate.append(surrogate_model.predict(true_state))
         perception.count = idx
         idx += 1
+        
         np.save("ground_truth", np.array(true_states))
         np.save("estimation", np.array(estimated_states))
         np.save("ref_states", np.array(ref_states))
         np.save("averaged_states", np.array(averaged_states))
+        np.save("nominal_states", np.array(nominal_states))
+        # np.save("surrogate_model_predicted_states", np.array(estimated_states_surrogate))
+        # if true_state[0] > -2350:
+        #     break
 
 import argparse
 import logging
@@ -315,24 +333,21 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
     rospy.init_node('update_poses', anonymous=True)
-
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-    # net = UNet(in_channels=3, out_classes=16)
-    net = UNet(n_channels=3, n_classes=14, bilinear=args.bilinear)
 
-
+    net = UNet(n_channels=3, n_classes=14, bilinear=args.bilinear) 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Loading model {args.model}')
     logging.info(f'Using device {device}')
-
     net.to(device=device)
+    # Load trained model.
     state_dict = torch.load(args.model, map_location=device)
-    # mask_values = state_dict.pop('mask_values', [0, 1])
     net.load_state_dict(state_dict)
     logging.info('Model loaded!')
 
     try:
+        # Run simulation.
         update_aircraft_position(net, device)
     except rospy.exceptions.ROSInterruptException:
         rospy.loginfo("Stop updating aircraft positions.")

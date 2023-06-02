@@ -5,7 +5,7 @@ Model of the aircraft.
 from casadi import *
 import do_mpc
 
-def aircraft_model(ref_x, scalings):
+def aircraft_model(ref_x, scalings=None):
     model_type = 'continuous' # either 'discrete' or 'continuous'
     model = do_mpc.model.Model(model_type)
 
@@ -17,7 +17,8 @@ def aircraft_model(ref_x, scalings):
     # Track pitch.
     # cost = scalings[0]*(x[0] - ref_x[0])**2 + scalings[1]*(x[1] - ref_x[1])**2 + scalings[2]*(x[2] - ref_x[2])**2 + scalings[3]*(x[4] - ref_x[3])**2 
     # cost = scalings[0]*(x[0] - ref_x[0])**2 + scalings[1]*(x[1] - ref_x[1])**2 + scalings[2]*(x[2] - ref_x[2])**2 + scalings[3]*(x[5] - ref_x[3])**2
-    cost = scalings[0]*(x[0] - ref_x[0])**2 + 100*scalings[1]*(x[1] - ref_x[1])**2 + 10*scalings[2]*(x[2] - ref_x[2])**2 + scalings[3]*(x[5] - ref_x[3])**2
+
+    cost = 10*(x[0] - ref_x[0])**2 + (10*x[1])**2 + 10*(x[2] - ref_x[2])**2 + (10*x[4])**2 
 
     term_cost = cost
     # *****************************************************
