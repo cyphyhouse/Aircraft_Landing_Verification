@@ -1,8 +1,11 @@
 import numpy as np 
 import matplotlib.pyplot as plt 
+import os 
 
-data_path = 'D:/1_study/1_research/Aircraft_Landing_Verification/landing_devel/data/data.txt'
-label_path = 'D:/1_study/1_research/Aircraft_Landing_Verification/landing_devel/estimation_label/label.txt'
+script_dir = os.path.realpath(os.path.dirname(__file__))
+
+data_path = os.path.join(script_dir, 'data/data.txt')
+label_path = os.path.join(script_dir, 'estimation_label/label.txt')
 data = np.loadtxt(data_path, delimiter=',')
 label = np.loadtxt(label_path, delimiter=',')
 # table = [row.strip().split('\n') for row in x]
@@ -12,8 +15,8 @@ label_train = label[:, 1:]
 # tmp = data[8000:, 1:]
 # label_test = label[8000:, 1:]
 
-tmp = np.load('D:/1_study/1_research/Aircraft_Landing_Verification/landing_devel/ground_truth.npy', allow_pickle=True)
-label_test = np.load('D:/1_study/1_research/Aircraft_Landing_Verification/landing_devel/estimation.npy', allow_pickle=True)
+tmp = np.load(os.path.join(script_dir, 'ground_truth.npy'), allow_pickle=True)
+label_test = np.load(os.path.join(script_dir, 'estimation.npy'), allow_pickle=True)
 
 # tmp = np.array(tmp)
 # print(len(tmp))
@@ -26,6 +29,12 @@ for i in range(len(tmp[:, 0])):
     data_test.append(np.array([tmp[i][0], tmp[i][1], tmp[i][2], tmp[i][3], tmp[i][4], tmp[i][5]])) 
     # print(state)
 data_test = np.array(data_test)
+
+# idx_list = np.where(data_train[:,0]<-3150)
+# print(idx_list)
+# plt.figure()
+# plt.plot(data_train[idx_list,0],label_train[idx_list,0], 'b*')
+# plt.show()
 
 plt.figure()
 plt.plot(data_train[:,0], label_train[:,0],'b*', label='Training Set')

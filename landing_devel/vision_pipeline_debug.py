@@ -1,3 +1,9 @@
+import torch
+import torch.nn.functional as F
+from unet import UNet
+from utils.data_loading import BasicDataset
+import os 
+
 import numpy as np
 from math import cos, sin, atan2, sqrt, pi, asin
 import math
@@ -16,6 +22,7 @@ import pathlib
 import PIL 
 from scipy.spatial.transform import Rotation 
 import os 
+import matplotlib.pyplot as plt 
 
 from gazebo_msgs.msg import ModelState 
 from gazebo_msgs.srv import SetModelState
@@ -30,13 +37,10 @@ from sensor_msgs.msg import Image
 
 from PIL import Image as PILImage
 
-
-import os
-import random
-
 script_dir = os.path.realpath(os.path.dirname(__file__))
 data_path = os.path.join(script_dir, 'data')
 label_path = os.path.join(script_dir, 'estimation_label')
+
 keypoints = [[-1221.370483, 16.052534, 0.0],
             [-1279.224854, 16.947235, 0.0],
             [-1279.349731, 8.911615, 0.0],
@@ -51,6 +55,15 @@ keypoints = [[-1221.370483, 16.052534, 0.0],
             [-1520.886353,  -30.761044, 0.0],
             [-1561.039063, 31.522200, 0.0],
             [-1561.039795, -33.577713, 0.0]]
+
+state = [-2059.14528931807, 16.929378525681287, 78.94230471253142, -0.006404359870595885, 0.07330915315431319, 0.04344930732117952]
+
+cv_bridge = CvBridge()
+cv_img = None
+def image_callback(img_msg):
+    global cv_img
+    cv_img = cv_bridge.imgmsg_to_cv2(img_msg, "passthrough")
+    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
 
 K = np.array([[1253.2215566867008, 0.0, 320.5], [0.0, 1253.2215566867008, 240.5], [0.0, 0.0, 1.0]])
 def create_state_msd(x, y, z, roll, pitch, yaw):
@@ -70,23 +83,6 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 
     return state_msg
 
-cv_bridge = CvBridge()
-cv_img = None
-def image_callback(img_msg):
-    global cv_img
-    cv_img = cv_bridge.imgmsg_to_cv2(img_msg, "passthrough")
-    cv_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-
-def sample_pose():
-    x = random.uniform(-2000, -3200)
-    y = random.uniform(-45, 45)
-    z = random.uniform(20, 150)
-    roll = random.uniform(-0.05, 0.05)
-    pitch = random.uniform(-0.1, 0.1)
-    yaw = random.uniform(-0.1, 0.1)
-
-    return [x, y, z, roll, pitch, yaw]
-
 def convert_to_image(world_pos, ego_pos, ego_ori):
     objectPoints = np.array(world_pos) 
     R = Rotation.from_quat(ego_ori)
@@ -100,33 +96,6 @@ def convert_to_image(world_pos, ego_pos, ego_ori):
     distCoeffs = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
     pnt,_ = cv2.projectPoints(objectPoints,rvec,tvec,cameraMatrix,distCoeffs)
     return pnt  
-
-def check_valid_img(success, rotation_vector, translation_vector, state_ground_truth, tolr=1):
-    if success:
-        estimated_state = state_estimation_func(rotation_vector,translation_vector)
-        # estimated_state[3] = estimated_state[3]-pi
-        estimation_error = np.linalg.norm(np.array(estimated_state) - np.array(state_ground_truth))
-        print("State estimation: ", estimated_state)
-        print("State ground truth: ", state_ground_truth)
-        if 0.5*(abs(estimated_state[0] - state_ground_truth[0]) + abs(estimated_state[1] - state_ground_truth[1]) + abs(estimated_state[2] - state_ground_truth[2])) + (abs(estimated_state[3] - state_ground_truth[3]) + abs(estimated_state[4] - state_ground_truth[4]) + abs(estimated_state[5] - state_ground_truth[5])) > 1:
-            return False, estimation_error, estimated_state
-        return True, estimation_error, estimated_state
-    else:
-        return False, math.inf, []
-
-def predict_img(full_img, scale_factor=1.0, out_threshold=0.5):
-    '''
-    Unet.
-    '''
-    global net, device
-    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
-    img = img.unsqueeze(0)
-    img = img.to(device=device, dtype=torch.float32)
-
-    with torch.no_grad():
-        output = net(img).cpu()
-
-        return output 
 
 def pose_estimation(image_points, object_points, camera_matrix, dist_coeffs=np.zeros((4, 1))):
     '''
@@ -160,6 +129,31 @@ def state_estimation_func(rotation_vector, translation_vector):
 
     return [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2,0], yawpitchroll_angles[1,0], yawpitchroll_angles[0,0]]
 
+def check_valid_img(success, rotation_vector, translation_vector, state_ground_truth, tolr=1):
+    if success:
+        estimated_state = state_estimation_func(rotation_vector,translation_vector)
+        estimation_error = np.linalg.norm(np.array(estimated_state) - np.array(state_ground_truth))
+        print("State estimation: ", estimated_state)
+        print("State ground truth: ", state_ground_truth)
+        if 0.5*(abs(estimated_state[0] - state_ground_truth[0]) + abs(estimated_state[1] - state_ground_truth[1]) + abs(estimated_state[2] - state_ground_truth[2])) + (abs(estimated_state[3] - state_ground_truth[3]) + abs(estimated_state[4] - state_ground_truth[4]) + abs(estimated_state[5] - state_ground_truth[5])) > 1:
+            return False, estimation_error, estimated_state
+        return True, estimation_error, estimated_state
+    else:
+        return False, math.inf, []
+
+def predict_img(full_img, scale_factor=1.0, out_threshold=0.5):
+    '''
+    Unet.
+    '''
+    global net, device
+    img = torch.from_numpy(BasicDataset.preprocess(None, full_img, scale_factor, is_mask=False))
+    img = img.unsqueeze(0)
+    img = img.to(device=device, dtype=torch.float32)
+
+    with torch.no_grad():
+        output = net(img).cpu()
+
+        return output 
 
 def state_estimator(cv_image):
     try:
@@ -178,11 +172,21 @@ def state_estimator(cv_image):
         # p[0] = 640 - p[0]
         # p[1] = 480 - p[1]
         keypoints_detected.append(p)
+    
+    output_vis = output.numpy().squeeze()
 
+    plt.figure()
+    plt.imshow(cv_image)
+
+    plt.figure()
+    for i in range(14):
+        output_vis_sum = np.sum(output_vis, axis=0)
+        plt.imshow(output_vis_sum[:,:])
     # Pose estimation via PnP.
     # print("Key points: ", keypoints_detected)
     # show_image(cv_image, keypoints)
     success, rotation_vector, translation_vector = pose_estimation(np.array(keypoints_detected), np.array(keypoints), K)
+    plt.show()
     if success:
         # TODO: THIS PART NEEDS TO BE REVISED.
         estimated_state = state_estimation_func(rotation_vector, translation_vector)
@@ -191,91 +195,64 @@ def state_estimator(cv_image):
         print("Pose Estimation Failed.")
         return None, None, None, None
 
+
+
 def sample_state_estimator():
     global cv_img
     rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
-    initial_state =  [-3000.0, 0.0, 100.0, 0, 0, 0]
-    init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
+
+    idx = 0
+    state_rand = [-3085.999598939704, -1.1849469497129377, 72.11425115455708, 0.03860702954395173, 0.016038298686443242, 0.0515880770896093]
+    state_msg = create_state_msd(state_rand[0], state_rand[1], state_rand[2], state_rand[3], state_rand[4], state_rand[5])
+
     rospy.wait_for_service('/gazebo/set_model_state')
     try:
         set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-        resp = set_state(init_msg)
+        _ = set_state( state_msg )
     except rospy.ServiceException:
         print("Service call failed")
 
-    cur_state = initial_state
+    time.sleep(0.01)
+    q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
+    offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
+    aircraft_pos = np.array([state_rand[0], state_rand[1], state_rand[2]]) # x,y,z
+    aircraft_ori = [q.x, q.y, q.z, q.w] # x,y,z,w
+    R = Rotation.from_quat(aircraft_ori)
+    aircraft_pos += offset_vec
 
-    data_fn = os.path.join(data_path, f"data.txt")
-    label_fn = os.path.join(label_path, f"label.txt")
-    with open(data_fn,'w+') as f:
-        pass    
-    with open(label_fn,'w+') as f:
-        pass    
-    idx = 0
-    while not rospy.is_shutdown():
-        state_rand = sample_pose()
-        state_msg = create_state_msd(state_rand[0], state_rand[1], state_rand[2], state_rand[3], state_rand[4], state_rand[5])
-
-        rospy.wait_for_service('/gazebo/set_model_state')
-        try:
-            set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-            _ = set_state( state_msg )
-        except rospy.ServiceException:
-            print("Service call failed")
-
-        time.sleep(0.05)
-        q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
-        offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
-        aircraft_pos = np.array([state_rand[0], state_rand[1], state_rand[2]]) # x,y,z
-        aircraft_ori = [q.x, q.y, q.z, q.w] # x,y,z,w
-        R = Rotation.from_quat(aircraft_ori)
-        aircraft_pos += offset_vec
-
-        keypoint_position_in_image = []
-        for i in range(len(keypoints)):
-            image_coordinate = convert_to_image(keypoints[i], aircraft_pos, aircraft_ori).flatten()
-            image_coordinate[0] = 640-image_coordinate[0]
-            image_coordinate[1] = 480-image_coordinate[1]
-            if image_coordinate[0] > 640 or image_coordinate[0] < 0 or image_coordinate[1] > 480 or image_coordinate[1] < 0:
-                break
-            keypoint_position_in_image.append(image_coordinate.tolist())
-        if len(np.array(keypoint_position_in_image)) < 14:
-            continue
-        # print(keypoint_position_in_image)
-        # print(np.array(keypoints).shape)
-        success, rotation_vector, translation_vector = pose_estimation(np.array(keypoint_position_in_image), np.array(keypoints), K)
-        valid_img, error, estimated_state = check_valid_img(success, rotation_vector, translation_vector, state_rand)
-        # q_estimated = squaternion.Quaternion.from_euler(estimated_state[3], estimated_state[4], estimated_state[5])
-        if not valid_img or cv_img is None:
-            continue
-
-        time.sleep(0.05)
-
-        # cv2.imshow('camera', cv_img)
-        # cv2.waitKey(3)
-        state_estimation, kps, est_rot, est_trans = state_estimator(cv_img)
-        kp_img = cv_img 
-        for kp in kps:
-            kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
-        cv2.imshow('camera', cv_img)
-        cv2.waitKey(3)
-        
-        if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
-            print("stop here")
-
-        print("Estimated state: ", state_estimation)
-        with open(data_fn,'a+') as f:
-            f.write(f"\n{idx}, {state_rand[0]}, {state_rand[1]}, {state_rand[2]}, {state_rand[3]}, {state_rand[4]}, {state_rand[5]}")
-
-        with open(label_fn,'a+') as f:
-            f.write(f"\n{idx}, {state_estimation[0]}, {state_estimation[1]}, {state_estimation[2]}, {state_estimation[3]}, {state_estimation[4]}, {state_estimation[5]}")
-        
-        idx += 1
-        if idx > 10000:
+    keypoint_position_in_image = []
+    for i in range(len(keypoints)):
+        image_coordinate = convert_to_image(keypoints[i], aircraft_pos, aircraft_ori).flatten()
+        image_coordinate[0] = 640-image_coordinate[0]
+        image_coordinate[1] = 480-image_coordinate[1]
+        if image_coordinate[0] > 640 or image_coordinate[0] < 0 or image_coordinate[1] > 480 or image_coordinate[1] < 0:
             break
+        keypoint_position_in_image.append(image_coordinate.tolist())
+    if len(np.array(keypoint_position_in_image)) < 14:
+        return
+    # print(keypoint_position_in_image)
+    # print(np.array(keypoints).shape)
+    success, rotation_vector, translation_vector = pose_estimation(np.array(keypoint_position_in_image), np.array(keypoints), K)
+    valid_img, error, estimated_state = check_valid_img(success, rotation_vector, translation_vector, state_rand)
+    # q_estimated = squaternion.Quaternion.from_euler(estimated_state[3], estimated_state[4], estimated_state[5])
+    if not valid_img or cv_img is None:
+        return
 
+    # cv2.imshow('camera', cv_img)
+    # cv2.waitKey(3)
+    state_estimation, kps, est_rot, est_trans = state_estimator(cv_img)
+    kp_img = cv_img 
+    for kp in kps:
+        kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
+    cv2.imshow('camera', cv_img)
+    cv2.waitKey(3)
+    
+    if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
+        print("stop here")
 
+    print("Estimated state: ", state_estimation)
+    
 import argparse
 import logging
 def get_args():
@@ -296,12 +273,6 @@ def get_args():
     parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
     
     return parser.parse_args()
-
-
-import torch
-import torch.nn.functional as F
-from unet import UNet
-from utils.data_loading import BasicDataset
 
 if __name__ == "__main__":
     global net, device

@@ -1,8 +1,9 @@
 import torch
 import numpy as np 
+import os 
+import copy
 
 class SurrogateModel(torch.nn.Module):
-
     def __init__(self):
         super(SurrogateModel, self).__init__()
 
@@ -24,8 +25,22 @@ class SurrogateModel(torch.nn.Module):
         x = self.linear4(x)
         return x
 
-data_path = 'D:/1_study/1_research/Aircraft_Landing_Verification/landing_devel/data/data.txt'
-label_path = 'D:/1_study/1_research/Aircraft_Landing_Verification/landing_devel/estimation_label/label.txt'
+def loss(predict, label):
+    error = 1/predict.shape[0]*torch.sum(
+        (predict[:,0]-label[:,0])**2 + \
+        (predict[:,1]-label[:,1])**2 + \
+        (predict[:,2]-label[:,2])**2 + \
+        100000*(predict[:,3]-label[:,3])**2 + \
+        100000*(predict[:,4]-label[:,4])**2 + \
+        100000*(predict[:,5]-label[:,5])**2 
+    )
+    return error 
+
+script_dir = os.path.realpath(os.path.dirname(__file__))
+
+data_path = os.path.join(script_dir, 'data/data.txt')
+label_path = os.path.join(script_dir, 'estimation_label/label.txt')
+
 data = np.loadtxt(data_path, delimiter=',')
 label = np.loadtxt(label_path, delimiter=',')
 
@@ -41,15 +56,21 @@ label_train_tensor = torch.FloatTensor(label_train)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.995)
-loss = torch.nn.MSELoss()
+# loss = torch.nn.MSELoss()
 
-for i in range(10000):
+best_loss = float('inf')
+best_model = None 
+
+for i in range(100000):
     predict = model(data_train_tensor)
     error = loss(predict, label_train_tensor)
-    print(i, error)
+    if error < best_loss:
+        print(i, error)
+        best_loss = error 
+        best_model = copy.deepcopy(model)
     optimizer.zero_grad()
     error.backward()
     optimizer.step()
     scheduler.step()
 
-torch.save(model, './pytorch_model.pth')    
+torch.save(best_model, os.path.join(script_dir,'./surrogate_model.pth'))    
