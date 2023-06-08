@@ -25,11 +25,12 @@ import os
 import matplotlib.pyplot as plt 
 
 from gazebo_msgs.msg import ModelState 
-from gazebo_msgs.srv import SetModelState
+from gazebo_msgs.srv import SetModelState, SetLightProperties
 from rosplane_msgs.msg import State
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
+from std_msgs.msg import ColorRGBA
 
 # from aircraft_model import *
 # from aircraft_mpc import *
@@ -56,7 +57,9 @@ keypoints = [[-1221.370483, 16.052534, 0.0],
             [-1561.039063, 31.522200, 0.0],
             [-1561.039795, -33.577713, 0.0]]
 
-state = [-2059.14528931807, 16.929378525681287, 78.94230471253142, -0.006404359870595885, 0.07330915315431319, 0.04344930732117952]
+state = [-3001.4117941120794, -14.106879907553605, 61.10726693286948, 0.018147651076384247, -0.03218774235308877, 0.09911239499369592]
+
+GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
 
 cv_bridge = CvBridge()
 cv_img = None
@@ -175,18 +178,25 @@ def state_estimator(cv_image):
     
     output_vis = output.numpy().squeeze()
 
+    kp_img = cv_img 
+    for kp in keypoints_detected:
+        kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
+    
+    # alpha = 0.5
+    # beta = 10.0
+
+    # adjusted = cv2.convertScaleAbs(cv_image, alpha=alpha, beta=beta)
+
     plt.figure()
-    plt.imshow(cv_image)
+    plt.imshow(cv_img)
 
     plt.figure()
     for i in range(14):
         output_vis_sum = np.sum(output_vis, axis=0)
         plt.imshow(output_vis_sum[:,:])
-    # Pose estimation via PnP.
-    # print("Key points: ", keypoints_detected)
-    # show_image(cv_image, keypoints)
-    success, rotation_vector, translation_vector = pose_estimation(np.array(keypoints_detected), np.array(keypoints), K)
     plt.show()
+    
+    success, rotation_vector, translation_vector = pose_estimation(np.array(keypoints_detected), np.array(keypoints), K)
     if success:
         # TODO: THIS PART NEEDS TO BE REVISED.
         estimated_state = state_estimation_func(rotation_vector, translation_vector)
@@ -196,14 +206,39 @@ def state_estimator(cv_image):
         return None, None, None, None
 
 
+def set_light_properties(light_value: float) -> None:
+    
+    rospy.wait_for_service(GZ_SET_LIGHT_PROPERTIES)
+    try:
+        set_light_properties_srv = \
+            rospy.ServiceProxy(GZ_SET_LIGHT_PROPERTIES, SetLightProperties)
+        resp = set_light_properties_srv(
+            light_name='sun',
+            cast_shadows=True,
+            diffuse=ColorRGBA(int(204*light_value),int(204*light_value),int(204*light_value),255),
+            specular=ColorRGBA(51, 51, 51, 255),
+            attenuation_constant=0.9,
+            attenuation_linear=0.01,
+            attenuation_quadratic=0.0,
+            direction=Vector3(-0.483368, 0.096674, -0.870063),
+            pose=Pose(position=Point(0, 0, 10), orientation=Quaternion(0, 0, 0, 1))
+        )
+        # TODO Check response
+    except rospy.ServiceException as e:
+        rospy.logwarn("Service call failed: %s" % e)
 
 def sample_state_estimator():
     global cv_img
     rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
 
+    light_value = 1.0
+    print(f"Light level: {light_value}")
+    set_light_properties(light_value)
+    time.sleep(0.1)
+
     idx = 0
-    state_rand = [-3085.999598939704, -1.1849469497129377, 72.11425115455708, 0.03860702954395173, 0.016038298686443242, 0.0515880770896093]
+    state_rand = [-2871.9799410997866, 12.59451562163403, 145.15076125884494, -0.03522920197575701, 0.027260786526385833, 0.06154599025505314]
     state_msg = create_state_msd(state_rand[0], state_rand[1], state_rand[2], state_rand[3], state_rand[4], state_rand[5])
 
     rospy.wait_for_service('/gazebo/set_model_state')
@@ -213,7 +248,7 @@ def sample_state_estimator():
     except rospy.ServiceException:
         print("Service call failed")
 
-    time.sleep(0.01)
+    time.sleep(0.1)
     q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
     offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
     aircraft_pos = np.array([state_rand[0], state_rand[1], state_rand[2]]) # x,y,z
@@ -241,12 +276,13 @@ def sample_state_estimator():
 
     # cv2.imshow('camera', cv_img)
     # cv2.waitKey(3)
+    # for i in range(10):
     state_estimation, kps, est_rot, est_trans = state_estimator(cv_img)
-    kp_img = cv_img 
-    for kp in kps:
-        kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
-    cv2.imshow('camera', cv_img)
-    cv2.waitKey(3)
+    # kp_img = cv_img 
+    # for kp in kps:
+    #     kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
+    # cv2.imshow('camera', cv_img)
+    # cv2.waitKey(3)
     
     if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
         print("stop here")

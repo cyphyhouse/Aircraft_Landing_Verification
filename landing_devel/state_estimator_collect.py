@@ -16,13 +16,15 @@ import pathlib
 import PIL 
 from scipy.spatial.transform import Rotation 
 import os 
+import copy
 
 from gazebo_msgs.msg import ModelState 
-from gazebo_msgs.srv import SetModelState
+from gazebo_msgs.srv import SetModelState,SetLightProperties
 from rosplane_msgs.msg import State
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion, Vector3
 from sensor_msgs.msg import Image
+from std_msgs.msg import ColorRGBA
 
 # from aircraft_model import *
 # from aircraft_mpc import *
@@ -33,6 +35,8 @@ from PIL import Image as PILImage
 
 import os
 import random
+
+from typing import List
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 data_path = os.path.join(script_dir, 'data')
@@ -191,7 +195,35 @@ def state_estimator(cv_image):
         print("Pose Estimation Failed.")
         return None, None, None, None
 
-def sample_state_estimator():
+def set_light_properties(light_value: float) -> None:
+    GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
+    rospy.wait_for_service(GZ_SET_LIGHT_PROPERTIES)
+    try:
+        set_light_properties_srv = \
+            rospy.ServiceProxy(GZ_SET_LIGHT_PROPERTIES, SetLightProperties)
+        resp = set_light_properties_srv(
+            light_name='sun',
+            cast_shadows=True,
+            diffuse=ColorRGBA(int(204*light_value),int(204*light_value),int(204*light_value),255),
+            specular=ColorRGBA(51, 51, 51, 255),
+            attenuation_constant=0.9,
+            attenuation_linear=0.01,
+            attenuation_quadratic=0.0,
+            direction=Vector3(-0.483368, 0.096674, -0.870063),
+            pose=Pose(position=Point(0, 0, 10), orientation=Quaternion(0, 0, 0, 1))
+        )
+        # TODO Check response
+    except rospy.ServiceException as e:
+        rospy.logwarn("Service call failed: %s" % e)
+
+def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
+    '''
+        gazebo_modifiers: List[Tuple]. A list of functions that can modify gazebo simulation environment. The first elemenet of tuple is a function
+        and the later elements of the tuple are intervals for parameters to the first element 
+        image_modifiers: List[Tuple]. A list of functions that can process the generated images. The first element 
+        of the tuple is the function it self and other elements are inputs to the function. The image process function 
+        will have type f: image x parameters -> image 
+    '''
     global cv_img
     rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
@@ -224,7 +256,17 @@ def sample_state_estimator():
         except rospy.ServiceException:
             print("Service call failed")
 
-        time.sleep(0.05)
+        env_parameters = []
+
+        for gazebo_modifier in gazebo_modifiers:
+            func = gazebo_modifier[0]
+            param_list = []
+            for i in range(1, len(gazebo_modifier)):
+                param_list.append(np.random.uniform(gazebo_modifier[i][0],gazebo_modifier[i][1]))
+            func(*param_list)
+            env_parameters += param_list 
+        
+        time.sleep(0.1)
         q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
         offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
         aircraft_pos = np.array([state_rand[0], state_rand[1], state_rand[2]]) # x,y,z
@@ -250,29 +292,44 @@ def sample_state_estimator():
         if not valid_img or cv_img is None:
             continue
 
-        time.sleep(0.05)
+        time.sleep(0.1)
 
         # cv2.imshow('camera', cv_img)
         # cv2.waitKey(3)
-        state_estimation, kps, est_rot, est_trans = state_estimator(cv_img)
-        kp_img = cv_img 
+
+        modified_img = copy.deepcopy(cv_img)
+        for image_modifier in image_modifiers:
+            func = image_modifier[0]
+            param_list = []
+            for i in range(1, len(image_modifier)):
+                param_list.append(np.random.uniform(image_modifier[i][0],image_modifier[i][1]))
+            modified_img = func(modified_img, *param_list)
+            env_parameters += param_list 
+
+        state_estimation, kps, est_rot, est_trans = state_estimator(modified_img)
+        kp_img = modified_img 
         for kp in kps:
             kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
-        cv2.imshow('camera', cv_img)
+        cv2.imshow('camera', modified_img)
         cv2.waitKey(3)
         
+        corrupted = "no"
         if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
             print("stop here")
+            corrupted = 'yes'
 
-        print("Estimated state: ", state_estimation)
+        print(f"{idx} Estimated state: ", state_estimation)
         with open(data_fn,'a+') as f:
-            f.write(f"\n{idx}, {state_rand[0]}, {state_rand[1]}, {state_rand[2]}, {state_rand[3]}, {state_rand[4]}, {state_rand[5]}")
+            state_str = f"\n{idx}, {state_rand[0]}, {state_rand[1]}, {state_rand[2]}, {state_rand[3]}, {state_rand[4]}, {state_rand[5]}"
+            for param in env_parameters:
+                state_str += f", {param}"
+            f.write(state_str)
 
         with open(label_fn,'a+') as f:
             f.write(f"\n{idx}, {state_estimation[0]}, {state_estimation[1]}, {state_estimation[2]}, {state_estimation[3]}, {state_estimation[4]}, {state_estimation[5]}")
         
         idx += 1
-        if idx > 10000:
+        if idx > 50000:
             break
 
 
@@ -321,7 +378,9 @@ if __name__ == "__main__":
 
     try:
         # Run simulation.
-        sample_state_estimator()
+        sample_state_estimator(gazebo_modifiers=[
+            (set_light_properties, [0.5, 1.25])
+        ])
     except rospy.exceptions.ROSInterruptException:
         rospy.loginfo("Stop updating aircraft positions.")
         
