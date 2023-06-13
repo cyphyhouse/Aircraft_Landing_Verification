@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os 
 
-# script_dir = os.path.realpath(os.path.dirname(__file__))
+script_dir = os.path.realpath(os.path.dirname(__file__))
 
-# data_path = os.path.join(script_dir, 'data/data_backup.txt')
-# label_path = os.path.join(script_dir, 'estimation_label/label_backup.txt')
+data_path = os.path.join(script_dir, '../data/data_backup.txt')
+label_path = os.path.join(script_dir, '../estimation_label/label_backup.txt')
 
 data_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/data/data_verif.txt'
 label_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/estimation_label/label_verif.txt'
