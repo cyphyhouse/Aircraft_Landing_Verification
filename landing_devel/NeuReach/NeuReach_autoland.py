@@ -24,7 +24,7 @@ parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for 
 # parser.add_argument('--N_t', type=int, default=100, help='Number of samples for the time instant t.')
 parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
 parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in the second layer of the NN.')
-parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training.')
+parser.add_argument('--epochs', type=int, default=30, help='Number of epochs for training.')
 parser.add_argument('--lr', dest='learning_rate', type=float, default=0.01, help='Learning rate.')
 # parser.add_argument('--data_file_train', default='train.pklz', type=str, help='Path to the file for storing the generated training data set.')
 parser.add_argument('--data_dir', default='/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel', type=str, help='Path to the file for storing the generated training data set.')
@@ -49,9 +49,9 @@ torch.manual_seed(args.seed)
 
 os.system('mkdir '+args.log)
 os.system('echo "%s" > %s/cmd.txt'%(' '.join(sys.argv), args.log))
-os.system('cp *.py '+args.log)
-os.system('cp -r systems/ '+args.log)
-os.system('cp -r ODEs/ '+args.log)
+# os.system('cp *.py '+args.log)
+# os.system('cp -r systems/ '+args.log)
+# os.system('cp -r ODEs/ '+args.log)
 
 # config = importlib.import_module('system_'+args.system)
 model, forward = get_model_rect(6, 6, args.layer1, args.layer2)
@@ -122,7 +122,7 @@ def trainval(epoch, dataloader, writer, training, alpha, _lambda):
             # _hinge_loss = hinge_loss_function(LHS, RHS, args)
             # _volume_loss = -torch.log((TransformMatrix + 0.01 * torch.eye(TransformMatrix.shape[-1]).unsqueeze(0).type(X0.type())).det().abs())
             _hinge_loss = hinge_loss_function(LHS, RHS, alpha)
-            _volume_loss = torch.prod(torch.abs(TransformMatrix),1)
+            _volume_loss = torch.sum(torch.abs(TransformMatrix))
 
             _hinge_loss = _hinge_loss.mean()
             _volume_loss = _volume_loss.mean()
@@ -187,4 +187,4 @@ for epoch in range(args.epochs):
     if loss < best_loss:
         best_loss = loss
         # best_prec = prec
-        save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()})
+        save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_{epoch}.pth.tar")

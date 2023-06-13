@@ -238,8 +238,8 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
 
     cur_state = initial_state
 
-    data_fn = os.path.join(data_path, f"data.txt")
-    label_fn = os.path.join(label_path, f"label.txt")
+    data_fn = os.path.join(data_path, f"data_test.txt")
+    label_fn = os.path.join(label_path, f"label_test.txt")
     with open(data_fn,'w+') as f:
         pass    
     with open(label_fn,'w+') as f:
