@@ -13,11 +13,14 @@ from model import get_model_rect
 import sys
 sys.path.append('systems')
 
+import os 
+script_dir = os.path.realpath(os.path.dirname(__file__))
+
 import argparse
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
-parser.add_argument('--lambda', dest='_lambda', type=float, default=0.03, help='lambda for balancing the two loss terms.')
+parser.add_argument('--lambda', dest='_lambda', type=float, default=0.1, help='lambda for balancing the two loss terms.')
 parser.add_argument('--alpha', dest='alpha', type=float, default=0.001, help='Hyper-parameter in the hinge loss.')
 # parser.add_argument('--N_X0', type=int, default=100, help='Number of samples for the initial set X0.')
 parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
@@ -27,12 +30,12 @@ parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in
 parser.add_argument('--epochs', type=int, default=30, help='Number of epochs for training.')
 parser.add_argument('--lr', dest='learning_rate', type=float, default=0.01, help='Learning rate.')
 # parser.add_argument('--data_file_train', default='train.pklz', type=str, help='Path to the file for storing the generated training data set.')
-parser.add_argument('--data_dir', default='/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel', type=str, help='Path to the file for storing the generated training data set.')
-parser.add_argument('--label_dir', default='/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel', type=str, help='Path to the file for storing the generated training data set.')
+parser.add_argument('--data_dir', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated training data set.')
+parser.add_argument('--label_dir', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated training data set.')
 
-parser.add_argument('--data_file_eval', default='/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel', type=str, help='Path to the file for storing the generated evaluation data set.')
+parser.add_argument('--data_file_eval', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated evaluation data set.')
 
-parser.add_argument('--log', default='/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/NeuReach/log', type=str, help='Path to the directory for storing the logging files.')
+parser.add_argument('--log', default=os.path.join(script_dir, '../NeuReach/log'), type=str, help='Path to the directory for storing the logging files.')
 parser.add_argument('--no_cuda', dest='use_cuda', action='store_false', help='Use this option to disable cuda, if you want to train the NN on CPU.')
 parser.set_defaults(use_cuda=True)
 
@@ -122,7 +125,7 @@ def trainval(epoch, dataloader, writer, training, alpha, _lambda):
             # _hinge_loss = hinge_loss_function(LHS, RHS, args)
             # _volume_loss = -torch.log((TransformMatrix + 0.01 * torch.eye(TransformMatrix.shape[-1]).unsqueeze(0).type(X0.type())).det().abs())
             _hinge_loss = hinge_loss_function(LHS, RHS, alpha)
-            _volume_loss = torch.sum(torch.abs(TransformMatrix))
+            _volume_loss = torch.sum(torch.abs(TransformMatrix),1)
 
             _hinge_loss = _hinge_loss.mean()
             _volume_loss = _volume_loss.mean()
@@ -186,5 +189,6 @@ for epoch in range(args.epochs):
     # if prec > best_prec:
     if loss < best_loss:
         best_loss = loss
+        print(best_loss)
         # best_prec = prec
         save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_{epoch}.pth.tar")

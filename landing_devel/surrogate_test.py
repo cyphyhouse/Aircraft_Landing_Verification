@@ -39,13 +39,13 @@ for i in range(len(ground_truth_position[:, 0])):
 ground_truth_state = np.array(ground_truth_state)
 
 
-data_path = os.path.join(script_dir, 'data/data.txt')
-label_path = os.path.join(script_dir, 'estimation_label/label.txt')
+data_path = os.path.join(script_dir, 'data/data_verif.txt')
+label_path = os.path.join(script_dir, 'estimation_label/label_verif.txt')
 x = np.loadtxt(data_path, delimiter=',')
 y = np.loadtxt(label_path, delimiter=',')
 
-ground_truth_state=x[30000:, 1:]
-estimate_pos = y[30000:, 1:]
+ground_truth_state=x[:, 1:]
+estimate_pos = y[:, 1:]
 
 ground_truth_state_tensor = torch.FloatTensor(ground_truth_state)
 estimate_pos_tensor = torch.FloatTensor(estimate_pos)
