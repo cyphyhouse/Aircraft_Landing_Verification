@@ -256,16 +256,6 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
         except rospy.ServiceException:
             print("Service call failed")
 
-        env_parameters = []
-
-        for gazebo_modifier in gazebo_modifiers:
-            func = gazebo_modifier[0]
-            param_list = []
-            for i in range(1, len(gazebo_modifier)):
-                param_list.append(np.random.uniform(gazebo_modifier[i][0],gazebo_modifier[i][1]))
-            func(*param_list)
-            env_parameters += param_list 
-        
         time.sleep(0.1)
         q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
         offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
@@ -291,47 +281,89 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
         # q_estimated = squaternion.Quaternion.from_euler(estimated_state[3], estimated_state[4], estimated_state[5])
         if not valid_img or cv_img is None:
             continue
+        # Sample 10 times.
+        num_sample = 0
+        while num_sample < 10:
+            env_parameters = []
 
-        time.sleep(0.1)
+            for gazebo_modifier in gazebo_modifiers:
+                func = gazebo_modifier[0]
+                param_list = []
+                for i in range(1, len(gazebo_modifier)):
+                    param_list.append(np.random.uniform(gazebo_modifier[i][0],gazebo_modifier[i][1]))
+                func(*param_list)
+                env_parameters += param_list 
+            
+            # time.sleep(0.1)
+            # q = squaternion.Quaternion.from_euler(state_rand[3], state_rand[4], state_rand[5])
+            # offset_vec = np.array([-1.1*0.20,0,0.8*0.77])
+            # aircraft_pos = np.array([state_rand[0], state_rand[1], state_rand[2]]) # x,y,z
+            # aircraft_ori = [q.x, q.y, q.z, q.w] # x,y,z,w
+            # R = Rotation.from_quat(aircraft_ori)
+            # aircraft_pos += offset_vec
 
-        # cv2.imshow('camera', cv_img)
-        # cv2.waitKey(3)
+            # keypoint_position_in_image = []
+            # for i in range(len(keypoints)):
+            #     image_coordinate = convert_to_image(keypoints[i], aircraft_pos, aircraft_ori).flatten()
+            #     image_coordinate[0] = 640-image_coordinate[0]
+            #     image_coordinate[1] = 480-image_coordinate[1]
+            #     if image_coordinate[0] > 640 or image_coordinate[0] < 0 or image_coordinate[1] > 480 or image_coordinate[1] < 0:
+            #         break
+            #     keypoint_position_in_image.append(image_coordinate.tolist())
+            # if len(np.array(keypoint_position_in_image)) < 14:
+            #     continue
+            # # print(keypoint_position_in_image)
+            # # print(np.array(keypoints).shape)
+            # success, rotation_vector, translation_vector = pose_estimation(np.array(keypoint_position_in_image), np.array(keypoints), K)
+            # valid_img, error, estimated_state = check_valid_img(success, rotation_vector, translation_vector, state_rand)
+            # # q_estimated = squaternion.Quaternion.from_euler(estimated_state[3], estimated_state[4], estimated_state[5])
+            # if not valid_img or cv_img is None:
+            #     continue
 
-        modified_img = copy.deepcopy(cv_img)
-        for image_modifier in image_modifiers:
-            func = image_modifier[0]
-            param_list = []
-            for i in range(1, len(image_modifier)):
-                param_list.append(np.random.uniform(image_modifier[i][0],image_modifier[i][1]))
-            modified_img = func(modified_img, *param_list)
-            env_parameters += param_list 
+            time.sleep(0.1)
 
-        state_estimation, kps, est_rot, est_trans = state_estimator(modified_img)
-        kp_img = modified_img 
-        for kp in kps:
-            kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
-        cv2.imshow('camera', modified_img)
-        cv2.waitKey(3)
-        
-        corrupted = "no"
-        if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
-            print("stop here")
-            corrupted = 'yes'
+            # cv2.imshow('camera', cv_img)
+            # cv2.waitKey(3)
 
-        print(f"{idx} Estimated state: ", state_estimation)
-        with open(data_fn,'a+') as f:
-            state_str = f"\n{idx}, {state_rand[0]}, {state_rand[1]}, {state_rand[2]}, {state_rand[3]}, {state_rand[4]}, {state_rand[5]}"
-            for param in env_parameters:
-                state_str += f", {param}"
-            f.write(state_str)
+            modified_img = cv_img
+            for image_modifier in image_modifiers:
+                func = image_modifier[0]
+                param_list = []
+                for i in range(1, len(image_modifier)):
+                    param_list.append(np.random.uniform(image_modifier[i][0],image_modifier[i][1]))
+                modified_img = func(modified_img, *param_list)
+                env_parameters += param_list 
 
-        with open(label_fn,'a+') as f:
-            f.write(f"\n{idx}, {state_estimation[0]}, {state_estimation[1]}, {state_estimation[2]}, {state_estimation[3]}, {state_estimation[4]}, {state_estimation[5]}")
-        
+            state_estimation, kps, est_rot, est_trans = state_estimator(modified_img)
+            kp_img = modified_img 
+            for kp in kps:
+                kp_img = cv2.circle(kp_img, (np.int32(kp)[0],np.int32(kp)[1]), 5, (0,0,255), 2)
+            cv2.imshow('camera', modified_img)
+            cv2.waitKey(3)
+            
+            corrupted = False
+            if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
+                print("stop here")
+                corrupted = True
+
+            # if corrupted:
+            #     time.sleep(0.1)
+            #     continue
+
+            print(f"{idx} Estimated state: ", state_estimation)
+            with open(data_fn,'a+') as f:
+                state_str = f"\n{idx}, {state_rand[0]}, {state_rand[1]}, {state_rand[2]}, {state_rand[3]}, {state_rand[4]}, {state_rand[5]}"
+                for param in env_parameters:
+                    state_str += f", {param}"
+                f.write(state_str)
+
+            with open(label_fn,'a+') as f:
+                f.write(f"\n{idx}, {state_estimation[0]}, {state_estimation[1]}, {state_estimation[2]}, {state_estimation[3]}, {state_estimation[4]}, {state_estimation[5]}")
+            
+            num_sample += 1
         idx += 1
         if idx > 50000:
             break
-
 
 import argparse
 import logging
@@ -350,7 +382,7 @@ def get_args():
     parser.add_argument('--scale', '-s', type=float, default=1.0,
                         help='Scale factor for the input images')
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
-    parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')
+    parser.add_argument('--classes', '-c', type=int, default=2, help='Ncopy.deepcopy(umber of classes')
     
     return parser.parse_args()
 
