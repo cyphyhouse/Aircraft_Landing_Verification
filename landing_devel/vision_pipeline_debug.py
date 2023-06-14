@@ -232,7 +232,7 @@ def sample_state_estimator():
     rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
 
-    light_value = 1.0
+    light_value = 1.25
     print(f"Light level: {light_value}")
     set_light_properties(light_value)
     time.sleep(0.1)
