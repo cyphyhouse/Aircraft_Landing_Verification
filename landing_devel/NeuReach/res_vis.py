@@ -31,19 +31,80 @@ def get_model_rect(num_dim_input, num_dim_output, layer1, layer2):
 
 model, forward = get_model_rect(6, 6, 64, 64)
 
-model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_1.pth.tar'))['state_dict'])
+model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_1.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
 
 # data = torch.FloatTensor([-2936.190526247269, 23.028459769554445, 56.49611197902172, 0.041778978197086855, 0.0498730895584773, -0.013122412801362213])
-data = np.loadtxt(data_path, delimiter=',')
+data_orig = np.loadtxt(data_path, delimiter=',')
 label = np.loadtxt(label_path, delimiter=',')
 
-data = data[:,1:-1]
+data = data_orig[:,1:-1]
 label = label[:,1:]
 
 data_tensor = torch.FloatTensor(data)
 label_tensor = torch.FloatTensor(label)
 
 res = model.forward(data_tensor).detach().numpy()
+
+total_dict = {
+    0: 0,
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+    6: 0,
+}
+
+mis_classify = 0
+mis_classify_dict = {
+    0: 0,
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+    6: 0,
+}
+
+for i in range(data.shape[0]):
+    if data_orig[i,-1] >=0.5 and data_orig[i,-1]<0.6:
+        total_dict[0] += 1
+    elif data_orig[i,-1] >=0.6 and data_orig[i,-1]<0.7:
+        total_dict[1] += 1
+    elif data_orig[i,-1] >=0.7 and data_orig[i,-1]<0.8:
+        total_dict[2] += 1
+    elif data_orig[i,-1] >=0.8 and data_orig[i,-1]<0.9:
+        total_dict[3] += 1
+    elif data_orig[i,-1] >=0.9 and data_orig[i,-1]<1.0:
+        total_dict[4] += 1
+    elif data_orig[i,-1] >=1.0 and data_orig[i,-1]<1.1:
+        total_dict[5] += 1
+    else:
+        total_dict[6] += 1
+    for j in range(data.shape[1]):
+        lb, ub = data[i,j]-abs(res[i,j]), data[i,j]+abs(res[i,j])
+        if label[i,j]<lb or label[i,j]>ub:
+            mis_classify += 1 
+            if data_orig[i,-1] >=0.5 and data_orig[i,-1]<0.6:
+                mis_classify_dict[0] += 1
+            elif data_orig[i,-1] >=0.6 and data_orig[i,-1]<0.7:
+                mis_classify_dict[1] += 1
+            elif data_orig[i,-1] >=0.7 and data_orig[i,-1]<0.8:
+                mis_classify_dict[2] += 1
+            elif data_orig[i,-1] >=0.8 and data_orig[i,-1]<0.9:
+                mis_classify_dict[3] += 1
+            elif data_orig[i,-1] >=0.9 and data_orig[i,-1]<1.0:
+                mis_classify_dict[4] += 1
+            elif data_orig[i,-1] >=1.0 and data_orig[i,-1]<1.1:
+                mis_classify_dict[5] += 1
+            else:
+                mis_classify_dict[6] += 1
+            break
+
+print(data.shape[0])
+print(total_dict)
+print(mis_classify)
+print(mis_classify_dict)
 
 plt.figure()
 plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
