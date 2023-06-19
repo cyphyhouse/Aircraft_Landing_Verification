@@ -34,7 +34,7 @@ label_path = os.path.join(script_dir, '../estimation_label/label_verif.txt')
 
 model, forward = get_model_rect2(6, 6, 128, 128, 128)
 
-model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_1_06-19.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
+model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_06-19_16-09-19_33.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
 
 # data = torch.FloatTensor([-2936.190526247269, 23.028459769554445, 56.49611197902172, 0.041778978197086855, 0.0498730895584773, -0.013122412801362213])
 data_orig = np.loadtxt(data_path, delimiter=',')
@@ -43,8 +43,8 @@ label = np.loadtxt(label_path, delimiter=',')
 data = data_orig[:,1:-1]
 label = label[:,1:]
 
-data_train_path = "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/data/data2.txt"
-label_train_path = "/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/estimation_label/label2.txt"
+data_train_path = os.path.join(script_dir, "../data/data2.txt")
+label_train_path = os.path.join(script_dir, "../estimation_label/label2.txt")
 
 data_train = np.loadtxt(data_train_path, delimiter=',')
 label_train = np.loadtxt(label_train_path, delimiter=',')
