@@ -113,6 +113,32 @@ class DiscriDataAutoLand_Train(data.Dataset):
         return torch.from_numpy(np.array(ref).astype('float32')).view(-1),\
             torch.from_numpy(np.array(est).astype('float32')).view(-1)
 
+class DiscriDataAutoLand_Train2(data.Dataset):
+    """DiscriData."""
+    def __init__(self, args, num_sample=1, data_file=None):
+        super(DiscriDataAutoLand_Train2, self).__init__()
+
+        self.num_sample = num_sample
+
+        data_path = os.path.join(args.data_dir, 'data/data2.txt')
+        label_path = os.path.join(args.label_dir, 'estimation_label/label2.txt')
+        data = np.loadtxt(data_path, delimiter=',')
+        label = np.loadtxt(label_path, delimiter=',')
+        self.data_train = data[:, 1:-1]
+        self.label_train = label[:, 1:]
+        # print(self.data_train)
+        # print()
+
+
+    def __len__(self):
+        return len(self.data_train)
+
+    def __getitem__(self, index):
+        ref = self.data_train[index, :]
+        est = self.label_train[index, :]
+        return torch.from_numpy(np.array(ref).astype('float32')).view(-1),\
+            torch.from_numpy(np.array(est).astype('float32')).view(-1)
+
 class DiscriDataAutoLand_Verif(data.Dataset):
     """DiscriData."""
     def __init__(self, args, num_sample=10, data_file=None):
@@ -138,7 +164,33 @@ class DiscriDataAutoLand_Verif(data.Dataset):
         est = self.label_train[self.num_sample*index:self.num_sample*(index+1), :]
         return torch.from_numpy(np.array(ref).astype('float32')).view(-1),\
             torch.from_numpy(np.array(est).astype('float32')).view(-1)
-    
+
+class DiscriDataAutoLand_Verif2(data.Dataset):
+    """DiscriData."""
+    def __init__(self, args, num_sample=1, data_file=None):
+        super(DiscriDataAutoLand_Verif2, self).__init__()
+
+
+        self.num_sample = num_sample
+
+        data_path = os.path.join(args.data_dir, 'data/data_verif.txt')
+        label_path = os.path.join(args.label_dir, 'estimation_label/label_verif.txt')
+        data = np.loadtxt(data_path, delimiter=',')
+        label = np.loadtxt(label_path, delimiter=',')
+        self.data_train = data[:, 1:-1]
+        self.label_train = label[:, 1:]
+        # print(self.data_train)
+
+    def __len__(self):
+        return len(self.data_train)
+
+    def __getitem__(self, index):
+        index = int(np.floor(index))
+        ref = self.data_train[index, :]
+        est = self.label_train[index, :]
+        return torch.from_numpy(np.array(ref).astype('float32')).view(-1),\
+            torch.from_numpy(np.array(est).astype('float32')).view(-1)
+
 def get_dataloader_autoland(args):
     train_loader = torch.utils.data.DataLoader(
         DiscriDataAutoLand_Train(args, data_file=args.data_dir), batch_size=args.batch_size, shuffle=True,
@@ -146,6 +198,17 @@ def get_dataloader_autoland(args):
 
     val_loader = torch.utils.data.DataLoader(
         DiscriDataAutoLand_Verif(args, data_file=args.label_dir), batch_size=args.batch_size, shuffle=True,
+        num_workers=10, pin_memory=True)
+
+    return train_loader, val_loader
+
+def get_dataloader_autoland2(args):
+    train_loader = torch.utils.data.DataLoader(
+        DiscriDataAutoLand_Train2(args, data_file=args.data_dir), batch_size=args.batch_size, shuffle=True,
+        num_workers=10, pin_memory=True)
+
+    val_loader = torch.utils.data.DataLoader(
+        DiscriDataAutoLand_Verif2(args, data_file=args.label_dir), batch_size=args.batch_size, shuffle=True,
         num_workers=10, pin_memory=True)
 
     return train_loader, val_loader

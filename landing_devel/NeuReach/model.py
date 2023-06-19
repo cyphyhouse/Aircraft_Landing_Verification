@@ -48,3 +48,26 @@ def get_model_rect(num_dim_input, num_dim_output, layer1, layer2):
             output = torch.matmul(output, mult)
         return output
     return model, forward
+
+def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2, layer3):
+    global mult
+    model = torch.nn.Sequential(
+            torch.nn.Linear(num_dim_input, layer1, bias=False),
+            torch.nn.Tanh(),
+            torch.nn.Linear(layer1, layer2, bias=False),
+            torch.nn.Tanh(),
+            torch.nn.Linear(layer2, layer3, bias=False),
+            torch.nn.Tanh(),
+            torch.nn.Linear(layer3, num_dim_output, bias=False))
+
+    mult = None
+
+    def forward(input):
+        global mult
+        output = model(input)
+        output = output.view(input.shape[0], num_dim_output)
+        if mult is not None:
+            mult = mult.type(input.type())
+            output = torch.matmul(output, mult)
+        return output
+    return model, forward

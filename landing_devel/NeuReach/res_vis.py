@@ -2,36 +2,37 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import os 
+from model import get_model_rect2
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
 data_path = os.path.join(script_dir, '../data/data_verif.txt')
 label_path = os.path.join(script_dir, '../estimation_label/label_verif.txt')
 
-def get_model_rect(num_dim_input, num_dim_output, layer1, layer2):
-    global mult
-    model = torch.nn.Sequential(
-            torch.nn.Linear(num_dim_input, layer1, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer1, layer2, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer2, num_dim_output, bias=False))
+# def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2):
+#     global mult
+#     model = torch.nn.Sequential(
+#             torch.nn.Linear(num_dim_input, layer1, bias=False),
+#             torch.nn.Tanh(),
+#             torch.nn.Linear(layer1, layer2, bias=False),
+#             torch.nn.Tanh(),
+#             torch.nn.Linear(layer2, num_dim_output, bias=False))
 
-    mult = None
+#     mult = None
 
-    def forward(input):
-        global mult
-        output = model(input)
-        output = output.view(input.shape[0], num_dim_output)
-        if mult is not None:
-            mult = mult.type(input.type())
-            output = torch.matmul(output, mult)
-        return output
-    return model, forward
+#     def forward(input):
+#         global mult
+#         output = model(input)
+#         output = output.view(input.shape[0], num_dim_output)
+#         if mult is not None:
+#             mult = mult.type(input.type())
+#             output = torch.matmul(output, mult)
+#         return output
+#     return model, forward
 
-model, forward = get_model_rect(6, 6, 64, 64)
+model, forward = get_model_rect2(6, 6, 128, 128, 128)
 
-model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_1.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
+model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_17_06-16.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
 
 # data = torch.FloatTensor([-2936.190526247269, 23.028459769554445, 56.49611197902172, 0.041778978197086855, 0.0498730895584773, -0.013122412801362213])
 data_orig = np.loadtxt(data_path, delimiter=',')
