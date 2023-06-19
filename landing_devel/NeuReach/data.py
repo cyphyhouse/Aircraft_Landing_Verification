@@ -120,12 +120,14 @@ class DiscriDataAutoLand_Train2(data.Dataset):
 
         self.num_sample = num_sample
 
-        data_path = os.path.join(args.data_dir, 'data/data2.txt')
-        label_path = os.path.join(args.label_dir, 'estimation_label/label2.txt')
-        data = np.loadtxt(data_path, delimiter=',')
-        label = np.loadtxt(label_path, delimiter=',')
-        self.data_train = data[:, 1:-1]
-        self.label_train = label[:, 1:]
+        data_path = os.path.join(args.data_dir, 'data/data2_normalized.npy')
+        label_path = os.path.join(args.label_dir, 'estimation_label/label2_normalized.npy')
+        # data = np.loadtxt(data_path, delimiter=',')
+        # label = np.loadtxt(label_path, delimiter=',')
+        # self.data_train = data[:, 1:-1]
+        # self.label_train = label[:, 1:]
+        self.data_train = np.load(data_path)
+        self.label_train = np.load(label_path)
         # print(self.data_train)
         # print()
 

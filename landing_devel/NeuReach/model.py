@@ -31,11 +31,11 @@ def get_model(num_dim_input, num_dim_output, config, args):
 def get_model_rect(num_dim_input, num_dim_output, layer1, layer2):
     global mult
     model = torch.nn.Sequential(
-            torch.nn.Linear(num_dim_input, layer1, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer1, layer2, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer2, num_dim_output, bias=False))
+            torch.nn.Linear(num_dim_input, layer1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer1, layer2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer2, num_dim_output))
 
     mult = None
 
@@ -52,13 +52,13 @@ def get_model_rect(num_dim_input, num_dim_output, layer1, layer2):
 def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2, layer3):
     global mult
     model = torch.nn.Sequential(
-            torch.nn.Linear(num_dim_input, layer1, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer1, layer2, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer2, layer3, bias=False),
-            torch.nn.Tanh(),
-            torch.nn.Linear(layer3, num_dim_output, bias=False))
+            torch.nn.Linear(num_dim_input, layer1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer1, layer2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer2, layer3),
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer3, num_dim_output))
 
     mult = None
 

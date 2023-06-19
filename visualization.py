@@ -4,14 +4,14 @@ import matplotlib.pyplot as plt
 
 ground_truth_position = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/ground_truth.npy', allow_pickle=True)
 estimate_pos = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/estimation.npy', allow_pickle=True)
-ref_states = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/ref_states.npy', allow_pickle=True)
-averaged_states = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/averaged_states.npy', allow_pickle=True)
-nominal_states = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/nominal_states.npy', allow_pickle=True)
+# ref_states = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/ref_states.npy', allow_pickle=True)
+# averaged_states = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/averaged_states.npy', allow_pickle=True)
+# nominal_states = np.load('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/nominal_states.npy', allow_pickle=True)
 print(len(ground_truth_position), len(estimate_pos))
 
 ground_truth_position = np.array(ground_truth_position)
 estimate_pos = np.array(estimate_pos).squeeze()
-ref_states = np.array(ref_states)
+# ref_states = np.array(ref_states)
 ground_truth_position[:, 1] = -ground_truth_position[:, 1]
 ground_truth_position[:, 2] = -ground_truth_position[:, 2]
 
@@ -26,11 +26,11 @@ for i in range(len(ground_truth_position[:, 0])):
     estimate_pos[i, 4] = np.rad2deg(estimate_pos[i, 4])
     estimate_pos[i, 5] = np.rad2deg(estimate_pos[i, 5])
 
-ref_states[:, 1] = -ref_states[:, 1]
-ref_states[:, 2] = -ref_states[:, 2]
+# ref_states[:, 1] = -ref_states[:, 1]
+# ref_states[:, 2] = -ref_states[:, 2]
 
-nominal_states[:, 1] = -nominal_states[:, 1]
-nominal_states[:, 2] = -nominal_states[:, 2]
+# nominal_states[:, 1] = -nominal_states[:, 1]
+# nominal_states[:, 2] = -nominal_states[:, 2]
 font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 
 # plt.figure()
@@ -80,13 +80,13 @@ font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 # plt.legend()
 # plt.savefig('estimation_z_error.png', dpi=300)
 
-# plt.figure()
-# plt.plot(ground_truth_position[20:,5], 'g', label='Ground Truth')
-# plt.plot(estimate_pos[20:,5], 'b', label='Estimation')
-# plt.xlabel('Time step', fontdict=font)
-# plt.ylabel('Yaw (deg)', fontdict=font)
-# plt.legend()
-# plt.savefig('estimation_comparison_yaw.png', dpi=300)
+plt.figure()
+plt.plot(ground_truth_position[20:,5], 'g', label='Ground Truth')
+plt.plot(estimate_pos[20:,5], 'b', label='Estimation')
+plt.xlabel('Time step', fontdict=font)
+plt.ylabel('Yaw (deg)', fontdict=font)
+plt.legend()
+plt.savefig('estimation_comparison_yaw.png', dpi=300)
 
 # plt.figure()
 # plt.plot(np.abs(estimate_pos[20:,5] - ground_truth_position[20:,5]), label='Errors')
@@ -95,13 +95,13 @@ font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 # plt.legend()
 # plt.savefig('estimation_yaw_error.png', dpi=300)
 
-# plt.figure()
-# plt.plot(ground_truth_position[20:,3], 'g', label='Ground Truth')
-# plt.plot(estimate_pos[20:,3], 'b', label='Estimation')
-# plt.xlabel('Time step', fontdict=font)
-# plt.ylabel('Roll (deg)', fontdict=font)
-# plt.legend()
-# plt.savefig('estimation_comparison_roll.png', dpi=300)
+plt.figure()
+plt.plot(ground_truth_position[20:,3], 'g', label='Ground Truth')
+plt.plot(estimate_pos[20:,3], 'b', label='Estimation')
+plt.xlabel('Time step', fontdict=font)
+plt.ylabel('Roll (deg)', fontdict=font)
+plt.legend()
+plt.savefig('estimation_comparison_roll.png', dpi=300)
 
 # plt.figure()
 # plt.plot(np.abs(estimate_pos[20:,3] - ground_truth_position[20:,3]), label='Errors')
@@ -110,13 +110,13 @@ font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 # plt.legend()
 # plt.savefig('estimation_roll_error.png', dpi=300)
 
-# plt.figure()
-# plt.plot(ground_truth_position[20:,4], 'g', label='Ground Truth')
-# plt.plot(estimate_pos[20:,4], 'b', label='Estimation')
-# plt.xlabel('Time step', fontdict=font)
-# plt.ylabel('Pitch (deg)', fontdict=font)
-# plt.legend()
-# plt.savefig('estimation_comparison_pitch.png', dpi=300)
+plt.figure()
+plt.plot(ground_truth_position[20:,4], 'g', label='Ground Truth')
+plt.plot(estimate_pos[20:,4], 'b', label='Estimation')
+plt.xlabel('Time step', fontdict=font)
+plt.ylabel('Pitch (deg)', fontdict=font)
+plt.legend()
+plt.savefig('estimation_comparison_pitch.png', dpi=300)
 
 # plt.figure()
 # plt.plot(np.abs(estimate_pos[20:,4] - ground_truth_position[20:,4]), label='Errors')
@@ -175,53 +175,53 @@ Percentage error.
 
 
 
-'''
-Error VS Ground Truth.
-'''
-font = {'family': 'serif', 'weight': 'normal', 'size': 12}
-plt.figure()
-plt.plot(ground_truth_position[20:,0], np.abs((estimate_pos[20:,0] - ground_truth_position[20:,0])), label='Errors')
-plt.xlabel('Ground Truth', fontdict=font)
-plt.ylabel('X estimation error VS Ground Truth', fontdict=font)
-plt.legend(prop={'family': 'serif'})
-plt.savefig('estimation_x_error_VS_ground_truth.png', dpi=300)
+# '''
+# Error VS Ground Truth.
+# '''
+# font = {'family': 'serif', 'weight': 'normal', 'size': 12}
+# plt.figure()
+# plt.plot(ground_truth_position[20:,0], np.abs((estimate_pos[20:,0] - ground_truth_position[20:,0])), label='Errors')
+# plt.xlabel('Ground Truth', fontdict=font)
+# plt.ylabel('X estimation error VS Ground Truth', fontdict=font)
+# plt.legend(prop={'family': 'serif'})
+# plt.savefig('estimation_x_error_VS_ground_truth.png', dpi=300)
 
-plt.figure()
-plt.plot(ground_truth_position[20:,1], np.abs((estimate_pos[20:,1] - ground_truth_position[20:,1])), label='Errors')
-plt.xlabel('Ground Truth', fontdict=font)
-plt.ylabel('Y estimation error VS Ground Truth', fontdict=font)
-plt.legend()
-plt.savefig('estimation_y_error_VS_ground_truth.png', dpi=300)
+# plt.figure()
+# plt.plot(ground_truth_position[20:,1], np.abs((estimate_pos[20:,1] - ground_truth_position[20:,1])), label='Errors')
+# plt.xlabel('Ground Truth', fontdict=font)
+# plt.ylabel('Y estimation error VS Ground Truth', fontdict=font)
+# plt.legend()
+# plt.savefig('estimation_y_error_VS_ground_truth.png', dpi=300)
 
-plt.figure()
-plt.plot(ground_truth_position[20:,2], np.abs((estimate_pos[20:,2] - ground_truth_position[20:,2])), label='Errors')
-plt.xlabel('Ground Truth', fontdict=font)
-plt.ylabel('Z estimation error VS Ground Truth', fontdict=font)
-plt.legend()
-plt.savefig('estimation_z_error_VS_ground_truth.png', dpi=300)
-
-
-plt.figure()
-plt.plot(ground_truth_position[20:,5], np.abs((estimate_pos[20:,5] - ground_truth_position[20:,5])), label='Errors')
-plt.xlabel('Ground Truth', fontdict=font)
-plt.ylabel('Yaw estimation error VS Ground Truth', fontdict=font)
-plt.legend()
-plt.savefig('estimation_yaw_error_VS_ground_truth.png', dpi=300)
-
-plt.figure()
-plt.plot(ground_truth_position[20:,3], np.abs((estimate_pos[20:,3] - ground_truth_position[20:,3])), label='Errors')
-plt.xlabel('Ground Truth', fontdict=font)
-plt.ylabel('Roll estimation error VS Ground Truth', fontdict=font)
-plt.legend()
-plt.savefig('estimation_roll_error_VS_ground_truth.png', dpi=300)
+# plt.figure()
+# plt.plot(ground_truth_position[20:,2], np.abs((estimate_pos[20:,2] - ground_truth_position[20:,2])), label='Errors')
+# plt.xlabel('Ground Truth', fontdict=font)
+# plt.ylabel('Z estimation error VS Ground Truth', fontdict=font)
+# plt.legend()
+# plt.savefig('estimation_z_error_VS_ground_truth.png', dpi=300)
 
 
-plt.figure()
-plt.plot(ground_truth_position[20:,4], np.abs((estimate_pos[20:,4] - ground_truth_position[20:,4])), label='Errors')
-plt.xlabel('Ground Truth', fontdict=font)
-plt.ylabel('Pitch estimation error VS Ground Truth', fontdict=font)
-plt.legend()
-plt.savefig('estimation_pitch_error_VS_ground_truth.png', dpi=300)
+# plt.figure()
+# plt.plot(ground_truth_position[20:,5], np.abs((estimate_pos[20:,5] - ground_truth_position[20:,5])), label='Errors')
+# plt.xlabel('Ground Truth', fontdict=font)
+# plt.ylabel('Yaw estimation error VS Ground Truth', fontdict=font)
+# plt.legend()
+# plt.savefig('estimation_yaw_error_VS_ground_truth.png', dpi=300)
+
+# plt.figure()
+# plt.plot(ground_truth_position[20:,3], np.abs((estimate_pos[20:,3] - ground_truth_position[20:,3])), label='Errors')
+# plt.xlabel('Ground Truth', fontdict=font)
+# plt.ylabel('Roll estimation error VS Ground Truth', fontdict=font)
+# plt.legend()
+# plt.savefig('estimation_roll_error_VS_ground_truth.png', dpi=300)
+
+
+# plt.figure()
+# plt.plot(ground_truth_position[20:,4], np.abs((estimate_pos[20:,4] - ground_truth_position[20:,4])), label='Errors')
+# plt.xlabel('Ground Truth', fontdict=font)
+# plt.ylabel('Pitch estimation error VS Ground Truth', fontdict=font)
+# plt.legend()
+# plt.savefig('estimation_pitch_error_VS_ground_truth.png', dpi=300)
 
 
 

@@ -191,4 +191,4 @@ for epoch in range(args.epochs):
         best_loss = loss
         print(best_loss)
         # best_prec = prec
-        save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_{epoch}_06-17.pth.tar")
+        save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_{epoch}_06-19.pth.tar")

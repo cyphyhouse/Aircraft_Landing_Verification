@@ -84,7 +84,11 @@ class Perception():
         try:
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+
+            cv_image = self.add_noise_to_image(cv_image)
+            
             img = PILImage.fromarray(cv_image, mode='RGB')
+            
             # Get probabilistic heat maps corresponding to the key points.
             output = self.predict_img(img)
         except CvBridgeError as e:
@@ -118,23 +122,44 @@ class Perception():
                 x = atan2(sin_x,  R[2,2])     # around x-axis
                 z2 = 0                                         # around z2-axis
 
-            angles = np.array([[z1], [x], [z2]])
+            angles = np.array([z1, x, z2])
             yawpitchroll_angles = -angles
-            yawpitchroll_angles[0,0] = (yawpitchroll_angles[0,0] + (5/2)*pi)%(2*pi) # change rotation sense if needed, comment this line otherwise
-            yawpitchroll_angles[1,0] = -(yawpitchroll_angles[1,0]+pi/2)
-            if yawpitchroll_angles[0,0] > pi:
-                yawpitchroll_angles[0,0] -= 2*pi
+            yawpitchroll_angles[0] = (yawpitchroll_angles[0] + (5/2)*pi)%(2*pi) # change rotation sense if needed, comment this line otherwise
+            yawpitchroll_angles[1] = -(yawpitchroll_angles[1]+pi/2)
+            if yawpitchroll_angles[0] > pi:
+                yawpitchroll_angles[0] -= 2*pi
 
-            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2,0], yawpitchroll_angles[1,0], yawpitchroll_angles[0,0]]
+            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2], yawpitchroll_angles[1], yawpitchroll_angles[0]]
         else:
             print("Pose Estimation Failed.")
 
         self.show_image(cv_image, keypoints)
 
+    def add_noise_to_image(self, image):
+        '''
+        Source: https://stackoverflow.com/questions/50474302/how-do-i-adjust-brightness-contrast-and-vibrance-with-opencv-python
+        '''
+        brightness = 30
+        contrast = 30
+        image = np.int16(image)
+        image = image * (contrast/127+1) - contrast + brightness
+        image = np.clip(image, 0, 255)
+        image = np.uint8(image)
+
+        # ksize
+        ksize = (10, 10)
+        
+        # Using cv2.blur() method 
+        image = cv2.blur(image, ksize) 
+        return image
+
     def show_image(self, cv_image, keypoints):
         kp_img = cv_image
         for i in range(len(keypoints)):
            kp_img = cv2.circle(kp_img, (int(keypoints[i][0]), int(keypoints[i][1])), radius=2, color=(0, 0, 255))
+
+        # kp_img = self.add_noise_to_image(kp_img)
+  
         cv2.imshow("Image Window", kp_img)
         cv2.waitKey(3)
 
@@ -292,7 +317,8 @@ def update_aircraft_position(net, device):
 
         
         true_state = [cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4]]
-
+        print("Ground Truth: ", true_state)
+        print("Estimated State: ", perception.estimated_state)
         true_states.append(true_state)
         estimated_states.append(perception.estimated_state)
         averaged_states.append(np.mean(y_average))
