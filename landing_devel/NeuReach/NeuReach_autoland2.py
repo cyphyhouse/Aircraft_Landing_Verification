@@ -59,8 +59,8 @@ os.system('echo "%s" > %s/cmd.txt'%(' '.join(sys.argv), args.log))
 # os.system('cp -r ODEs/ '+args.log)
 
 # config = importlib.import_module('system_'+args.system)
-# model, forward = get_model_rect2(6, 6, 128, 128, 128)
-model, forward = get_model_rect(6,6,32,32)
+model, forward = get_model_rect2(6, 6, 128, 128, 128)
+# model, forward = get_model_rect(6,6,32,32)
 if args.use_cuda:
     model = model.cuda()
 else:
@@ -213,4 +213,4 @@ for epoch in range(args.epochs):
         best_loss = loss
         print(best_loss)
         # best_prec = prec
-        save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_115-125_{start_time_str}_{epoch}.pth.tar")
+        save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_{start_time_str}_{epoch}.pth.tar")

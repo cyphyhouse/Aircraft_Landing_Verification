@@ -8,8 +8,8 @@ from sklearn import preprocessing
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
-data_path = os.path.join(script_dir, '../data/data3_115-125.txt')
-label_path = os.path.join(script_dir, '../estimation_label/label3_115-125.txt')
+data_path = os.path.join(script_dir, '../data/data3_095-105.txt')
+label_path = os.path.join(script_dir, '../estimation_label/label3_095-105.txt')
 
 # def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2):
 #     global mult
@@ -32,10 +32,10 @@ label_path = os.path.join(script_dir, '../estimation_label/label3_115-125.txt')
 #         return output
 #     return model, forward
 
-# model, forward = get_model_rect2(6, 6, 128, 128, 128)
-model, forward = get_model_rect(6,6,32,32)
+model, forward = get_model_rect2(6, 6, 128, 128, 128)
+# model, forward = get_model_rect(6,6,32,32)
 
-model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_115-125_06-20_14-02-02_5.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
+model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_095-105_06-20_11-23-48_2.pth.tar'), map_location=torch.device('cpu'))['state_dict'])
 
 # data = torch.FloatTensor([-2936.190526247269, 23.028459769554445, 56.49611197902172, 0.041778978197086855, 0.0498730895584773, -0.013122412801362213])
 data_orig = np.loadtxt(data_path, delimiter=',')
@@ -140,7 +140,7 @@ plt.plot(data[:,0], data[:,0]-res[:,0],'r*', label='surrogate bound')
 plt.legend()
 plt.xlabel("ground truth x")
 plt.ylabel('estimated x')
-plt.savefig('surrogate_bound_x_115-125.png')
+# plt.savefig('surrogate_bound_x.png')
 
 plt.figure()
 plt.plot(data[:,1], label[:,1],'b*', label='estimated state')
@@ -149,7 +149,7 @@ plt.plot(data[:,1], data[:,1]-res[:,1],'r*', label='surrogate bound')
 plt.legend()
 plt.xlabel("ground truth y")
 plt.ylabel('estimated y')
-plt.savefig('surrogate_bound_y_115-125.png')
+# plt.savefig('surrogate_bound_y.png')
 
 plt.figure()
 plt.plot(data[:,2], label[:,2],'b*', label='estimated state')
@@ -158,7 +158,7 @@ plt.plot(data[:,2], data[:,2]-res[:,2],'r*', label='surrogate bound')
 plt.legend()
 plt.xlabel("ground truth z")
 plt.ylabel('estimated z')
-plt.savefig('surrogate_bound_z_115-125.png')
+# plt.savefig('surrogate_bound_z.png')
 
 plt.figure()
 plt.plot(data[:,3], label[:,3],'b*', label='estimated state')
@@ -167,7 +167,7 @@ plt.plot(data[:,3], data[:,3]-res[:,3],'r*', label='surrogate bound')
 plt.legend()
 plt.xlabel("ground truth roll")
 plt.ylabel('estimated roll')
-plt.savefig('surrogate_bound_roll_115-125.png')
+# plt.savefig('surrogate_bound_roll.png')
 
 plt.figure()
 plt.plot(data[:,4], label[:,4],'b*', label='estimated state')
@@ -176,7 +176,7 @@ plt.plot(data[:,4], data[:,4]-res[:,4],'r*', label='surrogate bound')
 plt.legend()
 plt.xlabel("ground truth pitch")
 plt.ylabel('estimated pitch')
-plt.savefig('surrogate_bound_pitch_115-125.png')
+# plt.savefig('surrogate_bound_pitch.png')
 
 plt.figure()
 plt.plot(data[:,5], label[:,5],'b*', label='estimated state')
@@ -185,7 +185,7 @@ plt.plot(data[:,5], data[:,5]-res[:,5],'r*', label='surrogate bound')
 plt.legend()
 plt.xlabel("ground truth yaw")
 plt.ylabel('estimated yaw')
-plt.savefig('surrogate_bound_yaw_115-125.png')
+# plt.savefig('surrogate_bound_yaw.png')
 
 plt.show()
 # label = torch.FloatTensor([-2929.1353320511444, 20.64578387453148, 58.76066196314996, 0.04082988026075878, 0.05136111452277414, -0.012049659860212891])

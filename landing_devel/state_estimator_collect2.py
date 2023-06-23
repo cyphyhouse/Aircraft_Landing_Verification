@@ -238,8 +238,8 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
 
     cur_state = initial_state
 
-    data_fn = os.path.join(data_path, f"data2.txt")
-    label_fn = os.path.join(label_path, f"label2.txt")
+    data_fn = os.path.join(data_path, f"data4.txt")
+    label_fn = os.path.join(label_path, f"label4.txt")
     with open(data_fn,'w+') as f:
         pass    
     with open(label_fn,'w+') as f:
@@ -342,9 +342,15 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
             cv2.waitKey(3)
             
             corrupted = False
-            if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
+            if state_estimation[0]>1e5 or state_estimation[0]<-1e5 or\
+                state_estimation[1]>1e4 or state_estimation[1]<-1e4 or\
+                state_estimation[2]>1e4 or state_estimation[2]<-1e4 or\
+                state_estimation[3]>np.pi/2 or state_estimation[3]<-np.pi/2 or \
+                state_estimation[4]>np.pi/2 or state_estimation[4]<-np.pi/2 or \
+                state_estimation[5]>np.pi/2 or state_estimation[5]<-np.pi/2:
                 print("stop here")
                 corrupted = True
+                continue
 
             # if corrupted:
             #     time.sleep(0.1)
