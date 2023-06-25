@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import os 
-from model import get_model_rect2, get_model_rect
+from model import get_model_rect2, get_model_rect, get_model_rect3
 from sklearn import preprocessing
 import sys 
 
@@ -32,17 +32,21 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 #         return output
 #     return model, forward
 
-model_name = 'checkpoint_x_06-24_16-19-47_947.pth.tar'
-tmp = model_name.split('_')
+model_r_name = 'checkpoint_x_r_06-25_16-23-16_50.pth.tar'
+model_c_name = 'checkpoint_x_c_06-25_16-23-16_50.pth.tar'
+tmp = model_r_name.split('_')
 dim = tmp[1]
 
 if dim == 'x':
-    model, forward = get_model_rect(1, 2, 32, 32)
+    model_r, forward_r = get_model_rect(1,1,64,64)
+    model_c, forward_c = get_model_rect(1,1,64,64)
 else:
-    model, forward = get_model_rect(2,2,64,64)
+    model_r, forward_r = get_model_rect(2,1,64,64)
+    model_c, forward_c = get_model_rect(2,1,64,64)
 # model, forward = get_model_rect(6,6,32,32)
 
-model.load_state_dict(torch.load(os.path.join(script_dir, f'./log/{model_name}'), map_location=torch.device('cpu'))['state_dict'])
+model_r.load_state_dict(torch.load(os.path.join(script_dir, f'./log/{model_r_name}'), map_location=torch.device('cpu'))['state_dict'])
+model_c.load_state_dict(torch.load(os.path.join(script_dir, f'./log/{model_c_name}'), map_location=torch.device('cpu'))['state_dict'])
 
 # data = torch.FloatTensor([-2936.190526247269, 23.028459769554445, 56.49611197902172, 0.041778978197086855, 0.0498730895584773, -0.013122412801362213])
 data_orig = np.loadtxt(data_path, delimiter=',')
@@ -73,76 +77,16 @@ elif dim == 'yaw':
 data_tensor = torch.FloatTensor(data)
 label_tensor = torch.FloatTensor(label)
 
-res = model.forward(data_tensor).detach().numpy()
-res = np.abs(res)
+res_r = model_r.forward(data_tensor).detach().numpy()
+res_r = np.abs(res_r)
+res_c = model_c.forward(data_tensor).detach().numpy()
 # res = scaler_label_train.inverse_transform(res)
-
-total_dict = {
-    0: 0,
-    1: 0,
-    2: 0,
-    3: 0,
-    4: 0,
-    5: 0,
-    6: 0,
-}
-
-mis_classify = 0
-mis_classify_dict = {
-    0: 0,
-    1: 0,
-    2: 0,
-    3: 0,
-    4: 0,
-    5: 0,
-    6: 0,
-}
-
-for i in range(data.shape[0]):
-    if data_orig[i,-1] >=0.5 and data_orig[i,-1]<0.6:
-        total_dict[0] += 1
-    elif data_orig[i,-1] >=0.6 and data_orig[i,-1]<0.7:
-        total_dict[1] += 1
-    elif data_orig[i,-1] >=0.7 and data_orig[i,-1]<0.8:
-        total_dict[2] += 1
-    elif data_orig[i,-1] >=0.8 and data_orig[i,-1]<0.9:
-        total_dict[3] += 1
-    elif data_orig[i,-1] >=0.9 and data_orig[i,-1]<1.0:
-        total_dict[4] += 1
-    elif data_orig[i,-1] >=1.0 and data_orig[i,-1]<1.1:
-        total_dict[5] += 1
-    else:
-        total_dict[6] += 1
-    for j in range(data.shape[1]):
-        lb, ub = data[i,j]-abs(res[i,j]), data[i,j]+abs(res[i,j])
-        if label[i,j]<lb or label[i,j]>ub:
-            mis_classify += 1 
-            if data_orig[i,-1] >=0.5 and data_orig[i,-1]<0.6:
-                mis_classify_dict[0] += 1
-            elif data_orig[i,-1] >=0.6 and data_orig[i,-1]<0.7:
-                mis_classify_dict[1] += 1
-            elif data_orig[i,-1] >=0.7 and data_orig[i,-1]<0.8:
-                mis_classify_dict[2] += 1
-            elif data_orig[i,-1] >=0.8 and data_orig[i,-1]<0.9:
-                mis_classify_dict[3] += 1
-            elif data_orig[i,-1] >=0.9 and data_orig[i,-1]<1.0:
-                mis_classify_dict[4] += 1
-            elif data_orig[i,-1] >=1.0 and data_orig[i,-1]<1.1:
-                mis_classify_dict[5] += 1
-            else:
-                mis_classify_dict[6] += 1
-            break
-
-print(data.shape[0])
-print(total_dict)
-print(mis_classify)
-print(mis_classify_dict)
 
 if dim == 'x':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], data[:,0]+res[:,0],'r*')
-    plt.plot(data[:,0], data[:,0]-res[:,1],'r*', label='surrogate bound')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth x")
     plt.ylabel('estimated x')
@@ -150,8 +94,8 @@ if dim == 'x':
 elif dim == 'y':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], data[:,1]+res[:,0],'r*')
-    plt.plot(data[:,0], data[:,1]-res[:,1],'r*', label='surrogate bound')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth y")
     plt.ylabel('estimated y')
@@ -167,8 +111,8 @@ elif dim == 'y':
 elif dim == 'z':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], data[:,1]+res[:,0],'r*')
-    plt.plot(data[:,0], data[:,1]-res[:,1],'r*', label='surrogate bound')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth z")
     plt.ylabel('estimated z')
@@ -176,8 +120,8 @@ elif dim == 'z':
 elif dim == 'roll':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], data[:,1]+res[:,0],'r*')
-    plt.plot(data[:,0], data[:,1]-res[:,1],'r*', label='surrogate bound')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth roll")
     plt.ylabel('estimated roll')
@@ -185,8 +129,8 @@ elif dim == 'roll':
 elif dim == 'pitch':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], data[:,1]+res[:,0],'r*')
-    plt.plot(data[:,0], data[:,1]-res[:,1],'r*', label='surrogate bound')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth pitch")
     plt.ylabel('estimated pitch')
@@ -194,8 +138,8 @@ elif dim == 'pitch':
 elif dim == 'yaw':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], data[:,1]+res[:,0],'r*')
-    plt.plot(data[:,0], data[:,1]-res[:,1],'r*', label='surrogate bound')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth yaw")
     plt.ylabel('estimated yaw')

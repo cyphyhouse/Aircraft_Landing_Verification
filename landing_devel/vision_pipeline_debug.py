@@ -232,13 +232,13 @@ def sample_state_estimator():
     rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
 
-    light_value = 1.25
+    light_value = 1.0
     print(f"Light level: {light_value}")
     set_light_properties(light_value)
     time.sleep(0.1)
 
     idx = 0
-    state_rand = [-2871.9799410997866, 12.59451562163403, 145.15076125884494, -0.03522920197575701, 0.027260786526385833, 0.06154599025505314]
+    state_rand = [-2708.9986682963045, 23.6804793297202, 77.7645566849827, 0.0022644115353173885, 0.0026439804801031697, -0.05950231500194519]
     state_msg = create_state_msd(state_rand[0], state_rand[1], state_rand[2], state_rand[3], state_rand[4], state_rand[5])
 
     rospy.wait_for_service('/gazebo/set_model_state')

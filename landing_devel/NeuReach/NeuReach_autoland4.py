@@ -4,13 +4,13 @@ import torch.nn.functional as F
 import numpy as np
 import time
 from utils import AverageMeter
-
+from lion_pytorch import Lion
 from datetime import datetime 
 start_time = datetime.now()
 start_time_str = start_time.strftime("%m-%d_%H-%M-%S")
 
 from data import get_dataloader_autoland2
-from model import get_model_rect2, get_model_rect
+from model import get_model_rect2, get_model_rect, get_model_rect3
 
 import sys
 sys.path.append('systems')
@@ -30,16 +30,14 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
     filename = args.log + '/' + filename
     torch.save(state, filename)
 
-def hinge_loss_function(LHS, RHS, alpha):
-    res1 = LHS - RHS[:,0] + alpha
-    res1 = (torch.nn.Sigmoid())(res1)
-    res2 = -RHS[:,1] - LHS + alpha 
-    res2 = (torch.nn.Sigmoid())(res2)
-    res = res1 + res2 
-    res = res.sum(dim=1)
+def hinge_loss_function(est, Radius, Center, alpha):
+    tmp = torch.abs(Radius)
+    res1 = torch.nn.ReLU()(est-(Center+tmp)+alpha)
+    res2 = torch.nn.ReLU()(Center-tmp-est-alpha)
+    res = res1+res2
     return res
 
-def trainval(model, forward, optimizer, epoch, dataloader, writer, training, alpha, _lambda):
+def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, dataloader, writer, training, alpha, _lambda, fraction):
     global global_step
     loss = AverageMeter()
     hinge_loss = AverageMeter()
@@ -51,9 +49,11 @@ def trainval(model, forward, optimizer, epoch, dataloader, writer, training, alp
     result = [[],[],[],[],[]] # for plotting
 
     if training:
-        model.train()
+        model_r.train()
+        model_c.train()
     else:
-        model.eval()
+        model_r.eval()
+        model_c.eval()
     end = time.time()
     for step, (data, ref, est) in enumerate(dataloader):
         batch_size = args.batch_size
@@ -63,7 +63,8 @@ def trainval(model, forward, optimizer, epoch, dataloader, writer, training, alp
             data = data.cuda()
             ref = ref.cuda()
             est = est.cuda()
-        TransformMatrix = forward(data)
+        Radius = forward_r(data)
+        Center = forward_c(data)
         time_str += 'forward time: %.3f s\t'%(time.time()-end)
         end = time.time()
 
@@ -71,26 +72,25 @@ def trainval(model, forward, optimizer, epoch, dataloader, writer, training, alp
         _hinge_loss_total = 0
         _volume_loss_total = 0
 
-        LHS = est-ref
-        RHS = torch.abs(TransformMatrix)
-
-        _hinge_loss = hinge_loss_function(LHS, RHS, alpha)
-        _volume_loss = torch.sum(torch.abs(TransformMatrix),1)
+        _hinge_loss = hinge_loss_function(est, Radius, Center, alpha)
+        _volume_loss = torch.sum(torch.abs(Radius),1)
+        _center_loss = torch.abs(Center - est)
 
         _hinge_loss = _hinge_loss.mean()
         _volume_loss = _volume_loss.mean()
+        _center_loss = _center_loss.mean()
 
-        _loss = _hinge_loss + _lambda * _volume_loss
+        _loss = _hinge_loss + _lambda * _volume_loss 
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
 
 
         loss.update(_loss_total.item(), batch_size)
-        prec.update((LHS.detach().cpu().numpy() <= (RHS.detach().cpu().numpy())).sum() / batch_size, batch_size)
+        # prec.update((LHS.detach().cpu().numpy() <= (RHS.detach().cpu().numpy())).sum() / batch_size, batch_size)
         hinge_loss.update(_hinge_loss_total.item(), batch_size)
         volume_loss.update(_volume_loss_total.item(), batch_size)
-        print(step, round(_loss.item(),2), round(_hinge_loss.item(),2), round(_volume_loss.item(),2))
+        print(step, round(_loss.item(),2), round(_hinge_loss.item(),2), round(_volume_loss.item(),2), round(_center_loss.item(),2))
         # l2_loss.update(_l2_loss.item(), batch_size)
 
         # if writer is not None and training:
@@ -104,9 +104,12 @@ def trainval(model, forward, optimizer, epoch, dataloader, writer, training, alp
         c = time.time()
         if training:
             global_step += 1
-            optimizer.zero_grad()
+            optimizer_r.zero_grad()
+            optimizer_c.zero_grad()
             _loss.backward()
-            optimizer.step()
+            optimizer_r.step()
+            optimizer_c.step()
+        
         time_str += 'backward time: %.3f s'%(time.time()-c)
         end = time.time()
 
@@ -126,17 +129,24 @@ def train_model(args):
     train_loader, val_loader = get_dataloader_autoland_dim(args)
     from model import get_model_rect, get_model_rect2
     if args.dimension == 'x':
-        model, forward = get_model_rect(1, 2, 32, 32)
+        # model_r, forward_r = get_model_rect(1, 1, 4,4)
+        model_r, forward_r = get_model_rect(1,1,64,64)
+        model_c, forward_c = get_model_rect(1,1,64,64)
     elif args.dimension == 'y':
-        model, forward = get_model_rect(2, 2, 64, 64)
+        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'z':
-        model, forward = get_model_rect(2, 2, 64, 64)
+        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'roll':
-        model, forward = get_model_rect(2, 2, 64, 64)
+        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'pitch':
-        model, forward = get_model_rect(2, 2, 64, 64)
+        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'yaw':
-        model, forward = get_model_rect(2, 2, 64, 64)
+        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_c, forward_c = get_model_rect(2, 1, 64, 64)
     else:
         raise ValueError
 
@@ -148,12 +158,14 @@ def train_model(args):
     os.system('echo "%s" > %s/cmd.txt'%(' '.join(sys.argv), args.log))
 
     if args.use_cuda:
-        model = model.cuda()
+        model_r = model_r.cuda()
+        model_c = model_c.cuda()
     else:
-        model = model.cpu()
+        model_r = model_r.cpu()
+        model_c = model_c.cpu()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-
+    optimizer_r = torch.optim.Adam(model_r.parameters(), lr=args.learning_rate)
+    optimizer_c = torch.optim.Adam(model_c.parameters(), lr=args.learning_rate)
 
     # train_writer = SummaryWriter(args.log+'/train')
     # val_writer = SummaryWriter(args.log+'/val')
@@ -161,32 +173,39 @@ def train_model(args):
     best_loss = np.inf
     best_prec = 0
 
+    # train_loader.dataset.reduce_data1()
+    # val_loader.dataset.reduce_data1()
+
     for epoch in range(args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        adjust_learning_rate(optimizer_r, epoch)
+        adjust_learning_rate(optimizer_c, epoch)
         # train for one epoch
         print('Epoch %d'%(epoch))
-        _, _, _ = trainval(model, forward, optimizer, epoch, train_loader, writer=None, training=True, alpha=args.alpha, _lambda=args._lambda)
-        # result_train, _, _ = trainval(model, forward, optimizer, epoch, train_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda)
-        result_val, loss, prec = trainval(model, forward, optimizer, epoch, val_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda)
+        _, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, train_loader, writer=None, training=True, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
+        # result_train, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, train_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda)
+        result_val, loss, prec = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, val_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
         epoch += 1
+        # train_loader.dataset.reduce_data2(forward_c)
+        # val_loader.dataset.reduce_data2(forward_c)
         # if prec > best_prec:
         if loss < best_loss:
             best_loss = loss
             print(best_loss)
             # best_prec = prec
-            save_checkpoint({'epoch': epoch + 1, 'state_dict': model.state_dict()}, filename=f"checkpoint_{args.dimension}_{start_time_str}_{epoch}.pth.tar")
+            save_checkpoint({'epoch': epoch + 1, 'state_dict': model_r.state_dict()}, filename=f"checkpoint_{args.dimension}_r_{start_time_str}_{epoch}.pth.tar")
+            save_checkpoint({'epoch': epoch + 1, 'state_dict': model_c.state_dict()}, filename=f"checkpoint_{args.dimension}_c_{start_time_str}_{epoch}.pth.tar")
 
 if __name__ == "__main__":
     script_dir = os.path.realpath(os.path.dirname(__file__))
 
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
-    parser.add_argument('--lambda', dest='_lambda', type=float, default=1.0, help='lambda for balancing the two loss terms.')
-    parser.add_argument('--alpha', dest='alpha', type=float, default=0.001, help='Hyper-parameter in the hinge loss.')
+    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.5, help='lambda for balancing the two loss terms.')
+    parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
     parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in the second layer of the NN.')
-    parser.add_argument('--epochs', type=int, default=10000, help='Number of epochs for training.')
+    parser.add_argument('--epochs', type=int, default=1000, help='Number of epochs for training.')
     parser.add_argument('--lr', dest='learning_rate', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--data_dir', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated training data set.')
     parser.add_argument('--label_dir', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated training data set.')
@@ -202,6 +221,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr_step', type=int, default=10)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dimension', '-d', type=str, default='x')
+    parser.add_argument('--fraction', '-f', type=float, default =1.0, help='Fraction of data to be kept')
 
     args = parser.parse_args()
 

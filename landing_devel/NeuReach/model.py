@@ -71,3 +71,23 @@ def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2, layer3):
             output = torch.matmul(output, mult)
         return output
     return model, forward
+
+def get_model_rect3(num_dim_input, num_dim_output, layer1):
+    global mult
+    model = torch.nn.Sequential(
+            torch.nn.Linear(num_dim_input, layer1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer1, num_dim_output),
+    )
+    
+    mult = None
+
+    def forward(input):
+        global mult
+        output = model(input)
+        output = output.view(input.shape[0], num_dim_output)
+        if mult is not None:
+            mult = mult.type(input.type())
+            output = torch.matmul(output, mult)
+        return output
+    return model, forward
