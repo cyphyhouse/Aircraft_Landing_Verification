@@ -41,16 +41,16 @@ model.load_state_dict(torch.load(os.path.join(script_dir, './log/checkpoint_095-
 data_orig = np.loadtxt(data_path, delimiter=',')
 label = np.loadtxt(label_path, delimiter=',')
 
-data = data_orig[:,1:-1]
+data = data_orig[:,1:]
 label = label[:,1:]
 
 data_train_path = os.path.join(script_dir, "../data/data2.txt")
 label_train_path = os.path.join(script_dir, "../estimation_label/label2.txt")
 
-data_train = np.loadtxt(data_train_path, delimiter=',')
-label_train = np.loadtxt(label_train_path, delimiter=',')
-data_train = data_train[:, 1:-1]
-label_train = label_train[:, 1:]
+# data_train = np.loadtxt(data_train_path, delimiter=',')
+# label_train = np.loadtxt(label_train_path, delimiter=',')
+# data_train = data_train[:, 1:-1]
+# label_train = label_train[:, 1:]
 
 # print(data_train)
 

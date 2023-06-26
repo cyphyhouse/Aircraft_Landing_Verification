@@ -18,7 +18,7 @@ ground_truth_position[:, 2] = -ground_truth_position[:, 2]
 estimate_pos[:, 1] = -estimate_pos[:, 1]
 estimate_pos[:, 2] = -estimate_pos[:, 2]
 
-for i in range(len(ground_truth_position[:, 0])):
+for i in range(len(ground_truth_position[:, 0])-1):
     ground_truth_position[i, 3] = np.rad2deg(ground_truth_position[i, 3])
     ground_truth_position[i, 4] = np.rad2deg(ground_truth_position[i, 4])
     ground_truth_position[i, 5] = np.rad2deg(ground_truth_position[i, 5])
@@ -33,14 +33,14 @@ for i in range(len(ground_truth_position[:, 0])):
 # nominal_states[:, 2] = -nominal_states[:, 2]
 font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 
-# plt.figure()
-# plt.plot(ground_truth_position[20:,0], 'g', label='Ground Truth')
-# plt.plot(estimate_pos[20:,0], 'b', label='Estimation')
-# # plt.ylim([])
-# plt.xlabel('Time step', fontdict=font)
-# plt.ylabel('X coordinate (m)', fontdict=font)
-# plt.legend()
-# plt.savefig('estimation_comparison_x.png', dpi=300)
+plt.figure()
+plt.plot(ground_truth_position[20:,0], 'g', label='Ground Truth')
+plt.plot(estimate_pos[20:,0], 'b', label='Estimation')
+# plt.ylim([])
+plt.xlabel('Time step', fontdict=font)
+plt.ylabel('X coordinate (m)', fontdict=font)
+plt.legend()
+plt.savefig('estimation_comparison_x.png', dpi=300)
 
 # font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 # plt.figure()
@@ -50,13 +50,13 @@ font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 # plt.legend(prop={'family': 'serif'})
 # plt.savefig('estimation_x_error.png', dpi=300)
 
-# plt.figure()
-# plt.plot(ground_truth_position[20:,1], 'g', label='Ground Truth')
-# plt.plot(estimate_pos[20:,1], 'b', label='Estimation')
-# plt.xlabel('Time step', fontdict=font)
-# plt.ylabel('Y coordinate (m)', fontdict=font)
-# plt.legend()
-# plt.savefig('estimation_comparison_y.png', dpi=300)
+plt.figure()
+plt.plot(ground_truth_position[20:,1], 'g', label='Ground Truth')
+plt.plot(estimate_pos[20:,1], 'b', label='Estimation')
+plt.xlabel('Time step', fontdict=font)
+plt.ylabel('Y coordinate (m)', fontdict=font)
+plt.legend()
+plt.savefig('estimation_comparison_y.png', dpi=300)
 
 # plt.figure()
 # plt.plot(np.abs(estimate_pos[20:,1] - ground_truth_position[20:,1]), label='Errors')
@@ -65,13 +65,13 @@ font = {'family': 'serif', 'weight': 'normal', 'size': 12}
 # plt.legend()
 # plt.savefig('estimation_y_error.png', dpi=300)
 
-# plt.figure()
-# plt.plot(ground_truth_position[20:,2], 'g', label='Ground Truth')
-# plt.plot(estimate_pos[20:,2], 'b', label='Estimation')
-# plt.xlabel('Time step', fontdict=font)
-# plt.ylabel('Z coordinate (m)', fontdict=font)
-# plt.legend()
-# plt.savefig('estimation_comparison_z.png', dpi=300)
+plt.figure()
+plt.plot(ground_truth_position[20:,2], 'g', label='Ground Truth')
+plt.plot(estimate_pos[20:,2], 'b', label='Estimation')
+plt.xlabel('Time step', fontdict=font)
+plt.ylabel('Z coordinate (m)', fontdict=font)
+plt.legend()
+plt.savefig('estimation_comparison_z.png', dpi=300)
 
 # plt.figure()
 # plt.plot(np.abs(estimate_pos[20:,2] - ground_truth_position[20:,2]), label='Errors')

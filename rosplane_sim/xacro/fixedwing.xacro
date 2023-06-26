@@ -92,7 +92,8 @@
     parent_link="${namespace}/base_link"
     image_topic="rgb"
     image_camera_info_topic="camera_info">
-    <origin xyz="-${1.1*body_length} 0 ${0.8*body_height}"/>
+    <!-- <origin xyz="0 0 ${1.0*body_height}" rpy="0 ${-20*3.14/180} 0"/> -->
+    <origin xyz="0 0 ${1.0*body_height}"/>
   </xacro:simple_camera>
 
   <!-- Gimbal -->

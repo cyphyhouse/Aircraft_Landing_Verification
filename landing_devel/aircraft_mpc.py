@@ -7,7 +7,7 @@ def aircraft_mpc(model, v_max, acc_max, beta_max, omega_max, delta_t):
     mpc = do_mpc.controller.MPC(model)
 
     setup_mpc = {
-        'n_horizon': 10,
+        'n_horizon': 5,
         'n_robust': 0,
         'open_loop': 0,
         't_step': delta_t,
@@ -31,8 +31,8 @@ def aircraft_mpc(model, v_max, acc_max, beta_max, omega_max, delta_t):
     min_input = np.array([[0.0], [-beta_max], [-omega_max]])
     mpc.bounds['lower', '_u', 'u'] = min_input
     mpc.bounds['upper', '_u', 'u'] = max_input
-    x_bounds_max = np.array([[math.inf], [math.inf], [math.inf], [v_max], [5.0*pi/180], [3.0*pi/180]])
-    x_bounds_min = np.array([[-math.inf], [-math.inf], [-math.inf], [-v_max], [-5.0*pi/180], [-5.0*pi/180]])
+    x_bounds_max = np.array([[math.inf], [math.inf], [math.inf], [v_max], [15.0*pi/180], [10.0*pi/180]])
+    x_bounds_min = np.array([[-math.inf], [-math.inf], [-math.inf], [-v_max], [-15.0*pi/180], [-10.0*pi/180]])
     mpc.bounds['lower', '_x', 'x'] = x_bounds_min
     mpc.bounds['upper', '_x', 'x'] = x_bounds_max
 

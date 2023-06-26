@@ -32,9 +32,16 @@ from aircraft_model import *
 from aircraft_mpc import *
 from aircraft_simulator import *
 
+import control
+from scipy.integrate import odeint
+
+import aircraft_controller
+
 # Path to the image directory. 
 img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
 
+body_height = 0.77
+pitch_offset = 0
 class Perception():
     '''
     Perception module
@@ -85,7 +92,7 @@ class Perception():
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, "passthrough")
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
 
-            cv_image = self.add_noise_to_image(cv_image)
+            # cv_image = self.add_noise_to_image(cv_image)
             
             img = PILImage.fromarray(cv_image, mode='RGB')
             
@@ -129,7 +136,7 @@ class Perception():
             if yawpitchroll_angles[0] > pi:
                 yawpitchroll_angles[0] -= 2*pi
 
-            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item(), yawpitchroll_angles[2], yawpitchroll_angles[1], yawpitchroll_angles[0]]
+            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item() - body_height, yawpitchroll_angles[2], yawpitchroll_angles[1] - pitch_offset, yawpitchroll_angles[0]]
         else:
             print("Pose Estimation Failed.")
 
@@ -182,6 +189,62 @@ class Perception():
         '''
         return cv2.solvePnP(object_points, image_points, camera_matrix, dist_coeffs)
 
+
+
+def integrator_dynamics(x_ground_truth, t, x_ref, x_estimated):
+    x_ground_truth = np.array(x_ground_truth)
+    u = compute_control(x_estimated, x_ref)
+    # dot_x = np.array(((x_ground_truth[6:]).tolist()).extend(list(u)))
+    dot_x = np.array([x_ground_truth[6], x_ground_truth[7], x_ground_truth[8], x_ground_truth[9], x_ground_truth[10], x_ground_truth[11], u[0], u[1], u[2], u[3], u[4], u[5]])
+    return dot_x
+
+A = np.zeros((12, 12))
+B = np.zeros((12, 6))
+for i in range(6):
+    A[i, 6+i] = 1
+    B[6+i, i] = 1
+# print(A, B)
+Q = np.eye(12)
+R = np.eye(6)
+K, S, E = control.lqr(A, B, Q, R)
+
+
+def compute_control(x_cur, x_ref):
+    u = -K.dot(x_cur - x_ref)
+    return u
+
+def run_PD_controller(x_ref, x_cur_estimated, x_cur_ground_truth, dt):
+    # A = np.zeros((6, 6))
+    # B = np.zeros((6, 3))
+    # sin_psi = sin(x_ref[4])
+    # cos_psi = cos(x_ref[4])
+    # cos_theta = cos(x_ref[5])
+    # sin_theta = sin(x_ref[5])
+    # v_0 = x_ref[3]
+
+    # A[0, 3] = cos_psi*cos_theta
+    # A[0, 4] = -v_0*sin_psi*cos_theta
+    # A[0, 5] = -v_0*cos_psi*sin_theta
+
+    # A[1, 3] = sin_psi*cos_theta
+    # A[1, 4] = v_0*cos_psi*cos_theta
+    # A[1, 5] = -v_0*sin_psi*sin_theta
+    
+    # A[2, 3] = sin_theta
+    # A[2, 5] = v_0*cos_theta
+
+    # B[3, 0] = 1
+    # B[4, 1] = 1
+    # B[5, 2] = 1 
+
+    # tf = scipy.signal.ss2tf(A, B, np.eye(6), np.zeros((6, 3)))
+    # print("Transfer function: ", tf)
+    # K, S, E = control.lqr(A, B, 10.0*np.eye(6), np.eye(3))
+    # return np.matmul(K, x_cur - x_ref)
+
+    res = odeint(integrator_dynamics, x_cur_ground_truth, [0, dt], args=(x_ref, x_cur_estimated))[-1]
+    return res
+
 def run_controller(x_true, x_cur, x_ref, delta_t, v_max=50, acc_max=20, beta_max=0.02, omega_max=0.03):
     '''
     Controller.
@@ -209,17 +272,33 @@ def run_controller(x_true, x_cur, x_ref, delta_t, v_max=50, acc_max=20, beta_max
 
     return x_next
 
-def path(cur_state, ref_speed, approaching_angle, yaw = 0, dt=0.05):
-    '''
-    Planner.
-    Generate path for the aircraft to follow.
-    '''
+# def path(initial_state, cur_state, ref_speed, approaching_angle, yaw = 0, dt=0.5):
+#     '''
+#     Planner.
+#     Generate path for the aircraft to follow.
+#     '''
+#     k = np.tan(approaching_angle*(pi/180))
+#     # Reference speed.
+#     v = ref_speed
+
+#     return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw]
+
+def generate_path(initial_state, approaching_angle):
+    x_total = initial_state[0]
+    z_total = initial_state[2]
+
     k = np.tan(approaching_angle*(pi/180))
-    # Reference speed.
-    v = ref_speed
+    delta_x = 50
+    delta_z = k*delta_x
+    waypoints = []
+    
+    while z_total - delta_z > 0 and x_total + delta_x < -1566:
+        x_total += delta_x
+        z_total -= delta_z
+        waypoints.append([x_total, 0, z_total])
 
-    return [v*dt + cur_state[0], 0, cur_state[2] - k*v*dt, yaw]
-
+    # print("WAYPOINTS: ", waypoints)
+    return np.array(waypoints)
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -244,10 +323,10 @@ def update_aircraft_position(net, device):
     Main function.
     '''
     # Initial state of the aircraft.
-    initial_state = [-2500.0, 00, 78.6, 0, 0, 0]
+    initial_state = [-2500.0, 0, 120.0, 0, -np.deg2rad(3), 0]
 
     # One simulation length.
-    delta_t = 0.02
+    delta_t = 0.5
     # Reference speed
     ref_speed = 50.0
     # Angle of the aircraft relative to the ground (in degrees).
@@ -255,7 +334,7 @@ def update_aircraft_position(net, device):
 
     # Perception module.
     perception = Perception(net, device)
-    init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], initial_state[4], initial_state[5])
+    init_msg = create_state_msd(initial_state[0], initial_state[1], initial_state[2], initial_state[3], -initial_state[4], initial_state[5])
     rospy.wait_for_service('/gazebo/set_model_state')
     try:
         # Set initial state.
@@ -268,11 +347,14 @@ def update_aircraft_position(net, device):
     true_state = initial_state
     idx = 0
 
+    estimated_rate = np.zeros(6)
+    true_rate = np.zeros(6)
     # Surrogate model
     # surrogate_model = tf.keras.models.load_model('/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/surrogate_model/model.keras')
 
     # Ground truth.
     true_states = []
+    true_states.append(np.array(initial_state))
     # Estimated states.
     estimated_states = []
     # Filtered states.
@@ -285,52 +367,137 @@ def update_aircraft_position(net, device):
     # estimated_states_surrogate = []
     # Time.
     cur_time = 0
+
     # Average y coordinates.
-    y_average = np.zeros(50)
+    # y_average = np.zeros(50)
+
+
+    T = 1
+    # set_new_state_flag = False
+    set_new_state_counter = 0
+    
+    # Computed waypoints
+    waypoints = generate_path(initial_state, approaching_angle)
+    waypoints_index = 0
+
+    # Count inaccurate estimation.
+    corrupted_count = 0
 
     while not rospy.is_shutdown():
-        time.sleep(0.01)
+        time.sleep(0.1)
         if perception.estimated_state is None or len(perception.estimated_state) == 0:
             continue
         estimated_state = perception.estimated_state
+        estimated_state[4] = -estimated_state[4]
 
-        ref_state = path(estimated_state, ref_speed, approaching_angle)
+        if len(estimated_states) > 0 and len(true_states) > 0:
+            for i in range(6):
+                estimated_rate[i] = (estimated_states[-1][i] - estimated_state[i])/delta_t
+                true_rate[i] = (true_states[-1][i] - true_state[i])/delta_t
+
+
+        '''
+        Planner
+        '''
+        # ref_state = path(initial_state, estimated_state, ref_speed, approaching_angle, dt=delta_t)
+        if np.linalg.norm(np.array(estimated_state[:3]) - np.array(waypoints[waypoints_index])) < 10:
+            waypoints_index += 1
+        if waypoints_index >= len(waypoints):
+            break
+
+        ref_state = waypoints[waypoints_index]
         ref_states.append(ref_state)
 
         cur_time += delta_t
 
-        cur_state = run_controller(true_state, np.array(estimated_state), [ref_state[0], ref_state[1], ref_state[2], -3*(pi/180)], delta_t)
-        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4])
+
+        '''
+        MPC
+        '''
+        x_ground_truth = np.array([true_state[0], true_state[1], true_state[2], np.linalg.norm(true_rate[:3]), true_state[5], true_state[4]])
+        x_estimated = np.array([estimated_state[0], estimated_state[1], estimated_state[2], np.linalg.norm(estimated_rate[:3]), estimated_state[5], estimated_state[4]])
+        if np.linalg.norm(x_ground_truth - x_estimated) > 50:
+            print(">>>>>> Estimated Corrupted ", x_estimated)
+            x_estimated = x_ground_truth 
+            corrupted_count += 1
+        x_next = run_controller(x_ground_truth, x_estimated, ref_state, delta_t)
+        cur_state = np.array([x_next[0], x_next[1], x_next[2], 0, x_next[5], x_next[4]])
+        '''
+        Quadrotor control.
+        '''
+        # x_ground_truth = np.array([true_state[0], true_rate[0], true_state[1], true_rate[1], true_state[2], true_rate[2], true_state[3], true_rate[3], true_state[4], true_rate[4], true_state[5], true_rate[5]])
+        # x_estimated = np.array([estimated_state[0], estimated_rate[0], estimated_state[1], estimated_rate[1], estimated_state[2], estimated_rate[2], estimated_state[3], estimated_rate[3], estimated_state[4], estimated_rate[4], estimated_state[5], estimated_rate[5]])
+        # # x_estimated = np.array([estimated_state[0], estimated_rate[0], estimated_state[1], estimated_rate[1], estimated_state[2], estimated_rate[2], true_state[3], true_rate[3], true_state[4], true_rate[4], true_state[5], true_rate[5]])
+        # x_estimated = x_ground_truth
+        # # print(">>>> Estimated", x_estimated)
+        # # if np.linalg.norm(x_ground_truth - x_estimated) > 50:
+        #     # print(">>>>>> Estimated Corrupted ", x_estimated)
+        #     # x_estimated = x_ground_truth 
+        # # print(">>>> Ground Truth", x_ground_truth)
+        # # print(">>>> Estimated", x_estimated)
+        # next_state = aircraft_controller.simulate(x_ground_truth, x_estimated, np.array([ref_state[0], ref_state[1], ref_state[2]]), delta_t)
+        # # print(">>>> Next state", next_state)
+        # next_state[7] = (next_state[6] - x_ground_truth[6])/delta_t
+        # next_state[9] = (next_state[8] - x_ground_truth[8])/delta_t
+        # next_state[11] = (next_state[10] - x_ground_truth[10])/delta_t
+
+        # cur_state = np.array([next_state[0], next_state[2], next_state[4], next_state[6], next_state[8], next_state[10]])
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------
+        '''
+        Integrator control.
+        '''
+        # print("Ground Truth: ", true_state)
+        # print("Estimated State: ", perception.estimated_state)
+        # print((ref_state.tolist()).extend([0, 0, 0, 0, 0, 0]))
+        # x_ref = (ref_state.tolist()).extend([0, 0, 0, 0, 0, 0])
+        # x_ref = np.array([ref_state[0], ref_state[1], ref_state[2], 0, -np.deg2rad(3), 0, 0, 0, 0, 0, 0, 0])
+        # x_ground_truth = np.concatenate((true_state, true_rate))
+        # x_estimated = np.concatenate((estimated_state, estimated_rate))
+        # if np.linalg.norm(x_ground_truth - x_estimated) > 50:
+        #     print(">>>>>> Estimation Corrupted ", x_estimated)
+        #     x_estimated = x_ground_truth    
+        # # x_estimated = np.array([estimated_state[0], estimated_rate[0], estimated_state[1], estimated_rate[1], estimated_state[2], estimated_rate[2], true_state[3], true_rate[3], true_state[4], true_rate[4], true_state[5], true_rate[5]])
+        # # x_estimated = x_ground_truth
+
+        # next_state = run_PD_controller(x_ref, x_estimated, x_ground_truth, delta_t)
+        # cur_state = np.array([next_state[0], next_state[1], next_state[2], next_state[3], next_state[4], next_state[5]])
+        # ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+        
+        state_msg = create_state_msd(cur_state[0], cur_state[1], cur_state[2], cur_state[3], -cur_state[4], cur_state[5])
     
         nominal_states.append([ref_speed*delta_t + cur_state[0], 0, cur_state[2] - np.tan(np.deg2rad(approaching_angle))*ref_speed*delta_t, 0])
         
-        rospy.wait_for_service('/gazebo/set_model_state')
-        try:
-            set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
-            resp = set_state( state_msg )
+        if set_new_state_counter % T == 0:
+            rospy.wait_for_service('/gazebo/set_model_state')
+            try:
+                set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+                resp = set_state( state_msg )
 
-        except rospy.ServiceException:
-            print("Service call failed")
+            except rospy.ServiceException:
+                print("Service call failed")
 
 
-        time.sleep(0.01)
+            time.sleep(0.5)
 
-        
-        true_state = [cur_state[0], cur_state[1], cur_state[2], 0, cur_state[5], cur_state[4]]
-        print("Ground Truth: ", true_state)
-        print("Estimated State: ", perception.estimated_state)
+
+        true_state = cur_state
+        # print("Ground Truth: ", true_state)
+        # print("Estimated State: ", perception.estimated_state)
         true_states.append(true_state)
-        estimated_states.append(perception.estimated_state)
-        averaged_states.append(np.mean(y_average))
+        estimated_states.append(estimated_state)
+        # averaged_states.append(np.mean(y_average))
         # estimated_states_surrogate.append(surrogate_model.predict(true_state))
-        perception.count = idx
+        # perception.count = idx
         idx += 1
+        set_new_state_counter += 1
+
         
         np.save("ground_truth", np.array(true_states))
         np.save("estimation", np.array(estimated_states))
-        np.save("ref_states", np.array(ref_states))
-        np.save("averaged_states", np.array(averaged_states))
-        np.save("nominal_states", np.array(nominal_states))
+        # np.save("ref_states", np.array(ref_states))
+        # np.save("averaged_states", np.array(averaged_states))
+        # np.save("nominal_states", np.array(nominal_states))
         # np.save("surrogate_model_predicted_states", np.array(estimated_states_surrogate))
         # if true_state[0] > -2350:
         #     break
