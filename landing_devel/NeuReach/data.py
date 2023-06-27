@@ -12,6 +12,8 @@ import torch
 
 import torch.utils.data as data
 from utils import loadpklz, savepklz
+from sklearn import preprocessing 
+
 
 import copy
 
@@ -264,7 +266,8 @@ class DiscriDataAutoLand_Train_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total)
 
         self.fraction = args.fraction
-        self.window_width = args.width
+        self.window_width = args.window_width
+        self.dimension = args.dimension
 
     def __len__(self):
         return len(self.data_train)
@@ -310,22 +313,31 @@ class DiscriDataAutoLand_Train_dim(data.Dataset):
         data_dict = {}
         ref_dict = {}
         idx_dict = {}
-        for i in range(self.data_total):
+        label_dict = {}
+        for i in range(data_length):
             for bin_lb in bin_array:
                 if self.data_total[i,0] > bin_lb and self.data_total[i,0] < bin_lb + self.window_width:
                     if bin_lb not in data_dict:
                         data_dict[bin_lb] = [self.data_total[i,0]]
-                        ref_dict[bin_lb] = [self.data_total[i,1]]
+                        ref_dict[bin_lb] = [self.ref_total[i,0]]
                         idx_dict[bin_lb] = [i]
+                        label_dict[bin_lb] = [self.label_total[i,0]]
                     else:
                         data_dict[bin_lb].append(self.data_total[i,0])
-                        ref_dict[bin_lb].append(self.data_total[i,1])
+                        ref_dict[bin_lb].append(self.ref_total[i,0])
                         idx_dict[bin_lb].append(i)
-        mean_dict = {}
-        threshold_dict = {}
+                        label_dict[bin_lb].append(self.label_total[i,0])
+        kept_idx = []
         for key in data_dict:
-            mean_dict[key] = np.mean(data_dict[key])
-            # threshold_dict[key]
+            dist_array = np.abs(np.array(ref_dict[key])-np.array(label_dict[key]))
+            sorted_dist_idx_array = np.argsort(dist_array)
+            reduced_array = sorted_dist_idx_array[:round(sorted_dist_idx_array.size*self.fraction)]
+            reduced_array = np.sort(reduced_array)
+            kept_idx += (np.array(idx_dict[key])[reduced_array]).tolist()
+        
+        self.data_train = copy.deepcopy(self.data_total[kept_idx,:])
+        self.ref_train = copy.deepcopy(self.ref_total[kept_idx,:])
+        self.label_train = copy.deepcopy(self.label_total[kept_idx,:])
 
 class DiscriDataAutoLand_Verif_dim(data.Dataset):
     """DiscriData."""
@@ -372,7 +384,7 @@ class DiscriDataAutoLand_Verif_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total)
 
         self.fraction = args.fraction
-        self.window_width = args.width
+        self.window_width = args.window_width
 
     def __len__(self):
         return len(self.data_train)
@@ -411,7 +423,38 @@ class DiscriDataAutoLand_Verif_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
 
     def reduce_data3(self):
-        pass 
+        data_length = self.data_total.shape[0]
+        data_max = np.max(self.data_total[:,0])
+        data_min = np.min(self.data_total[:,0])
+        bin_array = np.arange(data_min, data_max, self.window_width)
+        data_dict = {}
+        ref_dict = {}
+        idx_dict = {}
+        label_dict = {}
+        for i in range(data_length):
+            for bin_lb in bin_array:
+                if self.data_total[i,0] > bin_lb and self.data_total[i,0] < bin_lb + self.window_width:
+                    if bin_lb not in data_dict:
+                        data_dict[bin_lb] = [self.data_total[i,0]]
+                        ref_dict[bin_lb] = [self.ref_total[i,0]]
+                        idx_dict[bin_lb] = [i]
+                        label_dict[bin_lb] = [self.label_total[i,0]]
+                    else:
+                        data_dict[bin_lb].append(self.data_total[i,0])
+                        ref_dict[bin_lb].append(self.ref_total[i,0])
+                        idx_dict[bin_lb].append(i)
+                        label_dict[bin_lb].append(self.label_total[i,0])
+        kept_idx = []
+        for key in data_dict:
+            dist_array = np.abs(np.array(ref_dict[key])-np.array(label_dict[key]))
+            sorted_dist_idx_array = np.argsort(dist_array)
+            reduced_array = sorted_dist_idx_array[:round(sorted_dist_idx_array.size*self.fraction)]
+            reduced_array = np.sort(reduced_array)
+            kept_idx += (np.array(idx_dict[key])[reduced_array]).tolist()
+        
+        self.data_train = copy.deepcopy(self.data_total[kept_idx,:])
+        self.ref_train = copy.deepcopy(self.ref_total[kept_idx,:])
+        self.label_train = copy.deepcopy(self.label_total[kept_idx,:])
 
 def get_dataloader_autoland_dim(args):
     train_loader = torch.utils.data.DataLoader(

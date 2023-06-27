@@ -37,7 +37,7 @@ def hinge_loss_function(est, Radius, Center, alpha):
     res = res1+res2
     return res
 
-def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, dataloader, writer, training, alpha, _lambda, fraction):
+def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, scheduler_r, scheduler_c, epoch, dataloader, writer, training, alpha, _lambda, fraction):
     global global_step
     loss = AverageMeter()
     hinge_loss = AverageMeter()
@@ -74,7 +74,7 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
 
         _hinge_loss = hinge_loss_function(est, Radius, Center, alpha)
         _volume_loss = torch.sum(torch.abs(Radius),1)
-        _center_loss = torch.abs(Center - est)
+        _center_loss = torch.relu(torch.abs(Center - est)-100)
 
         _hinge_loss = _hinge_loss.mean()
         _volume_loss = _volume_loss.mean()
@@ -108,7 +108,10 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
             optimizer_c.zero_grad()
             _loss.backward()
             optimizer_r.step()
-            optimizer_c.step()
+            scheduler_r.step()
+            if _center_loss.item() > 20:
+                optimizer_c.step()
+                scheduler_c.step()
         
         time_str += 'backward time: %.3f s'%(time.time()-c)
         end = time.time()
@@ -127,10 +130,10 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
 def train_model(args):  
     from data import get_dataloader_autoland_dim
     train_loader, val_loader = get_dataloader_autoland_dim(args)
-    from model import get_model_rect, get_model_rect2
+    from model import get_model_rect, get_model_rect2, get_model_rect4
     if args.dimension == 'x':
         # model_r, forward_r = get_model_rect(1, 1, 4,4)
-        model_r, forward_r = get_model_rect(1,1,64,64)
+        model_r, forward_r = get_model_rect2(1,1,64,64,64)
         model_c, forward_c = get_model_rect(1,1,64,64)
     elif args.dimension == 'y':
         model_r, forward_r = get_model_rect(2, 1, 64, 64)
@@ -166,6 +169,8 @@ def train_model(args):
 
     optimizer_r = torch.optim.Adam(model_r.parameters(), lr=args.learning_rate)
     optimizer_c = torch.optim.Adam(model_c.parameters(), lr=args.learning_rate)
+    scheduler_r = torch.optim.lr_scheduler.StepLR(optimizer_r,10,0.0001)
+    scheduler_c = torch.optim.lr_scheduler.StepLR(optimizer_c,10,0.0001)
 
     # train_writer = SummaryWriter(args.log+'/train')
     # val_writer = SummaryWriter(args.log+'/val')
@@ -173,17 +178,17 @@ def train_model(args):
     best_loss = np.inf
     best_prec = 0
 
-    train_loader.dataset.reduce_data1()
-    val_loader.dataset.reduce_data1()
+    train_loader.dataset.reduce_data3()
+    val_loader.dataset.reduce_data3()
 
     for epoch in range(args.epochs):
         adjust_learning_rate(optimizer_r, epoch)
         adjust_learning_rate(optimizer_c, epoch)
         # train for one epoch
         print('Epoch %d'%(epoch))
-        _, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, train_loader, writer=None, training=True, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
+        _, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, scheduler_r, scheduler_c, epoch, train_loader, writer=None, training=True, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
         # result_train, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, train_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda)
-        result_val, loss, prec = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, val_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
+        result_val, loss, prec = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, scheduler_r, scheduler_c, epoch, val_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
         epoch += 1
         # train_loader.dataset.reduce_data2(forward_c)
         # val_loader.dataset.reduce_data2(forward_c)
@@ -200,13 +205,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
-    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.2, help='lambda for balancing the two loss terms.')
+    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.01, help='lambda for balancing the two loss terms.')
     parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
     parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in the second layer of the NN.')
     parser.add_argument('--epochs', type=int, default=1000, help='Number of epochs for training.')
-    parser.add_argument('--lr', dest='learning_rate', type=float, default=0.001, help='Learning rate.')
+    parser.add_argument('--lr', dest='learning_rate', type=float, default=0.01, help='Learning rate.')
     parser.add_argument('--data_dir', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated training data set.')
     parser.add_argument('--label_dir', default=os.path.join(script_dir, '../'), type=str, help='Path to the file for storing the generated training data set.')
 
@@ -222,6 +227,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dimension', '-d', type=str, default='x')
     parser.add_argument('--fraction', '-f', type=float, default =1.0, help='Fraction of data to be kept')
+    parser.add_argument('--window_width', '-ww', type=int, default=100, help='Window width for performing partition')
 
     args = parser.parse_args()
 
