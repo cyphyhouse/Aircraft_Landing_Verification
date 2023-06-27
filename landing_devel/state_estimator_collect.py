@@ -238,8 +238,8 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
 
     cur_state = initial_state
 
-    data_fn = os.path.join(data_path, f"data_test.txt")
-    label_fn = os.path.join(label_path, f"label_test.txt")
+    data_fn = os.path.join(data_path, f"data5.txt")
+    label_fn = os.path.join(label_path, f"label5.txt")
     with open(data_fn,'w+') as f:
         pass    
     with open(label_fn,'w+') as f:
@@ -283,7 +283,7 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
             continue
         # Sample 10 times.
         num_sample = 0
-        while num_sample < 10:
+        while num_sample < 50:
             env_parameters = []
 
             for gazebo_modifier in gazebo_modifiers:
@@ -342,9 +342,15 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
             cv2.waitKey(3)
             
             corrupted = False
-            if 0.5*(abs(state_estimation[0] - state_rand[0]) + abs(state_estimation[1] - state_rand[1]) + abs(state_estimation[2] - state_rand[2])) + (abs(state_estimation[3] - state_rand[3]) + abs(state_estimation[4] - state_rand[4]) + abs(state_estimation[5] - state_rand[5])) > 100:
+            if state_estimation[0]>1e5 or state_estimation[0]<-1e5 or\
+                state_estimation[1]>1e4 or state_estimation[1]<-1e4 or\
+                state_estimation[2]>1e4 or state_estimation[2]<-1e4 or\
+                state_estimation[3]>np.pi/2 or state_estimation[3]<-np.pi/2 or \
+                state_estimation[4]>np.pi/2 or state_estimation[4]<-np.pi/2 or \
+                state_estimation[5]>np.pi/2 or state_estimation[5]<-np.pi/2:
                 print("stop here")
                 corrupted = True
+                continue
 
             # if corrupted:
             #     time.sleep(0.1)
@@ -362,7 +368,7 @@ def sample_state_estimator(gazebo_modifiers:List=[], image_modifiers:List = []):
             
             num_sample += 1
         idx += 1
-        if idx > 50000:
+        if idx > 10000:
             break
 
 import argparse

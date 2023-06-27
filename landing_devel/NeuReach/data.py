@@ -230,30 +230,32 @@ class DiscriDataAutoLand_Train_dim(data.Dataset):
         label_path = os.path.join(args.label_dir, 'estimation_label/label4.txt')
         data = np.loadtxt(data_path, delimiter=',')
         label = np.loadtxt(label_path, delimiter=',')
+        data_length = data.shape[0]
+        train_data_idx = int(data_length*0.9)
         if args.dimension == 'x':
-            self.data_total = data[:90000, 1:2]
-            self.ref_total = data[:90000, 1:2]
-            self.label_total = label[:90000, 1:2]
+            self.data_total = data[:train_data_idx, 1:2]
+            self.ref_total = data[:train_data_idx, 1:2]
+            self.label_total = label[:train_data_idx, 1:2]
         elif args.dimension == 'y':
-            self.data_total = data[:90000, (1,2)]
-            self.ref_total = data[:90000, 2:3]
-            self.label_total = label[:90000, 2:3]
+            self.data_total = data[:train_data_idx, (1,2)]
+            self.ref_total = data[:train_data_idx, 2:3]
+            self.label_total = label[:train_data_idx, 2:3]
         elif args.dimension == 'z':
-            self.data_total = data[:90000, (1,3)]
-            self.ref_total = data[:90000, 3:4]
-            self.label_total = label[:90000, 3:4]
+            self.data_total = data[:train_data_idx, (1,3)]
+            self.ref_total = data[:train_data_idx, 3:4]
+            self.label_total = label[:train_data_idx, 3:4]
         elif args.dimension == 'roll':
-            self.data_total = data[:90000, (1,4)]
-            self.ref_total = data[:90000, 4:5]
-            self.label_total = label[:90000, 4:5]
+            self.data_total = data[:train_data_idx, (1,4)]
+            self.ref_total = data[:train_data_idx, 4:5]
+            self.label_total = label[:train_data_idx, 4:5]
         elif args.dimension == 'pitch':
-            self.data_total = data[:90000, (1,5)]
-            self.ref_total = data[:90000, 5:6]
-            self.label_total = label[:90000, 5:6]
+            self.data_total = data[:train_data_idx, (1,5)]
+            self.ref_total = data[:train_data_idx, 5:6]
+            self.label_total = label[:train_data_idx, 5:6]
         elif args.dimension == 'yaw':
-            self.data_total = data[:90000, (1,6)]
-            self.ref_total = data[:90000, 6:7]
-            self.label_total = label[:90000, 6:7]
+            self.data_total = data[:train_data_idx, (1,6)]
+            self.ref_total = data[:train_data_idx, 6:7]
+            self.label_total = label[:train_data_idx, 6:7]
         else:
             raise ValueError
         
@@ -262,6 +264,7 @@ class DiscriDataAutoLand_Train_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total)
 
         self.fraction = args.fraction
+        self.window_width = args.width
 
     def __len__(self):
         return len(self.data_train)
@@ -298,6 +301,31 @@ class DiscriDataAutoLand_Train_dim(data.Dataset):
         self.data_train = copy.deepcopy(self.data_total[reduced_array,:])
         self.ref_train = copy.deepcopy(self.ref_total[reduced_array,:])
         self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
+
+    def reduce_data3(self):
+        data_length = self.data_total.shape[0]
+        data_max = np.max(self.data_total[:,0])
+        data_min = np.min(self.data_total[:,0])
+        bin_array = np.arange(data_min, data_max, self.window_width)
+        data_dict = {}
+        ref_dict = {}
+        idx_dict = {}
+        for i in range(self.data_total):
+            for bin_lb in bin_array:
+                if self.data_total[i,0] > bin_lb and self.data_total[i,0] < bin_lb + self.window_width:
+                    if bin_lb not in data_dict:
+                        data_dict[bin_lb] = [self.data_total[i,0]]
+                        ref_dict[bin_lb] = [self.data_total[i,1]]
+                        idx_dict[bin_lb] = [i]
+                    else:
+                        data_dict[bin_lb].append(self.data_total[i,0])
+                        ref_dict[bin_lb].append(self.data_total[i,1])
+                        idx_dict[bin_lb].append(i)
+        mean_dict = {}
+        threshold_dict = {}
+        for key in data_dict:
+            mean_dict[key] = np.mean(data_dict[key])
+            # threshold_dict[key]
 
 class DiscriDataAutoLand_Verif_dim(data.Dataset):
     """DiscriData."""
@@ -310,30 +338,32 @@ class DiscriDataAutoLand_Verif_dim(data.Dataset):
         label_path = os.path.join(args.label_dir, 'estimation_label/label4.txt')
         data = np.loadtxt(data_path, delimiter=',')
         label = np.loadtxt(label_path, delimiter=',')
+        data_length = data.shape[0]
+        train_data_idx = int(data_length*0.9)
         if args.dimension == 'x':
-            self.data_total = data[90000:, 1:2]
-            self.ref_total = data[90000:, 1:2]
-            self.label_total = label[90000:, 1:2]
+            self.data_total = data[train_data_idx:, 1:2]
+            self.ref_total = data[train_data_idx:, 1:2]
+            self.label_total = label[train_data_idx:, 1:2]
         elif args.dimension == 'y':
-            self.data_total = data[90000:, (1,2)]
-            self.ref_total = data[90000:, 2:3]
-            self.label_total = label[90000:, 2:3]
+            self.data_total = data[train_data_idx:, (1,2)]
+            self.ref_total = data[train_data_idx:, 2:3]
+            self.label_total = label[train_data_idx:, 2:3]
         elif args.dimension == 'z':
-            self.data_total = data[90000:, (1,3)]
-            self.ref_total = data[90000:, 3:4]
-            self.label_total = label[90000:, 3:4]
+            self.data_total = data[train_data_idx:, (1,3)]
+            self.ref_total = data[train_data_idx:, 3:4]
+            self.label_total = label[train_data_idx:, 3:4]
         elif args.dimension == 'roll':
-            self.data_total = data[90000:, (1,4)]
-            self.ref_total = data[90000:, 4:5]
-            self.label_total = label[90000:, 4:5]
+            self.data_total = data[train_data_idx:, (1,4)]
+            self.ref_total = data[train_data_idx:, 4:5]
+            self.label_total = label[train_data_idx:, 4:5]
         elif args.dimension == 'pitch':
-            self.data_total = data[90000:, (1,5)]
-            self.ref_total = data[90000:, 5:6]
-            self.label_total = label[90000:, 5:6]
+            self.data_total = data[train_data_idx:, (1,5)]
+            self.ref_total = data[train_data_idx:, 5:6]
+            self.label_total = label[train_data_idx:, 5:6]
         elif args.dimension == 'yaw':
-            self.data_total = data[90000:, (1,6)]
-            self.ref_total = data[90000:, 6:7]
-            self.label_total = label[90000:, 6:7]
+            self.data_total = data[train_data_idx:, (1,6)]
+            self.ref_total = data[train_data_idx:, 6:7]
+            self.label_total = label[train_data_idx:, 6:7]
         else:
             raise ValueError
 
@@ -342,6 +372,7 @@ class DiscriDataAutoLand_Verif_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total)
 
         self.fraction = args.fraction
+        self.window_width = args.width
 
     def __len__(self):
         return len(self.data_train)
@@ -379,6 +410,9 @@ class DiscriDataAutoLand_Verif_dim(data.Dataset):
         self.ref_train = copy.deepcopy(self.ref_total[reduced_array,:])
         self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
 
+    def reduce_data3(self):
+        pass 
+
 def get_dataloader_autoland_dim(args):
     train_loader = torch.utils.data.DataLoader(
         DiscriDataAutoLand_Train_dim(args, data_file=args.data_dir), batch_size=args.batch_size, shuffle=True,
@@ -386,6 +420,200 @@ def get_dataloader_autoland_dim(args):
 
     val_loader = torch.utils.data.DataLoader(
         DiscriDataAutoLand_Verif_dim(args, data_file=args.label_dir), batch_size=args.batch_size, shuffle=True,
+        num_workers=10, pin_memory=True)
+
+    return train_loader, val_loader
+
+class DiscriDataAutoLand_Train_dim2(data.Dataset):
+    """DiscriData."""
+    def __init__(self, args, num_sample=1, data_file=None):
+        super(DiscriDataAutoLand_Train_dim2, self).__init__()
+
+        self.num_sample = num_sample
+
+        data_path = os.path.join(args.data_dir, 'data/data5.txt')
+        label_path = os.path.join(args.label_dir, 'estimation_label/label5.txt')
+        data = np.loadtxt(data_path, delimiter=',')
+        label = np.loadtxt(label_path, delimiter=',')
+        if args.dimension == 'x':
+            self.data_total = data[0:22500, 1:2]
+            self.ref_total = data[0:22500, 1:2]
+            self.label_total = label[0:22500, 1:2]
+        elif args.dimension == 'y':
+            self.data_total = data[0:22500, (1,2)]
+            self.ref_total = data[0:22500, 2:3]
+            self.label_total = label[0:22500, 2:3]
+        elif args.dimension == 'z':
+            self.data_total = data[0:22500, (1,3)]
+            self.ref_total = data[0:22500, 3:4]
+            self.label_total = label[0:22500, 3:4]
+        elif args.dimension == 'roll':
+            self.data_total = data[0:22500, (1,4)]
+            self.ref_total = data[0:22500, 4:5]
+            self.label_total = label[0:22500, 4:5]
+        elif args.dimension == 'pitch':
+            self.data_total = data[0:22500, (1,5)]
+            self.ref_total = data[0:22500, 5:6]
+            self.label_total = label[0:22500, 5:6]
+        elif args.dimension == 'yaw':
+            self.data_total = data[0:22500, (1,6)]
+            self.ref_total = data[0:22500, 6:7]
+            self.label_total = label[0:22500, 6:7]
+        else:
+            raise ValueError
+        
+        self.data_train = copy.deepcopy(self.data_total) 
+        self.ref_train = copy.deepcopy(self.ref_total) 
+        self.label_train = copy.deepcopy(self.label_total)
+
+        self.fraction = args.fraction
+
+    def __len__(self):
+        return int(len(self.data_train)/50)
+
+    def __getitem__(self, index):
+        data = self.data_train[index*50:(index+1)*50, :]
+        ref = self.ref_train[index*50:(index+1)*50, :]
+        est = self.label_train[index*50:(index+1)*50, :]
+        ref_mean = np.mean(ref, axis=0)
+        dist_array = np.abs(ref - ref_mean).squeeze()
+        sorted_dist_idx_array = np.argsort(dist_array)
+        reduced_array = sorted_dist_idx_array[:int(sorted_dist_idx_array.size*self.fraction)]
+        reduced_array = np.sort(reduced_array)
+        
+        data = copy.deepcopy(data[reduced_array,:])
+        ref = copy.deepcopy(ref[reduced_array,:])
+        est = copy.deepcopy(est[reduced_array,:])
+
+        if data.size==0:
+            print("stop here")
+        
+        return torch.from_numpy(np.array(data).astype('float32')),\
+            torch.from_numpy(np.array(ref).astype('float32')),\
+            torch.from_numpy(np.array(est).astype('float32'))
+
+    def reduce_data1(self):
+        dist_array = np.abs(self.ref_total-self.label_total).squeeze()
+        sorted_dist_idx_array = np.argsort(dist_array)
+        reduced_array = sorted_dist_idx_array[:int(sorted_dist_idx_array.size*self.fraction)]
+        reduced_array = np.sort(reduced_array)
+        
+        self.data_train = copy.deepcopy(self.data_total[reduced_array,:])
+        self.ref_train = copy.deepcopy(self.ref_total[reduced_array,:])
+        self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
+
+    def reduce_data2(self, forward_c):
+        data_tensor = torch.FloatTensor(self.data_total).cuda()
+        ref_tensor = torch.FloatTensor(self.ref_total).cuda()
+        label_tensor = torch.FloatTensor(self.label_total).cuda()
+        c = forward_c(data_tensor)
+        dist_tensor = torch.abs(label_tensor - c)
+        dist_array = dist_tensor.cpu().detach().numpy().squeeze()
+        sorted_dist_idx_array = np.argsort(dist_array)
+        reduced_array = sorted_dist_idx_array[:int(sorted_dist_idx_array.size*self.fraction)]
+        reduced_array = np.sort(reduced_array)
+        
+        self.data_train = copy.deepcopy(self.data_total[reduced_array,:])
+        self.ref_train = copy.deepcopy(self.ref_total[reduced_array,:])
+        self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
+
+class DiscriDataAutoLand_Verif_dim2(data.Dataset):
+    """DiscriData."""
+    def __init__(self, args, num_sample=1, data_file=None):
+        super(DiscriDataAutoLand_Verif_dim2, self).__init__()
+
+        self.num_sample = num_sample
+
+        data_path = os.path.join(args.data_dir, 'data/data4.txt')
+        label_path = os.path.join(args.label_dir, 'estimation_label/label4.txt')
+        data = np.loadtxt(data_path, delimiter=',')
+        label = np.loadtxt(label_path, delimiter=',')
+        if args.dimension == 'x':
+            self.data_total = data[22500:25000, 1:2]
+            self.ref_total = data[22500:25000, 1:2]
+            self.label_total = label[22500:25000, 1:2]
+        elif args.dimension == 'y':
+            self.data_total = data[22500:25000, (1,2)]
+            self.ref_total = data[22500:25000, 2:3]
+            self.label_total = label[22500:25000, 2:3]
+        elif args.dimension == 'z':
+            self.data_total = data[22500:25000, (1,3)]
+            self.ref_total = data[22500:25000, 3:4]
+            self.label_total = label[22500:25000, 3:4]
+        elif args.dimension == 'roll':
+            self.data_total = data[22500:25000, (1,4)]
+            self.ref_total = data[22500:25000, 4:5]
+            self.label_total = label[22500:25000, 4:5]
+        elif args.dimension == 'pitch':
+            self.data_total = data[22500:25000, (1,5)]
+            self.ref_total = data[22500:25000, 5:6]
+            self.label_total = label[22500:25000, 5:6]
+        elif args.dimension == 'yaw':
+            self.data_total = data[22500:25000, (1,6)]
+            self.ref_total = data[22500:25000, 6:7]
+            self.label_total = label[22500:25000, 6:7]
+        else:
+            raise ValueError
+
+        self.data_train = copy.deepcopy(self.data_total) 
+        self.ref_train = copy.deepcopy(self.ref_total) 
+        self.label_train = copy.deepcopy(self.label_total)
+
+        self.fraction = args.fraction
+
+    def __len__(self):
+        return int(len(self.data_train)/50)
+
+    def __getitem__(self, index):
+        data = self.data_train[index*50:(index+1)*50, :]
+        ref = self.ref_train[index*50:(index+1)*50, :]
+        est = self.label_train[index*50:(index+1)*50, :]
+        ref_mean = np.mean(ref, axis=0)
+        dist_array = np.abs(ref - ref_mean).squeeze()
+        sorted_dist_idx_array = np.argsort(dist_array)
+        reduced_array = sorted_dist_idx_array[:int(sorted_dist_idx_array.size*self.fraction)]
+        reduced_array = np.sort(reduced_array)
+        
+        data = copy.deepcopy(data[reduced_array,:])
+        ref = copy.deepcopy(ref[reduced_array,:])
+        est = copy.deepcopy(est[reduced_array,:])
+        
+        return torch.from_numpy(np.array(data).astype('float32')),\
+            torch.from_numpy(np.array(ref).astype('float32')),\
+            torch.from_numpy(np.array(est).astype('float32'))
+
+    def reduce_data1(self):
+        dist_array = np.abs(self.ref_total-self.label_total).squeeze()
+        sorted_dist_idx_array = np.argsort(dist_array)
+        reduced_array = sorted_dist_idx_array[:int(sorted_dist_idx_array.size*self.fraction)]
+        reduced_array = np.sort(reduced_array)
+        
+        self.data_train = copy.deepcopy(self.data_total[reduced_array,:])
+        self.ref_train = copy.deepcopy(self.ref_total[reduced_array,:])
+        self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
+
+    def reduce_data2(self, forward_c):
+        data_tensor = torch.FloatTensor(self.data_total).cuda()
+        ref_tensor = torch.FloatTensor(self.ref_total).cuda()
+        label_tensor = torch.FloatTensor(self.label_total).cuda()
+        c = forward_c(data_tensor)
+        dist_tensor = torch.abs(label_tensor - c)
+        dist_array = dist_tensor.cpu().detach().numpy().squeeze()
+        sorted_dist_idx_array = np.argsort(dist_array)
+        reduced_array = sorted_dist_idx_array[:int(sorted_dist_idx_array.size*self.fraction)]
+        reduced_array = np.sort(reduced_array)
+        
+        self.data_train = copy.deepcopy(self.data_total[reduced_array,:])
+        self.ref_train = copy.deepcopy(self.ref_total[reduced_array,:])
+        self.label_train = copy.deepcopy(self.label_total[reduced_array,:])
+
+def get_dataloader_autoland_dim2(args):
+    train_loader = torch.utils.data.DataLoader(
+        DiscriDataAutoLand_Train_dim2(args, data_file=args.data_dir), batch_size=args.batch_size, shuffle=True,
+        num_workers=10, pin_memory=True)
+
+    val_loader = torch.utils.data.DataLoader(
+        DiscriDataAutoLand_Verif_dim2(args, data_file=args.label_dir), batch_size=args.batch_size, shuffle=True,
         num_workers=10, pin_memory=True)
 
     return train_loader, val_loader

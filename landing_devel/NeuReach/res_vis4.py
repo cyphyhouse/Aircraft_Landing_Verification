@@ -32,8 +32,10 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 #         return output
 #     return model, forward
 
-model_r_name = 'checkpoint_x_r_06-25_16-23-16_50.pth.tar'
-model_c_name = 'checkpoint_x_c_06-25_16-23-16_50.pth.tar'
+# model_r_name = 'checkpoint_x_r_06-26_10-46-59_39.pth.tar'
+# model_c_name = 'checkpoint_x_c_06-26_10-46-59_39.pth.tar'
+model_r_name = 'checkpoint_x_r_06-26_12-48-27_2.pth.tar'
+model_c_name = 'checkpoint_x_c_06-26_12-48-27_2.pth.tar'
 tmp = model_r_name.split('_')
 dim = tmp[1]
 
@@ -92,29 +94,29 @@ if dim == 'x':
     plt.ylabel('estimated x')
     # plt.savefig('surrogate_bound_x.png')
 elif dim == 'y':
-    plt.figure()
-    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], res_c+res_r,'r*')
-    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
-    plt.legend()
-    plt.xlabel("ground truth y")
-    plt.ylabel('estimated y')
-    plt.savefig('surrogate_bound_y.png')
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111, projection='3d')
-    # ax.scatter(data[:,0], data[:,1], label[:,0], c='b', marker='*')
-    # ax.scatter(data[:,0], data[:,1], data[:,1]+res[:,0], c='r', marker='*')
-    # ax.scatter(data[:,0], data[:,1], data[:,1]-res[:,1], c='r', marker='*')
-    # ax.set_xlabel('ground truth x')
-    # ax.set_ylabel('ground truth y')
-    # ax.set_zlabel('estimate y')
+    # plt.figure()
+    # plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
+    # plt.plot(data[:,0], res_c+res_r,'r*')
+    # plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    # plt.legend()
+    # plt.xlabel("ground truth x")
+    # plt.ylabel('estimated y')
+    # plt.savefig('surrogate_bound_y.png')
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(data[:,0], data[:,1], label[:,0], c='b', marker='*')
+    ax.scatter(data[:,0], data[:,1], res_c+res_r, c='r', marker='*')
+    ax.scatter(data[:,0], data[:,1], res_c-res_r, c='r', marker='*')
+    ax.set_xlabel('ground truth x')
+    ax.set_ylabel('ground truth y')
+    ax.set_zlabel('estimate y')
 elif dim == 'z':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
     plt.plot(data[:,0], res_c+res_r,'r*')
     plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
-    plt.xlabel("ground truth z")
+    plt.xlabel("ground truth x")
     plt.ylabel('estimated z')
     # plt.savefig('surrogate_bound_z.png')
 elif dim == 'roll':
