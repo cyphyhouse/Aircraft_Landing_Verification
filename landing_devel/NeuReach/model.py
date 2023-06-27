@@ -51,18 +51,20 @@ def get_model_rect(num_dim_input, num_dim_output, layer1, layer2):
         return output
     return model, forward
 
-def get_model_rect4(num_dim_input, num_dim_output, layer1, layer2):
+def get_model_rect4(num_dim_input, num_dim_output, layer1, layer2, layer3):
     global mult
     model = torch.nn.Sequential(
-            # torch.nn.BatchNorm1d(num_dim_input),
             torch.nn.Linear(num_dim_input, layer1),
             # torch.nn.BatchNorm1d(layer1),
-            torch.nn.ReLU(),
+            torch.nn.PReLU(),
             torch.nn.Linear(layer1, layer2),
             # torch.nn.BatchNorm1d(layer2),
+            # torch.nn.Sigmoid(),
             torch.nn.ReLU(),
+            torch.nn.Linear(layer2, layer3),
             # torch.nn.BatchNorm1d(layer2),
-            torch.nn.Linear(layer2, num_dim_output))
+            torch.nn.ReLU(),
+            torch.nn.Linear(layer3, num_dim_output))
 
     mult = None
 
@@ -76,7 +78,6 @@ def get_model_rect4(num_dim_input, num_dim_output, layer1, layer2):
         return output
     return model, forward
 
-
 def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2, layer3):
     global mult
     model = torch.nn.Sequential(
@@ -87,6 +88,7 @@ def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2, layer3):
             torch.nn.BatchNorm1d(layer2),
             torch.nn.Sigmoid(),
             torch.nn.Linear(layer2, layer3),
+            # torch.nn.BatchNorm1d(layer2),
             torch.nn.ReLU(),
             torch.nn.Linear(layer3, num_dim_output))
 

@@ -74,13 +74,20 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, s
 
         _hinge_loss = hinge_loss_function(est, Radius, Center, alpha)
         _volume_loss = torch.sum(torch.abs(Radius),1)
-        _center_loss = torch.relu(torch.abs(Center - est)-100)
+        _center_loss = torch.relu(torch.abs(Center - est)-10)
 
         _hinge_loss = _hinge_loss.mean()
         _volume_loss = _volume_loss.mean()
         _center_loss = _center_loss.mean()
 
-        _loss = _hinge_loss + _lambda * _volume_loss 
+        center_guide = 0
+        # if epoch <20:
+        #     center_guide = 0.05
+        # else:
+        #     center_guide = 0
+
+
+        _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
