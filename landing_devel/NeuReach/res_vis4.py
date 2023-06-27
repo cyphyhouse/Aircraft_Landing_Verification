@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import os 
-from model import get_model_rect2, get_model_rect, get_model_rect3, get_model_rect4
+from model import get_model_rect2, get_model_rect, get_model_rect3
 from sklearn import preprocessing
 import sys 
 
@@ -34,13 +34,13 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 
 # model_r_name = 'checkpoint_x_r_06-26_10-46-59_39.pth.tar'
 # model_c_name = 'checkpoint_x_c_06-26_10-46-59_39.pth.tar'
-model_r_name = 'checkpoint_x_r_06-27_16-51-21_11.pth.tar'
-model_c_name = 'checkpoint_x_c_06-27_16-51-21_11.pth.tar'
+model_r_name = 'checkpoint_x_r_06-26_12-48-27_2.pth.tar'
+model_c_name = 'checkpoint_x_c_06-26_12-48-27_2.pth.tar'
 tmp = model_r_name.split('_')
 dim = tmp[1]
 
 if dim == 'x':
-    model_r, forward_r = get_model_rect2(1,1,64,64,64)
+    model_r, forward_r = get_model_rect(1,1,64,64)
     model_c, forward_c = get_model_rect(1,1,64,64)
 else:
     model_r, forward_r = get_model_rect(2,1,64,64)
@@ -54,8 +54,8 @@ model_c.load_state_dict(torch.load(os.path.join(script_dir, f'./log/{model_c_nam
 data_orig = np.loadtxt(data_path, delimiter=',')
 label = np.loadtxt(label_path, delimiter=',')
 
-data_orig = data_orig[:90000, :]
-label = label[:90000, :]
+data_orig = data_orig[90000:, :]
+label = label[90000:, :]
 
 if dim == 'x':
     data = data_orig[:,1:2]
