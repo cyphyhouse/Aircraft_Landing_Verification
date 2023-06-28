@@ -54,9 +54,10 @@ def get_model_rect2(num_dim_input, num_dim_output, layer1, layer2, layer3):
     model = torch.nn.Sequential(
             torch.nn.Linear(num_dim_input, layer1),
             torch.nn.BatchNorm1d(layer1),
-            torch.nn.Tanh(),
+            torch.nn.Sigmoid(),
             torch.nn.Linear(layer1, layer2),
-            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(layer2),
+            torch.nn.Sigmoid(),
             torch.nn.Linear(layer2, layer3),
             # torch.nn.BatchNorm1d(layer2),
             torch.nn.ReLU(),

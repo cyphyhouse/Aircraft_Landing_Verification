@@ -85,7 +85,7 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         _volume_loss = _volume_loss.mean()
         _center_loss = _center_loss.mean()
 
-        _loss = _hinge_loss + _lambda * _volume_loss 
+        _loss = _center_loss 
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
@@ -111,10 +111,10 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         c = time.time()
         if training:
             global_step += 1
-            optimizer_r.zero_grad()
+            # optimizer_r.zero_grad()
             optimizer_c.zero_grad()
             _loss.backward()
-            optimizer_r.step()
+            # optimizer_r.step()
             optimizer_c.step()
         
         time_str += 'backward time: %.3f s'%(time.time()-c)

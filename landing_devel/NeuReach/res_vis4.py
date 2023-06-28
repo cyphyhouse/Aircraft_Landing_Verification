@@ -34,13 +34,13 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 
 # model_r_name = 'checkpoint_x_r_06-26_10-46-59_39.pth.tar'
 # model_c_name = 'checkpoint_x_c_06-26_10-46-59_39.pth.tar'
-model_r_name = 'checkpoint_x_r_06-27_20-21-05_70.pth.tar'
-model_c_name = 'checkpoint_x_c_06-27_20-21-05_70.pth.tar'
+model_r_name = 'checkpoint_x_r_06-27_23-32-30_471.pth.tar'
+model_c_name = 'checkpoint_x_c_06-27_23-32-30_471.pth.tar'
 tmp = model_r_name.split('_')
 dim = tmp[1]
 
 if dim == 'x':
-    model_r, forward_r = get_model_rect(1,1,64,64)
+    model_r, forward_r = get_model_rect2(1,1,64,64,64)
     model_c, forward_c = get_model_rect(1,1,64,64)
 else:
     model_r, forward_r = get_model_rect(2,1,64,64)
