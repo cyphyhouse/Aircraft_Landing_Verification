@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
-    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.2, help='lambda for balancing the two loss terms.')
+    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.15, help='lambda for balancing the two loss terms.')
     parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
@@ -229,6 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dimension', '-d', type=str, default='x')
     parser.add_argument('--fraction', '-f', type=float, default =1.0, help='Fraction of data to be kept')
+    parser.add_argument('--window_width', '-ww', type=float, default =100)
 
     args = parser.parse_args()
 
