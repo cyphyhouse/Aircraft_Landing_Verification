@@ -34,8 +34,8 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 
 # model_r_name = 'checkpoint_x_r_06-26_10-46-59_39.pth.tar'
 # model_c_name = 'checkpoint_x_c_06-26_10-46-59_39.pth.tar'
-model_r_name = 'checkpoint_x_r_06-27_23-32-30_471.pth.tar'
-model_c_name = 'checkpoint_x_c_06-27_23-32-30_471.pth.tar'
+model_r_name = 'checkpoint_z_r_06-28_09-34-27_65.pth.tar'
+model_c_name = 'checkpoint_z_c_06-28_09-34-27_65.pth.tar'
 tmp = model_r_name.split('_')
 dim = tmp[1]
 
@@ -43,7 +43,7 @@ if dim == 'x':
     model_r, forward_r = get_model_rect2(1,1,64,64,64)
     model_c, forward_c = get_model_rect(1,1,64,64)
 else:
-    model_r, forward_r = get_model_rect(2,1,64,64)
+    model_r, forward_r = get_model_rect2(2,1,64,64,64)
     model_c, forward_c = get_model_rect(2,1,64,64)
 # model, forward = get_model_rect(6,6,32,32)
 
@@ -94,22 +94,22 @@ if dim == 'x':
     plt.ylabel('estimated x')
     # plt.savefig('surrogate_bound_x.png')
 elif dim == 'y':
-    # plt.figure()
-    # plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    # plt.plot(data[:,0], res_c+res_r,'r*')
-    # plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
-    # plt.legend()
-    # plt.xlabel("ground truth x")
-    # plt.ylabel('estimated y')
-    # plt.savefig('surrogate_bound_y.png')
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(data[:,0], data[:,1], label[:,0], c='b', marker='*')
-    ax.scatter(data[:,0], data[:,1], res_c+res_r, c='r', marker='*')
-    ax.scatter(data[:,0], data[:,1], res_c-res_r, c='r', marker='*')
-    ax.set_xlabel('ground truth x')
-    ax.set_ylabel('ground truth y')
-    ax.set_zlabel('estimate y')
+    plt.figure()
+    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
+    plt.plot(data[:,0], res_c+res_r,'r*')
+    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    plt.legend()
+    plt.xlabel("ground truth x")
+    plt.ylabel('estimated y')
+    plt.savefig('surrogate_bound_y.png')
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.scatter(data[:,0], data[:,1], label[:,0], c='b', marker='*')
+    # ax.scatter(data[:,0], data[:,1], res_c+res_r, c='r', marker='*')
+    # ax.scatter(data[:,0], data[:,1], res_c-res_r, c='r', marker='*')
+    # ax.set_xlabel('ground truth x')
+    # ax.set_ylabel('ground truth y')
+    # ax.set_zlabel('estimate y')
 elif dim == 'z':
     plt.figure()
     plt.plot(data[:,0], label[:,0],'b*', label='estimated state')

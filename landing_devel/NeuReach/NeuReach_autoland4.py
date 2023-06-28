@@ -140,19 +140,19 @@ def train_model(args):
         model_r, forward_r = get_model_rect2(1,1,64,64,64)
         model_c, forward_c = get_model_rect(1,1,64,64)
     elif args.dimension == 'y':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64, 64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'z':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'roll':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'pitch':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'yaw':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     else:
         raise ValueError
@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
-    parser.add_argument('--lambda', dest='_lambda', type=float, default=0, help='lambda for balancing the two loss terms.')
+    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.01, help='lambda for balancing the two loss terms.')
     parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
