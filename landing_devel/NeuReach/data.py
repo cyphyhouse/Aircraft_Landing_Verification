@@ -264,7 +264,7 @@ class DiscriDataAutoLand_Train_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total)
 
         self.fraction = args.fraction
-        self.window_width = args.width
+        self.window_width = args.window_width
 
     def __len__(self):
         return len(self.data_train)
@@ -372,7 +372,7 @@ class DiscriDataAutoLand_Verif_dim(data.Dataset):
         self.label_train = copy.deepcopy(self.label_total)
 
         self.fraction = args.fraction
-        self.window_width = args.width
+        self.window_width = args.window_width
 
     def __len__(self):
         return len(self.data_train)
