@@ -80,7 +80,7 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         _volume_loss = _volume_loss.mean()
         _center_loss = _center_loss.mean()
 
-        center_guide = 0
+        center_guide = args.center_guide
         # if epoch <20:
         #     center_guide = 0.05
         # else:
@@ -230,6 +230,7 @@ if __name__ == "__main__":
     parser.add_argument('--dimension', '-d', type=str, default='x')
     parser.add_argument('--fraction', '-f', type=float, default =1.0, help='Fraction of data to be kept')
     parser.add_argument('--window_width', '-ww', type=float, default =100)
+    parser.add_argument('--center_guide','-c',type=float, default=0)
 
     args = parser.parse_args()
 
