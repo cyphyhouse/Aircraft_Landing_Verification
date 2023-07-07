@@ -10,7 +10,7 @@ start_time = datetime.now()
 start_time_str = start_time.strftime("%m-%d_%H-%M-%S")
 
 from data import get_dataloader_autoland2
-from model import get_model_rect2, get_model_rect, get_model_rect3
+from model import get_model_rect2, get_model_rect, get_model_rect3, get_model_rect4
 
 import sys
 sys.path.append('systems')
@@ -33,7 +33,7 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
 def hinge_loss_function(est, Radius, Center, alpha):
     tmp = torch.abs(Radius)
     res1 = torch.nn.ReLU()(est-(Center+tmp)+alpha)
-    res2 = torch.nn.ReLU()(Center-tmp-est-alpha)
+    res2 = torch.nn.ReLU()(Center-tmp-est+alpha)
     res = res1+res2
     return res
 
@@ -87,7 +87,8 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         #     center_guide = 0
 
 
-        _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
+        # _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
+        _loss = _center_loss*center_guide
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
@@ -111,10 +112,10 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         c = time.time()
         if training:
             global_step += 1
-            optimizer_r.zero_grad()
+            # optimizer_r.zero_grad()
             optimizer_c.zero_grad()
             _loss.backward()
-            optimizer_r.step()
+            # optimizer_r.step()
             optimizer_c.step()
         
         time_str += 'backward time: %.3f s'%(time.time()-c)
@@ -147,7 +148,7 @@ def train_model(args):
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'roll':
         model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
-        model_c, forward_c = get_model_rect(2, 1, 64, 64)
+        model_c, forward_c = get_model_rect3(2, 1, 16, 16)
     elif args.dimension == 'pitch':
         model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
@@ -195,9 +196,9 @@ def train_model(args):
         # train_loader.dataset.reduce_data2(forward_c)
         # val_loader.dataset.reduce_data2(forward_c)
         # if prec > best_prec:
+        print(loss)
         if loss < best_loss:
             best_loss = loss
-            print(best_loss)
             # best_prec = prec
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_r.state_dict()}, filename=f"checkpoint_{args.dimension}_r_{start_time_str}_{epoch}.pth.tar")
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_c.state_dict()}, filename=f"checkpoint_{args.dimension}_c_{start_time_str}_{epoch}.pth.tar")
