@@ -141,6 +141,7 @@ class FixedWingAgent(BaseAgent):
             x_ground_truth = state[:6]
             ref_state = state[6:]
             x_next = run_controller(x_ground_truth, x_ground_truth, ref_state, time_step).squeeze()
+            x_next[3] = 0
             ref_next = run_ref(ref_state, approaching_angle = 3)
             state = np.concatenate((x_next, ref_next)) 
             tmp = np.insert(state, 0, time_steps[i])

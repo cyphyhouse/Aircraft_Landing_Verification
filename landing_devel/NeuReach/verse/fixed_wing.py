@@ -47,12 +47,12 @@ def decisionLogic(ego: State):
 if __name__ == "__main__":
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
-    fixed_wing_controller = os.path.join(script_path, __file__)
+    fixed_wing_controller = os.path.join(script_path, 'fixed_wing.py')
     aircraft = FixedWingAgent("a1", file_name=fixed_wing_controller)
     fixed_wing_scenario.add_agent(aircraft)
     fixed_wing_scenario.set_init(
         [
-            [[-2550.0, -20, 110.0, 0, -np.deg2rad(3), 0, -2500.0, 0, 120.0], [-2510.0, 20, 130.0, 0, -np.deg2rad(3), 0, -2500.0, 0, 120.0]]
+            [[-2550.0, -20, 110.0, 0, 0, -np.deg2rad(3), -2500.0, 0, 120.0], [-2510.0, 20, 130.0, 0, 0, -np.deg2rad(3), -2500.0, 0, 120.0]]
         ],
         [
             (FixedWingMode.Normal,)
@@ -73,9 +73,34 @@ if __name__ == "__main__":
     # fig3 = go.Figure()
     # fig3 = reachtube_tree(traces, None, fig3, 0, 3, [1, 2], "fill", "trace")
     # fig3.show()
+    # fig4 = go.Figure()
+    # fig4 = reachtube_tree(traces, None, fig4, 0, 4, [1, 2], "fill", "trace")
+    # fig4.show()
+    # fig5 = go.Figure()
+    # fig5 = reachtube_tree(traces, None, fig5, 0, 5, [1, 2], "fill", "trace")
+    # fig5.show()
+    # fig6 = go.Figure()
+    # fig6 = reachtube_tree(traces, None, fig6, 0, 6, [1, 2], "fill", "trace")
+    # fig6.show()
 
-    fig = go.Figure()
+    fig1 = go.Figure()
+    fig2 = go.Figure()
+    fig3 = go.Figure()
+    fig4 = go.Figure()
+    fig5 = go.Figure()
+    fig6 = go.Figure()
     for i in range(10):
         traces = fixed_wing_scenario.simulate(15, 0.05)
-        fig = simulation_tree(traces, None, fig, 0, 1)
-    fig.show()
+        fig1 = simulation_tree(traces, None, fig1, 0, 1)
+        fig2 = simulation_tree(traces, None, fig2, 0, 2)
+        fig3 = simulation_tree(traces, None, fig3, 0, 3)
+        fig4 = simulation_tree(traces, None, fig4, 0, 4)
+        fig5 = simulation_tree(traces, None, fig5, 0, 5)
+        fig6 = simulation_tree(traces, None, fig6, 0, 6)
+    fig1.show()
+    # print(traces)
+    fig2.show()
+    fig3.show()
+    fig4.show()
+    fig5.show()
+    fig6.show()
