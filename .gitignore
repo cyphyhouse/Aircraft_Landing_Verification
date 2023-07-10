@@ -4,3 +4,7 @@ landing_devel/imgs/
 landing_devel/data/
 **/__pycache__/
 **.pth
+landing_devel/estimation_label/
+landing_devel/NeuReach/log/
+**.png
+**.npy

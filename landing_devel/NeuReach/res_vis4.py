@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os 
 from model import get_model_rect2, get_model_rect, get_model_rect3
-from sklearn import preprocessing
+# from sklearn import preprocessing
 import sys 
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
@@ -32,16 +32,18 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 #         return output
 #     return model, forward
 
-model_r_name = 'checkpoint_x_r_06-25_16-23-16_50.pth.tar'
-model_c_name = 'checkpoint_x_c_06-25_16-23-16_50.pth.tar'
+# model_r_name = 'checkpoint_x_r_06-26_10-46-59_39.pth.tar'
+# model_c_name = 'checkpoint_x_c_06-26_10-46-59_39.pth.tar'
+model_r_name = 'checkpoint_roll_r_07-08_23-08-57_292.pth.tar'
+model_c_name = 'checkpoint_roll_c_07-08_23-08-57_292.pth.tar'
 tmp = model_r_name.split('_')
 dim = tmp[1]
 
 if dim == 'x':
-    model_r, forward_r = get_model_rect(1,1,64,64)
+    model_r, forward_r = get_model_rect2(1,1,64,64,64)
     model_c, forward_c = get_model_rect(1,1,64,64)
 else:
-    model_r, forward_r = get_model_rect(2,1,64,64)
+    model_r, forward_r = get_model_rect2(2,1,64,64,64)
     model_c, forward_c = get_model_rect(2,1,64,64)
 # model, forward = get_model_rect(6,6,32,32)
 
@@ -93,9 +95,9 @@ if dim == 'x':
     # plt.savefig('surrogate_bound_x.png')
 elif dim == 'y':
     plt.figure()
-    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], res_c+res_r,'r*')
-    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    plt.plot(data[:,1], label[:,0],'b*', label='estimated state')
+    plt.plot(data[:,1], res_c+res_r,'r*')
+    plt.plot(data[:,1], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth y")
     plt.ylabel('estimated y')
@@ -103,43 +105,43 @@ elif dim == 'y':
     # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
     # ax.scatter(data[:,0], data[:,1], label[:,0], c='b', marker='*')
-    # ax.scatter(data[:,0], data[:,1], data[:,1]+res[:,0], c='r', marker='*')
-    # ax.scatter(data[:,0], data[:,1], data[:,1]-res[:,1], c='r', marker='*')
+    # ax.scatter(data[:,0], data[:,1], res_c+res_r, c='r', marker='*')
+    # ax.scatter(data[:,0], data[:,1], res_c-res_r, c='r', marker='*')
     # ax.set_xlabel('ground truth x')
     # ax.set_ylabel('ground truth y')
     # ax.set_zlabel('estimate y')
 elif dim == 'z':
     plt.figure()
-    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], res_c+res_r,'r*')
-    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    plt.plot(data[:,1], label[:,0],'b*', label='estimated state')
+    plt.plot(data[:,1], res_c+res_r,'r*')
+    plt.plot(data[:,1], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
-    plt.xlabel("ground truth z")
+    plt.xlabel("ground truth y")
     plt.ylabel('estimated z')
     # plt.savefig('surrogate_bound_z.png')
 elif dim == 'roll':
     plt.figure()
-    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], res_c+res_r,'r*')
-    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    plt.plot(data[:,1], label[:,0],'b*', label='estimated state')
+    plt.plot(data[:,1], res_c+res_r,'r*')
+    plt.plot(data[:,1], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth roll")
     plt.ylabel('estimated roll')
     # plt.savefig('surrogate_bound_roll.png')
 elif dim == 'pitch':
     plt.figure()
-    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], res_c+res_r,'r*')
-    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    plt.plot(data[:,1], label[:,0],'b*', label='estimated state')
+    plt.plot(data[:,1], res_c+res_r,'r*')
+    plt.plot(data[:,1], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth pitch")
     plt.ylabel('estimated pitch')
     # plt.savefig('surrogate_bound_pitch.png')
 elif dim == 'yaw':
     plt.figure()
-    plt.plot(data[:,0], label[:,0],'b*', label='estimated state')
-    plt.plot(data[:,0], res_c+res_r,'r*')
-    plt.plot(data[:,0], res_c-res_r,'r*', label='surrogate bound')
+    plt.plot(data[:,1], label[:,0],'b*', label='estimated state')
+    plt.plot(data[:,1], res_c+res_r,'r*')
+    plt.plot(data[:,1], res_c-res_r,'r*', label='surrogate bound')
     plt.legend()
     plt.xlabel("ground truth yaw")
     plt.ylabel('estimated yaw')

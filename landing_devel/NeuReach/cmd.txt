@@ -1,0 +1,6 @@
+x: python3 NeuReach_autoland4.py -d x -f 0.99 --lr 0.01 --lambda 0
+y: python3 NeuReach_autoland4.py -d y -f 0.99 --lr 0.1 --lambda 0.05 -c 1.0
+z: python3 NeuReach_autoland4.py -d z -f 0.99 --lr 0.1 --lambda 0.05 -c 1.0
+roll: python3 NeuReach_autoland4.py -d roll -f 0.99 --lr 0.01 --lambda 0.5
+picth: python3 NeuReach_autoland4.py -d pitch -f 0.99 --lr 0.01 --lambda 0.5
+yaw: python3 NeuReach_autoland4.py -d yaw -f 0.99 --lr 0.01 --lambda 0.5

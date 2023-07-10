@@ -10,7 +10,7 @@ start_time = datetime.now()
 start_time_str = start_time.strftime("%m-%d_%H-%M-%S")
 
 from data import get_dataloader_autoland2
-from model import get_model_rect2, get_model_rect, get_model_rect3
+from model import get_model_rect2, get_model_rect, get_model_rect3, get_model_rect4
 
 import sys
 sys.path.append('systems')
@@ -33,7 +33,7 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
 def hinge_loss_function(est, Radius, Center, alpha):
     tmp = torch.abs(Radius)
     res1 = torch.nn.ReLU()(est-(Center+tmp)+alpha)
-    res2 = torch.nn.ReLU()(Center-tmp-est-alpha)
+    res2 = torch.nn.ReLU()(Center-tmp-est+alpha)
     res = res1+res2
     return res
 
@@ -80,7 +80,15 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         _volume_loss = _volume_loss.mean()
         _center_loss = _center_loss.mean()
 
-        _loss = _hinge_loss + _lambda * _volume_loss 
+        center_guide = args.center_guide
+        # if epoch <20:
+        #     center_guide = 0.05
+        # else:
+        #     center_guide = 0
+
+
+        _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
+        # _loss = _center_loss*center_guide
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
@@ -130,22 +138,22 @@ def train_model(args):
     from model import get_model_rect, get_model_rect2
     if args.dimension == 'x':
         # model_r, forward_r = get_model_rect(1, 1, 4,4)
-        model_r, forward_r = get_model_rect(1,1,64,64)
+        model_r, forward_r = get_model_rect2(1,1,64,64,64)
         model_c, forward_c = get_model_rect(1,1,64,64)
     elif args.dimension == 'y':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64, 64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'z':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'roll':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'pitch':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'yaw':
-        model_r, forward_r = get_model_rect(2, 1, 64, 64)
+        model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     else:
         raise ValueError
@@ -173,8 +181,8 @@ def train_model(args):
     best_loss = np.inf
     best_prec = 0
 
-    # train_loader.dataset.reduce_data1()
-    # val_loader.dataset.reduce_data1()
+    train_loader.dataset.reduce_data1()
+    val_loader.dataset.reduce_data1()
 
     for epoch in range(args.epochs):
         adjust_learning_rate(optimizer_r, epoch)
@@ -189,8 +197,8 @@ def train_model(args):
         # val_loader.dataset.reduce_data2(forward_c)
         # if prec > best_prec:
         if loss < best_loss:
+            print(loss)
             best_loss = loss
-            print(best_loss)
             # best_prec = prec
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_r.state_dict()}, filename=f"checkpoint_{args.dimension}_r_{start_time_str}_{epoch}.pth.tar")
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_c.state_dict()}, filename=f"checkpoint_{args.dimension}_c_{start_time_str}_{epoch}.pth.tar")
@@ -200,8 +208,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
-    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.5, help='lambda for balancing the two loss terms.')
-    parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
+    parser.add_argument('--lambda', dest='_lambda', type=float, default=0.01, help='lambda for balancing the two loss terms.')
+    parser.add_argument('--alpha', dest='alpha', type=float, default=0, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
     parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in the second layer of the NN.')
@@ -222,6 +230,8 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dimension', '-d', type=str, default='x')
     parser.add_argument('--fraction', '-f', type=float, default =1.0, help='Fraction of data to be kept')
+    parser.add_argument('--window_width', '-ww', type=float, default =100)
+    parser.add_argument('--center_guide','-c',type=float, default=0)
 
     args = parser.parse_args()
 
