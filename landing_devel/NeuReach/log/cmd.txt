@@ -1,1 +1,1 @@
-NeuReach_autoland4.py -d yaw -f 0.99 --lr 0.1 --lambda 0.05
+NeuReach_autoland4.py -d roll -f 0.99 --lr 0.01 --lambda 0.5

@@ -34,8 +34,8 @@ label_path = os.path.join(script_dir, '../estimation_label/label4.txt')
 
 # model_r_name = 'checkpoint_x_r_06-26_10-46-59_39.pth.tar'
 # model_c_name = 'checkpoint_x_c_06-26_10-46-59_39.pth.tar'
-model_r_name = 'checkpoint_z_r_06-28_09-34-27_65.pth.tar'
-model_c_name = 'checkpoint_z_c_06-28_09-34-27_65.pth.tar'
+model_r_name = 'checkpoint_roll_r_07-08_23-08-57_292.pth.tar'
+model_c_name = 'checkpoint_roll_c_07-08_23-08-57_292.pth.tar'
 tmp = model_r_name.split('_')
 dim = tmp[1]
 

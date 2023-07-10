@@ -87,8 +87,8 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         #     center_guide = 0
 
 
-        # _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
-        _loss = _center_loss*center_guide
+        _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
+        # _loss = _center_loss*center_guide
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
@@ -112,10 +112,10 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         c = time.time()
         if training:
             global_step += 1
-            # optimizer_r.zero_grad()
+            optimizer_r.zero_grad()
             optimizer_c.zero_grad()
             _loss.backward()
-            # optimizer_r.step()
+            optimizer_r.step()
             optimizer_c.step()
         
         time_str += 'backward time: %.3f s'%(time.time()-c)
@@ -148,7 +148,7 @@ def train_model(args):
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'roll':
         model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
-        model_c, forward_c = get_model_rect3(2, 1, 16, 16)
+        model_c, forward_c = get_model_rect(2, 1, 64, 64)
     elif args.dimension == 'pitch':
         model_r, forward_r = get_model_rect2(2, 1, 64, 64,64)
         model_c, forward_c = get_model_rect(2, 1, 64, 64)
@@ -196,8 +196,8 @@ def train_model(args):
         # train_loader.dataset.reduce_data2(forward_c)
         # val_loader.dataset.reduce_data2(forward_c)
         # if prec > best_prec:
-        print(loss)
         if loss < best_loss:
+            print(loss)
             best_loss = loss
             # best_prec = prec
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_r.state_dict()}, filename=f"checkpoint_{args.dimension}_r_{start_time_str}_{epoch}.pth.tar")
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
     parser.add_argument('--lambda', dest='_lambda', type=float, default=0.01, help='lambda for balancing the two loss terms.')
-    parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
+    parser.add_argument('--alpha', dest='alpha', type=float, default=0, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
     parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in the second layer of the NN.')
