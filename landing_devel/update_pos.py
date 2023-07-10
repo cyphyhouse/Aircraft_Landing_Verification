@@ -35,7 +35,8 @@ from aircraft_simulator import *
 import control
 from scipy.integrate import odeint
 
-import aircraft_controller
+# import aircraft_controller
+from agent_aircraft import AircraftTrackingAgent
 
 # Path to the image directory. 
 img_path = '/home/lucas/Research/VisionLand/Aircraft_Landing/catkin_ws/src/landing_devel/imgs'
@@ -326,7 +327,7 @@ def update_aircraft_position(net, device):
     initial_state = [-2500.0, 0, 120.0, 0, -np.deg2rad(3), 0]
 
     # One simulation length.
-    delta_t = 0.5
+    delta_t = 0.1
     # Reference speed
     ref_speed = 50.0
     # Angle of the aircraft relative to the ground (in degrees).
@@ -383,6 +384,11 @@ def update_aircraft_position(net, device):
     # Count inaccurate estimation.
     corrupted_count = 0
 
+    # Initialize tracking controller
+    tracking_controller = AircraftTrackingAgent()
+
+    # Ground Truth Velocity
+    vel_ground_truth = 0
     while not rospy.is_shutdown():
         time.sleep(0.1)
         if perception.estimated_state is None or len(perception.estimated_state) == 0:
@@ -400,6 +406,7 @@ def update_aircraft_position(net, device):
         Planner
         '''
         # ref_state = path(initial_state, estimated_state, ref_speed, approaching_angle, dt=delta_t)
+        # TODO ground truth back to estimated state.
         if np.linalg.norm(np.array(estimated_state[:3]) - np.array(waypoints[waypoints_index])) < 10:
             waypoints_index += 1
         if waypoints_index >= len(waypoints):
@@ -409,19 +416,34 @@ def update_aircraft_position(net, device):
         ref_states.append(ref_state)
 
         cur_time += delta_t
-
-
+        # -------------------------------------------------------------------------------------------------------------------------------------------
         '''
-        MPC
+        PD controller
         '''
-        x_ground_truth = np.array([true_state[0], true_state[1], true_state[2], np.linalg.norm(true_rate[:3]), true_state[5], true_state[4]])
-        x_estimated = np.array([estimated_state[0], estimated_state[1], estimated_state[2], np.linalg.norm(estimated_rate[:3]), estimated_state[5], estimated_state[4]])
-        if np.linalg.norm(x_ground_truth - x_estimated) > 50:
+        x_ground_truth = np.array([true_state[0], true_state[1], true_state[2], true_state[5], true_state[4], vel_ground_truth])
+        x_estimated = np.array([estimated_state[0], estimated_state[1], estimated_state[2], estimated_state[5], estimated_state[4], vel_ground_truth])
+        if np.linalg.norm(x_ground_truth[:5] - x_estimated[:5]) > 50:
             print(">>>>>> Estimated Corrupted ", x_estimated)
             x_estimated = x_ground_truth 
             corrupted_count += 1
-        x_next = run_controller(x_ground_truth, x_estimated, ref_state, delta_t)
-        cur_state = np.array([x_next[0], x_next[1], x_next[2], 0, x_next[5], x_next[4]])
+        x_goal = [ref_state[0], ref_state[1], ref_state[2], 0, -np.deg2rad(3), ref_speed]
+        x_next = tracking_controller.step(x_estimated, x_ground_truth, delta_t, x_goal)
+        cur_state = np.array([x_next[0], x_next[1], x_next[2], 0, x_next[4], x_next[3]])
+        vel_ground_truth = x_next[5]
+        # print("Next state: ", cur_state)
+        # -------------------------------------------------------------------------------------------------------------------------------------------
+        '''
+        MPC
+        '''
+        # x_ground_truth = np.array([true_state[0], true_state[1], true_state[2], np.linalg.norm(true_rate[:3]), true_state[5], true_state[4]])
+        # x_estimated = np.array([estimated_state[0], estimated_state[1], estimated_state[2], np.linalg.norm(estimated_rate[:3]), estimated_state[5], estimated_state[4]])
+        # if np.linalg.norm(x_ground_truth - x_estimated) > 50:
+        #     print(">>>>>> Estimated Corrupted ", x_estimated)
+        #     x_estimated = x_ground_truth 
+        #     corrupted_count += 1
+        # x_next = run_controller(x_ground_truth, x_estimated, ref_state, delta_t)
+        # cur_state = np.array([x_next[0], x_next[1], x_next[2], 0, x_next[5], x_next[4]])
+        # -------------------------------------------------------------------------------------------------------------------------------------------
         '''
         Quadrotor control.
         '''
