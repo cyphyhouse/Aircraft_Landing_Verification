@@ -5,7 +5,7 @@ from verse.agents import BaseAgent
 import copy
 import matplotlib.pyplot as plt 
 
-class AircraftTrackingAgent(BaseAgent):
+class FixedWingAgent3(BaseAgent):
     def __init__(self, id, code=None, file_name=None):
         super().__init__(id, code, file_name)
         # # self.airspeed = ctrlArgs[0] # Air speed velocity of the aircraft
@@ -139,14 +139,15 @@ class AircraftTrackingAgent(BaseAgent):
         trajectory = np.reshape(trajectory, (1,-1))
         for i in range(1, len(time_steps)):
             x_ground_truth = state[:6]
-            ref_state = state[6:]
+            x_estimate = state[6:12]
+            ref_state = state[12:]
             x_next = self.step(x_ground_truth, x_ground_truth, time_step, ref_state)
             x_next[3] = x_next[3]%(np.pi*2)
             if x_next[3] > np.pi:
                 x_next[3] = x_next[3]-np.pi*2
             ref_next = self.run_ref(ref_state, time_step, approaching_angle=3)
             # print(ref_next)
-            state = np.concatenate((x_next, ref_next))
+            state = np.concatenate((x_next, x_estimate, ref_next))
             tmp = np.insert(state, 0, time_steps[i])
             tmp = np.reshape(tmp, (1,-1))
             trajectory = np.vstack((trajectory, tmp))
@@ -154,7 +155,7 @@ class AircraftTrackingAgent(BaseAgent):
         return trajectory
 
 if __name__ == "__main__":
-    agent = AircraftTrackingAgent('a')
+    agent = FixedWingAgent3('a')
     init = np.array([-2550, 10, 120.0, 0, -np.deg2rad(3), 0, -2500, 0, 120, 0, -np.deg2rad(3), 50])
     traj = agent.TC_simulate(None, init, 15, 0.05, None)
     print(traj)
