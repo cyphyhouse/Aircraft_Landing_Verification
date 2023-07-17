@@ -1,6 +1,7 @@
 import numpy as np
 from math import cos, sin, atan2, sqrt, pi, asin
 from scipy.integrate import odeint
+from verse.agent import BaseAgent
 
 class AircraftTrackingAgent():
     def __init__(self):
