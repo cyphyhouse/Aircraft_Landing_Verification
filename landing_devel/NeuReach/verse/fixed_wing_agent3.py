@@ -2,30 +2,19 @@ import numpy as np
 from math import cos, sin, atan2, sqrt, pi, asin
 from scipy.integrate import odeint
 from verse.agents import BaseAgent
+from verse.parser.parser import ControllerIR
 import copy
 import matplotlib.pyplot as plt 
 
 class FixedWingAgent3(BaseAgent):
     def __init__(self, id, code=None, file_name=None):
-        super().__init__(id, code, file_name)
-        # # self.airspeed = ctrlArgs[0] # Air speed velocity of the aircraft
-        # self.gravity = 9.81 # Acceleration due to gravity
-
-        # self.path = ctrlArgs[0] # Predicted path that the agent will be following over the time horizon
-        # # path function should be of the form path(time, pathArgs), and will return the reference state of the form ([x,y,z],[v_xy, v_z, heading_rate]) at the time specified
-
-        # self.K1 = ctrlArgs[1] # Control gains for getting reference velocities
-
-        # self.K2 = ctrlArgs[2] # Control gains for getting inputs to hovercraft
-
-        # self.time = ctrlArgs[3] # Current time
-
-        # self.pathArgs = ctrlArgs[4] # Arguments needed for the path that the aircraft is tracking
-
-        # self.ctrlType = ctrlArgs[5] # What kind of controller is the aircraft applying
-
-        # self.desiredTraj = ctrlArgs[0] # Function that takes in a simulator state and determines what the goal state is
-        # self.goal_state = self.desiredTraj(ctrlArgs[1]) 
+        # super().__init__(id, code, file_name)
+        self.id = id
+        self.init_cont = None
+        self.init_disc = None
+        self.static_parameters = None 
+        self.uncertain_parameters = None
+        self.decision_logic = ControllerIR.empty()
         self.K1 = [0.01,0.01,0.01,0.01]
         self.K2 = [0.005,0.005]
         self.scenarioType = '2D'

@@ -166,18 +166,20 @@ if __name__ == "__main__":
     
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
-    fixed_wing_controller = os.path.join(script_path, 'fixed_wing3.py')
-    aircraft = FixedWingAgent3("a1", file_name=fixed_wing_controller)
+    fixed_wing_controller = os.path.join(script_path, 'fixed_wing3_dl.py')
+    aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
     state = np.array([
         [-3050.0, -20, 110.0, 0, -np.deg2rad(3), 0], 
         [-3010.0, 20, 130.0, 0, -np.deg2rad(3), 0]
     ])
+    state_low = state[0,:]
+    state_high = state[1,:]
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 2
+    num_sample = 100
     computation_steps = 0.05
     time_steps = 0.01
 
@@ -185,17 +187,21 @@ if __name__ == "__main__":
 
     reachable_set = []
 
-    for step in range(1):
+    for step in range(3000):
 
-        state_low = state[0,:]
-        state_high = state[1,:]
 
         reachable_set.append([np.insert(state_low, 0, step), np.insert(state_high, 0, step)])
 
         traces_list = []
+
         for i in range(num_sample):
-        
-            point = sample_point(state_low, state_high)
+            
+            if i==0:
+                point = state_low  
+            elif i==1:
+                point = state_high
+            else:
+                point = sample_point(state_low, state_high)
 
             estimate_low, estimate_high = get_vision_estimation(point)
 
@@ -217,14 +223,14 @@ if __name__ == "__main__":
             traces_list.append(traces)
 
         # Combine traces to get next init set 
-        next_low = np.array([float('infty')]*num_dim)
-        next_high = np.array([-float('infty')]*num_dim)
+        next_low = np.array([float('inf')]*num_dim)
+        next_high = np.array([-float('inf')]*num_dim)
         
         next_ref = []
         for i in range(len(traces_list)):
             trace = traces_list[i].nodes[0].trace['a1']
-            trace_low = trace[-2,1:7]
-            trace_high = trace[-1,1:7]
+            trace_low = trace[-2][1:7]
+            trace_high = trace[-1][1:7]
             next_low = np.minimum(trace_low, next_low)
             next_high = np.maximum(trace_high, next_high)
             # next_ref = trace[-1,13:]
