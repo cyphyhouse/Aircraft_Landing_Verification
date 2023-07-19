@@ -120,7 +120,7 @@ class FixedWingAgent3(BaseAgent):
         return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
 
     def TC_simulate(self, mode, initial_condition, time_horizon, time_step, lane_map=None):
-        time_steps = np.arange(0,time_horizon, time_step)
+        time_steps = np.arange(0,time_horizon+time_step/2, time_step)
 
         state = np.array(initial_condition)
         trajectory = copy.deepcopy(state)
