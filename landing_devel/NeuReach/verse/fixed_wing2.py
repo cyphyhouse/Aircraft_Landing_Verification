@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # this may be the cause for the VisibleDeprecationWarning
     # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
     # "-2 \leq myball1.x + myball2.x \leq 5"
-    traces = fixed_wing_scenario.verify(200, 0.05)
+    traces = fixed_wing_scenario.verify(300, 0.05)
     # TODO: There should be a print({traces}) function
     fig1 = go.Figure()
     fig1 = reachtube_tree(traces, None, fig1, 0, 1, [1, 2], "fill", "trace")

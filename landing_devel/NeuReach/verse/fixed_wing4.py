@@ -171,15 +171,15 @@ if __name__ == "__main__":
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
     state = np.array([
-        [-3050.0, -20, 110.0, 0, -np.deg2rad(3), 0], 
-        [-3010.0, 20, 130.0, 0, -np.deg2rad(3), 0]
+        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 0-0.0001], 
+        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 0+0.0001]
     ])
-    state_low = state[1,:]
+    state_low = state[0,:]
     state_high = state[1,:]
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 20
+    num_sample = 40
     computation_steps = 0.05
     time_steps = 0.01
 
@@ -187,17 +187,25 @@ if __name__ == "__main__":
 
     reachable_set = []
 
-    for step in range(4000):
+    reachable_set.append([np.insert(state_low, 0, 0*computation_steps), np.insert(state_high, 0, 0*computation_steps)])
 
+    traces_list = []
+    point_list = []
 
-        reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
+    for i in range(num_sample):
         
-        point = state_high
-    
+        if i==0:
+            point = state_low  
+        elif i==1:
+            point = state_high
+        else:
+            point = sample_point(state_low, state_high)
+        point_list.append(point)
+
         estimate_low, estimate_high = get_vision_estimation(point)
 
         init_low = np.concatenate((point, estimate_low, ref))
-        init_high = np.concatenate((point, estimate_low, ref))
+        init_high = np.concatenate((point, estimate_high, ref))
         init = np.vstack((init_low, init_high))       
 
         fixed_wing_scenario.set_init(
@@ -210,41 +218,65 @@ if __name__ == "__main__":
         # this may be the cause for the VisibleDeprecationWarning
         # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
         # "-2 \leq myball1.x + myball2.x \leq 5"
-        traces = fixed_wing_scenario.simulate(computation_steps, time_steps)
+        traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+        traces_list.append(traces)
 
-        # Combine traces to get next init set 
-        next_low = traces.nodes[0].trace['a1'][-1,1:7]
-        next_high = traces.nodes[0].trace['a1'][-1,1:7]
+    # Combine traces to get next init set 
+    next_low = np.array([float('inf')]*num_dim)
+    next_high = np.array([-float('inf')]*num_dim)
+    
+    next_ref = []
+    for i in range(len(traces_list)):
+        trace = traces_list[i].nodes[0].trace['a1']
+        trace_low = trace[-2][1:7]
+        trace_high = trace[-1][1:7]
+        next_low = np.minimum(trace_low, next_low)
+        next_high = np.maximum(trace_high, next_high)
+        # next_ref = trace[-1,13:]
 
+    # state_low = next_low 
+    # state_high = next_high 
 
-        # next_ref = []
-        # for i in range(len(traces_list)):
-        #     trace = traces_list[i].nodes[0].trace['a1']
-        #     trace_low = trace[-2][1:7]
-        #     trace_high = trace[-1][1:7]
-        #     next_low = np.minimum(trace_low, next_low)
-        #     next_high = np.maximum(trace_high, next_high)
-        #     # next_ref = trace[-1,13:]
+    ref = run_ref(ref, computation_steps)
 
-        state_low = next_low 
-        state_high = next_high 
+    plt.plot(
+        [state_low[1], state_low[1], state_high[1], state_high[1], state_low[1]],
+        [state_low[3], state_high[3], state_high[3], state_low[3], state_low[3]],
+        'r',
+        label='X_t'
+    )
 
-        ref = run_ref(ref, computation_steps)
+    point_list = np.array(point_list)
 
-    tmp = np.array(reachable_set)
-    plt.figure(0)
-    plt.plot(tmp[:,0,1], tmp[:,0,2])
-    plt.figure(1)
-    plt.plot(tmp[:,0,0], tmp[:,0,1])
-    plt.figure(2)
-    plt.plot(tmp[:,0,0], tmp[:,0,2])
-    plt.figure(3)
-    plt.plot(tmp[:,0,0], tmp[:,0,3])
-    plt.figure(4)
-    plt.plot(tmp[:,0,0], tmp[:,0,4])
-    plt.figure(5)
-    plt.plot(tmp[:,0,0], tmp[:,0,5])
-    plt.figure(6)
-    plt.plot(tmp[:,0,0], tmp[:,0,6])
+    plt.plot(point_list[:,1], point_list[:,3], 'r*', label='x_{t}^i')
+
+    plt.plot(
+        [next_low[1], next_low[1], next_high[1], next_high[1], next_low[1]],
+        [next_low[3], next_high[3], next_high[3], next_low[3], next_low[3]],
+        'b',
+        label='X_{t+1}'        
+    )
+
+    for i in range(len(traces_list)):
+        trace = traces_list[i].nodes[0].trace['a1']
+        trace_low = trace[-2][1:7]
+        trace_high = trace[-1][1:7]
+        next_low = np.minimum(trace_low, next_low)
+        next_high = np.maximum(trace_high, next_high)
+        if i==0:
+            plt.plot(
+                [trace_low[1], trace_low[1], trace_high[1], trace_high[1], trace_low[1]],
+                [trace_low[3], trace_high[3], trace_high[3], trace_low[3], trace_low[3]],
+                'g',
+                label='X_{t+1}^i'        
+            )
+        else:
+            plt.plot(
+                [trace_low[1], trace_low[1], trace_high[1], trace_high[1], trace_low[1]],
+                [trace_low[3], trace_high[3], trace_high[3], trace_low[3], trace_low[3]],
+                'g',
+            )
+    plt.legend()
+    plt.xlabel('y')
+    plt.ylabel('yaw')
     plt.show()
-

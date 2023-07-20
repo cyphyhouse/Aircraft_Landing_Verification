@@ -187,7 +187,7 @@ if __name__ == "__main__":
 
     reachable_set = []
 
-    for step in range(8000):
+    for step in range(6000):
 
 
         reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
@@ -219,7 +219,7 @@ if __name__ == "__main__":
             # this may be the cause for the VisibleDeprecationWarning
             # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
             # "-2 \leq myball1.x + myball2.x \leq 5"
-            traces = fixed_wing_scenario.verify(computation_steps, time_steps)
+            traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
             traces_list.append(traces)
 
         # Combine traces to get next init set 
