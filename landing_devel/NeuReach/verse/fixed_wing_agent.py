@@ -101,10 +101,10 @@ def run_controller(x_true, x_cur, x_ref, delta_t, v_max=50, acc_max=20, beta_max
 
     return x_next
 
-def run_ref(ref_state, approaching_angle):
+def run_ref(ref_state, time_step, approaching_angle):
     k = np.tan(approaching_angle*(np.pi/180))
-    delta_x = 50
-    delta_z = k*delta_x
+    delta_x = 50*time_step
+    delta_z = k*delta_x*time_step
     return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z])
 
 def TC_simulate(mode, init, time_bound, time_step, lane_map):
@@ -118,7 +118,7 @@ def TC_simulate(mode, init, time_bound, time_step, lane_map):
         x_ground_truth = state[:6]
         ref_state = state[6:]
         x_next = run_controller(x_ground_truth, x_ground_truth, ref_state, time_step).squeeze()
-        ref_next = run_ref(ref_state, approaching_angle = 3)
+        ref_next = run_ref(ref_state, time_step, approaching_angle = 3)
         state = np.concatenate((x_next, ref_next)) 
         tmp = np.insert(state, 0, time_steps[i])
         tmp = np.reshape(tmp,(1,-1))
@@ -141,7 +141,8 @@ class FixedWingAgent(BaseAgent):
             x_ground_truth = state[:6]
             ref_state = state[6:]
             x_next = run_controller(x_ground_truth, x_ground_truth, ref_state, time_step).squeeze()
-            ref_next = run_ref(ref_state, approaching_angle = 3)
+            x_next[3] = 0
+            ref_next = run_ref(ref_state, time_step, approaching_angle = 3)
             state = np.concatenate((x_next, ref_next)) 
             tmp = np.insert(state, 0, time_steps[i])
             tmp = np.reshape(tmp,(1,-1))

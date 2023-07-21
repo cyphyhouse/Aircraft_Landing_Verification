@@ -10,7 +10,7 @@ start_time = datetime.now()
 start_time_str = start_time.strftime("%m-%d_%H-%M-%S")
 
 from data import get_dataloader_autoland2
-from model import get_model_rect2, get_model_rect, get_model_rect3, get_model_rect4
+from model import get_model_rect2, get_model_rect, get_model_rect3
 
 import sys
 sys.path.append('systems')
@@ -32,12 +32,12 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
 
 def hinge_loss_function(est, Radius, Center, alpha):
     tmp = torch.abs(Radius)
-    res1 = torch.nn.ReLU()(est-(Center+tmp)+alpha)
-    res2 = torch.nn.ReLU()(Center-tmp-est+alpha)
+    res1 = torch.nn.ReLU()(est-(Center+tmp))
+    res2 = torch.nn.ReLU()(Center-tmp-est)
     res = res1+res2
     return res
 
-def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, dataloader, writer, training, alpha, _lambda, fraction):
+def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, dim, dataloader, writer, training, alpha, _lambda, fraction):
     global global_step
     loss = AverageMeter()
     hinge_loss = AverageMeter()
@@ -87,8 +87,12 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         #     center_guide = 0
 
 
-        _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
-        # _loss = _center_loss*center_guide
+        # _loss = center_guide*_center_loss
+        if dim == 'y' and epoch < 15:
+            _loss = center_guide*_center_loss
+        else:
+            _loss = _hinge_loss + _lambda * _volume_loss + center_guide*_center_loss
+    
         _loss_total += _loss
         _hinge_loss_total += _hinge_loss
         _volume_loss_total += _volume_loss
@@ -112,9 +116,11 @@ def trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, e
         c = time.time()
         if training:
             global_step += 1
+            # if dim !='y' or epoch > 10:
             optimizer_r.zero_grad()
             optimizer_c.zero_grad()
             _loss.backward()
+            # if dim !='y' or epoch > 10:
             optimizer_r.step()
             optimizer_c.step()
         
@@ -184,21 +190,30 @@ def train_model(args):
     train_loader.dataset.reduce_data1()
     val_loader.dataset.reduce_data1()
 
+    dim = args.dimension
+
+    schedular_r = torch.optim.lr_scheduler.StepLR(optimizer_r, 5, gamma = 0.9)
+    schedular_c = torch.optim.lr_scheduler.StepLR(optimizer_c, 5, gamma = 0.9)
+
     for epoch in range(args.epochs):
-        adjust_learning_rate(optimizer_r, epoch)
-        adjust_learning_rate(optimizer_c, epoch)
+        if False and dim == 'roll':
+            schedular_r.step()
+            schedular_c.step()
+        else:
+            adjust_learning_rate(optimizer_r, epoch)
+            adjust_learning_rate(optimizer_c, epoch)
         # train for one epoch
         print('Epoch %d'%(epoch))
-        _, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, train_loader, writer=None, training=True, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
+        _, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, dim, train_loader, writer=None, training=True, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
         # result_train, _, _ = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, train_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda)
-        result_val, loss, prec = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, val_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
+        result_val, loss, prec = trainval(model_r, forward_r, model_c, forward_c, optimizer_r, optimizer_c, epoch, dim, val_loader, writer=None, training=False, alpha=args.alpha, _lambda=args._lambda, fraction=args.fraction)
         epoch += 1
         # train_loader.dataset.reduce_data2(forward_c)
         # val_loader.dataset.reduce_data2(forward_c)
         # if prec > best_prec:
-        if loss < best_loss:
-            print(loss)
+        if loss < best_loss or epoch%20==0:
             best_loss = loss
+            print(best_loss)
             # best_prec = prec
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_r.state_dict()}, filename=f"checkpoint_{args.dimension}_r_{start_time_str}_{epoch}.pth.tar")
             save_checkpoint({'epoch': epoch + 1, 'state_dict': model_c.state_dict()}, filename=f"checkpoint_{args.dimension}_c_{start_time_str}_{epoch}.pth.tar")
@@ -209,7 +224,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('--system', type=str, default='autoland', help='Name of the dynamical system.')
     parser.add_argument('--lambda', dest='_lambda', type=float, default=0.01, help='lambda for balancing the two loss terms.')
-    parser.add_argument('--alpha', dest='alpha', type=float, default=0, help='Hyper-parameter in the hinge loss.')
+    parser.add_argument('--alpha', dest='alpha', type=float, default=5, help='Hyper-parameter in the hinge loss.')
     parser.add_argument('--N_x0', type=int, default=10, help='Number of samples for the initial state x0.')
     parser.add_argument('--layer1', type=int, default=64, help='Number of neurons in the first layer of the NN.')
     parser.add_argument('--layer2', type=int, default=64, help='Number of neurons in the second layer of the NN.')
