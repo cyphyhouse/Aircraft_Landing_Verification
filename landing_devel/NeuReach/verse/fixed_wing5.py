@@ -16,6 +16,8 @@ import itertools
 import scipy.spatial
 import time
 
+import pickle 
+
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
 model_x_r_name = "checkpoint_x_r_06-27_23-32-30_471.pth.tar"
@@ -166,19 +168,10 @@ def run_ref(ref_state, time_step, approaching_angle=3):
     return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
 
 def get_bounding_box(hull: scipy.spatial.ConvexHull) -> np.ndarray:
-    # vertices = hull.points[hull.vertices, :]
-    lower_bound = np.min(hull, axis=0)
-    upper_bound = np.max(hull, axis=0)
+    vertices = hull.points[hull.vertices, :]
+    lower_bound = np.min(vertices, axis=0)
+    upper_bound = np.max(vertices, axis=0)
     return np.vstack((lower_bound, upper_bound))
-
-# def in_hull(point: np.ndarray, hull: scipy.spatial.ConvexHull) -> bool:
-#     A = hull.equations[:,:6]
-#     b = hull.equations[:,6:]
-#     point = np.reshape(point, (-1,1))
-#     if np.all(A@point<=b):
-#         return True 
-#     else:
-#         return False
 
 def in_hull(point: np.ndarray, hull:scipy.spatial.ConvexHull) -> bool:
     tmp = hull
@@ -187,21 +180,40 @@ def in_hull(point: np.ndarray, hull:scipy.spatial.ConvexHull) -> bool:
     
     return tmp.find_simplex(point) >= 0
 
-def sample_point_poly(hull: scipy.spatial.ConvexHull):
-    # box = get_bounding_box(hull)
-    # point = np.random.uniform(box[0,:], box[1,:])
-    # while not in_hull(point, hull):
-    #     point = np.random.uniform(box[0,:], box[1,:])
-    # return point 
-    verts = hull.points[hull.vertices,:]
-    vert_mean = np.mean(verts, axis=0)
-    weights = np.random.uniform(0,1,(verts.shape[0]))
+def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
+    vertices = hull.points[hull.vertices,:]
+    weights = np.random.uniform(0,1,vertices.shape[0])
     weights = weights/np.sum(weights)
-    # point = np.sum((verts-vert_mean)*weights, axis=0)
-    res = verts[0,:]*weights[0]
-    for i in range(1, len(weights)):
-        res += verts[i,:]*weights[i]
-    return res
+    start_point = np.zeros(vertices.shape[1])
+    for i in range(vertices.shape[1]):
+        start_point[i] = np.sum(vertices[:,i]*weights)
+    # return start_point
+
+    sampled_point = []
+    for i in range(n):
+        vertex_idx = np.random.choice(hull.vertices)
+        vertex = hull.points[vertex_idx, :]
+        offset = vertex - start_point 
+        start_point = start_point + np.random.uniform(0,1)*offset 
+        sampled_point.append(start_point)
+
+    return np.array(sampled_point)
+
+# def sample_point_poly(hull: scipy.spatial.ConvexHull):
+#     box = get_bounding_box(hull)
+#     point = np.random.uniform(box[0,:], box[1,:])
+#     while not in_hull(point, hull):
+#         point = np.random.uniform(box[0,:], box[1,:])
+#     return point 
+    # verts = hull.points[hull.vertices,:]
+    # vert_mean = np.mean(verts, axis=0)
+    # weights = np.random.uniform(0,1,(verts.shape[0]))
+    # weights = weights/np.sum(weights)
+    # # point = np.sum((verts-vert_mean)*weights, axis=0)
+    # res = verts[0,:]*weights[0]
+    # for i in range(1, len(weights)):
+    #     res += verts[i,:]*weights[i]
+    # return res
 
 # def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
 #     vertex_list = []
@@ -222,26 +234,93 @@ def sample_point_poly(hull: scipy.spatial.ConvexHull):
     
 #     return hull
 
+# def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
+#     vertex_list = []
+#     for analysis_tree in trace_list:
+#         rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
+#         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
+#         # tmp = [
+#         #     [rect_low[0], rect_high[0]],
+#         #     [rect_low[1], rect_high[1]],
+#         #     [rect_low[2], rect_high[2]],
+#         #     [rect_low[3], rect_high[3]],
+#         #     [rect_low[4], rect_high[4]],
+#         #     [rect_low[5], rect_high[5]],
+#         # ]
+#         vertex_list.append(rect_low)
+#         vertex_list.append(rect_high)
+#     vertices = np.array(vertex_list)
+#     # hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB')
+    
+#     return vertices
+
 def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     vertex_list = []
     for analysis_tree in trace_list:
         rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
-        # tmp = [
-        #     [rect_low[0], rect_high[0]],
-        #     [rect_low[1], rect_high[1]],
-        #     [rect_low[2], rect_high[2]],
-        #     [rect_low[3], rect_high[3]],
-        #     [rect_low[4], rect_high[4]],
-        #     [rect_low[5], rect_high[5]],
-        # ]
+        tmp = [
+            [rect_low[0], rect_high[0]],
+            [rect_low[1], rect_high[1]],
+            [rect_low[2], rect_high[2]],
+            [rect_low[3], rect_high[3]],
+            [rect_low[4], rect_high[4]],
+            [rect_low[5], rect_high[5]],
+        ]
         vertex_list.append(rect_low)
         vertex_list.append(rect_high)
-    vertices = np.array(vertex_list)
-    # hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB')
-    
-    return vertices
+    # vertices = np.array(vertex_list)
+    vertices = []
+    for vertex in vertex_list:
+        away = True
+        for i in range(len(vertices)):
+            if np.linalg.norm(np.array(vertex)-np.array(vertices[i]))<0.01:
+                away = False
+                break 
+        if away:
+            vertices.append(vertex)
 
+    vertices = np.array(vertices)
+    hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB Q12 Qc')    
+    return hull
+
+def run_sim_random(
+        state: np.ndarray, 
+        ref: np.ndarray, 
+        scenario: Scenario,
+        time_horizon: float,
+        time_step: float
+    ):
+    upper, lower = state[0,:], state[1,:]
+    point = sample_point(lower, upper)
+    estimate_low, estimate_high = get_vision_estimation(point)
+    estimation = sample_point(estimate_low, estimate_high)
+
+    time_list = np.arange(0, time_horizon+time_step/2, time_step)
+
+    init= np.concatenate((point, estimation, ref))
+
+    tmp = init_low[1:7]
+
+    traj = np.insert(tmp, 0, 0)
+
+    for t in time_list[1:]:
+        scenario.set_init(
+            [init],
+            [
+                (FixedWingMode.Normal,)
+            ],
+        )
+        traces = scenario.simulate(time_step, time_step)
+        point = traces.nodes[0].trace['a1'][-1][1:7]
+        tmp = np.insert(point, 0, t)
+        traj = np.vstack((traj, tmp))
+        estimate_low, estimate_high = get_vision_estimation(point)
+        estimation = sample_point(estimate_low, estimate_high)
+        next_ref = run_ref(init[12:],time_step)
+        init = np.concatenate((point, estimation, ref))
+
+    return traj
 
 if __name__ == "__main__":
     
@@ -252,8 +331,8 @@ if __name__ == "__main__":
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
     state = np.array([
-        [-3050.0, -20, 110.0, 0-0.00001, -np.deg2rad(3)-0.00001, 0-0.00001], 
-        [-3010.0, 20, 130.0, 0+0.00001, -np.deg2rad(3)+0.00001, 0+0.00001]
+        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
     ])
     tmp = [
         [state[0,0], state[1,0]],
@@ -263,88 +342,103 @@ if __name__ == "__main__":
         [state[0,4], state[1,4]],
         [state[0,5], state[1,5]],
     ]
-    hull = np.array(list(itertools.product(*tmp)))
-    # hull = scipy.spatial.ConvexHull(vertices)
+    vertices = np.array(list(itertools.product(*tmp)))
+    hull = scipy.spatial.ConvexHull(vertices)
     # state_low = state[0,:]
     # state_high = state[1,:]
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 20
-    computation_steps = 0.05
+    num_sample = 1500
+    computation_steps = 0.1
     time_steps = 0.01
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
     reachable_set = []
-    point_idx_list_list = []
-    point_list_list = []
+    # point_idx_list_list = []
+    # point_list_list = []
 
-    for step in range(100):
+    for step in range(1000):
+        try:
 
-        box = get_bounding_box(hull)
-        state_low = box[0,:]
-        state_high = box[1,:]
+            box = get_bounding_box(hull)
+            state_low = box[0,:]
+            state_high = box[1,:]
 
-        reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
+            reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
 
-        traces_list = []
-        point_list = []
-        point_idx_list = []
-        
-        if step == 37:
-            print('stop')
+            traces_list = []
+            point_list = []
+            point_idx_list = []
+            
+            if step == 37:
+                print('stop')
+            
+            if hull.vertices.shape[0]<num_sample:
+                # vertex_num = int(num_sample*0.05)
+                # sample_num = num_sample - vertex_num
+                # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
+                vertex_sample = hull.points[hull.vertices,:]
+                sample_sample = sample_point_poly(hull, 100)
+                samples = np.vstack((vertex_sample, sample_sample))
+            else:
+                vertex_num = int(num_sample*0.5)
+                sample_num = num_sample - vertex_num
+                vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
+                vertex_sample = hull.points[vertex_idxs,:]
+                sample_sample = sample_point_poly(hull, sample_num)
+                samples = np.vstack((vertex_sample, sample_sample))
+                
 
-        for i in range(num_sample):
-            print(step, i)
-            # if i<10:
-            np.random.seed(int((time.time()-1689780000)*10000))
-            point_idx = np.random.choice(hull.shape[0])
-            point = hull[point_idx,:]
-            point_list.append(point)
-            point_idx_list.append(point_idx)
-            # else:
-            #     point = sample_point_poly(hull)
+            for i in range(samples.shape[0]):
+                point = samples[i,:]
+                print(step, i, point)
 
-            estimate_low, estimate_high = get_vision_estimation(point)
+                estimate_low, estimate_high = get_vision_estimation(point)
 
-            init_low = np.concatenate((point, estimate_low, ref))
-            init_high = np.concatenate((point, estimate_high, ref))
-            init = np.vstack((init_low, init_high))       
+                init_low = np.concatenate((point, estimate_low, ref))
+                init_high = np.concatenate((point, estimate_high, ref))
+                init = np.vstack((init_low, init_high))       
 
-            fixed_wing_scenario.set_init(
-                [init],
-                [
-                    (FixedWingMode.Normal,)
-                ],
-            )
-            # TODO: WE should be able to initialize each of the balls separately
-            # this may be the cause for the VisibleDeprecationWarning
-            # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
-            # "-2 \leq myball1.x + myball2.x \leq 5"
-            traces = fixed_wing_scenario.verify(computation_steps, time_steps)
-            traces_list.append(traces)
+                fixed_wing_scenario.set_init(
+                    [init],
+                    [
+                        (FixedWingMode.Normal,)
+                    ],
+                )
+                # TODO: WE should be able to initialize each of the balls separately
+                # this may be the cause for the VisibleDeprecationWarning
+                # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+                # "-2 \leq myball1.x + myball2.x \leq 5"
+                traces = fixed_wing_scenario.verify(computation_steps, time_steps)
+                traces_list.append(traces)
 
-        point_idx_list_list.append(point_idx_list)
-        point_list_list.append(point_list)
-        # Combine traces to get next init set 
-        # next_low = np.array([float('inf')]*num_dim)
-        # next_high = np.array([-float('inf')]*num_dim)
-        
-        # next_ref = []
-        # for i in range(len(traces_list)):
-        #     trace = traces_list[i].nodes[0].trace['a1']
-        #     trace_low = trace[-2][1:7]
-        #     trace_high = trace[-1][1:7]
-        #     next_low = np.minimum(trace_low, next_low)
-        #     next_high = np.maximum(trace_high, next_high)
-        #     # next_ref = trace[-1,13:]
-        hull = get_next_poly(traces_list)
+            # point_idx_list_list.append(point_idx_list)
+            # point_list_list.append(point_list)
+            # Combine traces to get next init set 
+            # next_low = np.array([float('inf')]*num_dim)
+            # next_high = np.array([-float('inf')]*num_dim)
+            
+            # next_ref = []
+            # for i in range(len(traces_list)):
+            #     trace = traces_list[i].nodes[0].trace['a1']
+            #     trace_low = trace[-2][1:7]
+            #     trace_high = trace[-1][1:7]
+            #     next_low = np.minimum(trace_low, next_low)
+            #     next_high = np.maximum(trace_high, next_high)
+            #     # next_ref = trace[-1,13:]
+            hull = get_next_poly(traces_list)
 
-        # state_low = next_low 
-        # state_high = next_high 
+            # state_low = next_low 
+            # state_high = next_high 
 
-        ref = run_ref(ref, computation_steps)
+            ref = run_ref(ref, computation_steps)
+        except:
+            break
+
+    with open('reachable_set.pickle', 'wb+') as f:
+        pickle.dump(reachable_set, f)
 
     plt.figure(0)
     plt.figure(1)

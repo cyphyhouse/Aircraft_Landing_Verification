@@ -57,8 +57,8 @@ if __name__ == "__main__":
     # x, y, z, yaw, pitch, v
     fixed_wing_scenario.set_init(
         [[
-            [-3050.0, -20, 110.0, 0, -np.deg2rad(3), 0, -3000.0, 0, 120.0, 0, -np.deg2rad(3), 10], 
-            [-3010.0, 20, 130.0, 0, -np.deg2rad(3), 0, -3000.0, 0, 120.0, 0, -np.deg2rad(3), 10]
+            [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001, -3000.0, 0, 120.0, 0, -np.deg2rad(3), 10], 
+            [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001, -3000.0, 0, 120.0, 0, -np.deg2rad(3), 10]
         ]],
         [
             (FixedWingMode.Normal,)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # this may be the cause for the VisibleDeprecationWarning
     # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
     # "-2 \leq myball1.x + myball2.x \leq 5"
-    traces = fixed_wing_scenario.verify(300, 0.05)
+    traces = fixed_wing_scenario.verify(100, 0.1)
     # TODO: There should be a print({traces}) function
     fig1 = go.Figure()
     fig1 = reachtube_tree(traces, None, fig1, 0, 1, [1, 2], "fill", "trace")
