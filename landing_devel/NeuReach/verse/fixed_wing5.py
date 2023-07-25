@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import polytope as pc
 import itertools
 import scipy.spatial
-import time
+from datetime import datetime 
 
 import pickle 
 
@@ -164,7 +164,7 @@ def get_vision_estimation(point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 def run_ref(ref_state, time_step, approaching_angle=3):
     k = np.tan(approaching_angle*(np.pi/180))
     delta_x = ref_state[-1]*time_step
-    delta_z = k*delta_x*time_step
+    delta_z = k*delta_x # *time_step
     return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
 
 def get_bounding_box(hull: scipy.spatial.ConvexHull) -> np.ndarray:
@@ -349,7 +349,7 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 1500
+    num_sample = 1200
     computation_steps = 0.1
     time_steps = 0.01
 
@@ -437,7 +437,10 @@ if __name__ == "__main__":
         except:
             break
 
-    with open('reachable_set.pickle', 'wb+') as f:
+    start_time = datetime.now()
+    time_str = start_time.strftime("%m-%d_%H-%M-%S")
+
+    with open(f'reachable_set_{time_str}.pickle', 'wb+') as f:
         pickle.dump(reachable_set, f)
 
     plt.figure(0)

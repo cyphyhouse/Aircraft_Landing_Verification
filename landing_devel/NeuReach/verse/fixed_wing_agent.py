@@ -104,7 +104,7 @@ def run_controller(x_true, x_cur, x_ref, delta_t, v_max=50, acc_max=20, beta_max
 def run_ref(ref_state, time_step, approaching_angle):
     k = np.tan(approaching_angle*(np.pi/180))
     delta_x = 50*time_step
-    delta_z = k*delta_x*time_step
+    delta_z = k*delta_x # *time_step
     return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z])
 
 def TC_simulate(mode, init, time_bound, time_step, lane_map):

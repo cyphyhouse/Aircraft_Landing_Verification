@@ -158,7 +158,7 @@ def get_vision_estimation(point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 def run_ref(ref_state, time_step, approaching_angle=3):
     k = np.tan(approaching_angle*(np.pi/180))
     delta_x = ref_state[-1]*time_step
-    delta_z = k*delta_x*time_step
+    delta_z = k*delta_x # *time_step
     return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
 
 

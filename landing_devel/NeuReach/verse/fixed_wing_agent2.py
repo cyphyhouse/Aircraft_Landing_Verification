@@ -59,8 +59,8 @@ class AircraftTrackingAgent(BaseAgent):
         new_vel_z = velref*sin(pitchref)+self.K1[3]*z_err
         new_vel = sqrt(new_vel_xy**2 + new_vel_z**2)
 
-        headingInput = new_heading_input
         accelInput = self.K2[0]*(new_vel - velocity)
+        headingInput = new_heading_input
         pitchInput = (pitchref - pitch) + (self.K2[1]*z_err)
 
         # if 'SAFETY' in str(mode[0]):
@@ -127,7 +127,7 @@ class AircraftTrackingAgent(BaseAgent):
     def run_ref(self, ref_state, time_step, approaching_angle=3):
         k = np.tan(approaching_angle*(np.pi/180))
         delta_x = ref_state[-1]*time_step
-        delta_z = k*delta_x*time_step
+        delta_z = k*delta_x # *time_step
         return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
 
     def TC_simulate(self, mode, initial_condition, time_horizon, time_step, lane_map=None):
