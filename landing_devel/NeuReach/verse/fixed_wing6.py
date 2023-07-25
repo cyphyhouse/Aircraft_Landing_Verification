@@ -10,6 +10,7 @@ import pickle
 from model import get_model_rect2, get_model_rect, get_model_rect3
 import torch 
 import numpy as np 
+from typing import Tuple
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
@@ -251,7 +252,7 @@ if __name__ == "__main__":
             'r'
         )
 
-    with open('reachable_set.pickle', 'rb') as f:
+    with open('reachable_set_07-25_06-32-15.pickle', 'rb') as f:
         reachable_set = pickle.load(f)
 
     for rectangle in reachable_set:
