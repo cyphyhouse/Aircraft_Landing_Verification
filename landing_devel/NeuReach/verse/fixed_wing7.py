@@ -322,6 +322,27 @@ def run_sim_random(
 
     return traj
 
+def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step):
+    time_points = np.arange(0, time_horizon+computation_step/2, computation_step)
+
+    traj = [np.insert(init_point, 0, 0)]
+    point = init_point 
+    ref = init_ref
+    for t in time_points[1:]:
+        estimate_lower, estimate_upper = get_vision_estimation(point)
+        estimate_point = sample_point(estimate_lower, estimate_upper)
+        init = np.concatenate((point, estimate_point, ref))
+        scenario.set_init(
+            [[init]],
+            [(FixedWingMode.Normal,)]
+        )
+        res = scenario.simulate(computation_step, time_step)
+        trace = res.nodes[0].trace['a1']
+        point = trace[-1,1:7]
+        traj.append(np.insert(point, 0, t))
+        ref = run_ref(ref, time_step)
+    return traj
+
 if __name__ == "__main__":
     
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
@@ -353,7 +374,7 @@ if __name__ == "__main__":
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 50
-    C_num = 10
+    C_num = 1
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -413,7 +434,7 @@ if __name__ == "__main__":
                 # this may be the cause for the VisibleDeprecationWarning
                 # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
                 # "-2 \leq myball1.x + myball2.x \leq 5"
-                traces = fixed_wing_scenario.verify(computation_steps, time_steps)
+                traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
                 traces_list.append(traces)
 
             hull = get_next_poly(traces_list)
@@ -422,8 +443,10 @@ if __name__ == "__main__":
             # state_high = next_high 
             ref = run_ref(ref, computation_steps)
         
-        next_init = reachable_set[-1][:,1]
-        C_set = np.hstack((np.array([[C_step+1],[C_step+1]], next_init)))
+        next_init = get_bounding_box(hull)
+        # last_rect = reachable_set[-1]
+        # next_init = np.array(last_rect)[:,1:]
+        C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
         C_list.append(C_set)
 
         tmp = [
@@ -443,6 +466,7 @@ if __name__ == "__main__":
 
         low = C_rect[0]
         high = C_rect[1]
+        step_time = low[0]*C_compute_step*computation_steps
         plt.figure(0)
         plt.plot(
             [low[1], high[1], high[1], low[1], low[1]], 
@@ -451,34 +475,62 @@ if __name__ == "__main__":
         )
         plt.figure(1)
         plt.plot(
-            [low[0], high[0]], [low[1], high[1]],
+            [step_time, step_time], [low[1], high[1]],
             'b'
         )
         plt.figure(2)
         plt.plot(
-            [low[0], high[0]], [low[2], high[2]],
+            [step_time, step_time], [low[2], high[2]],
             'b'
         )
         plt.figure(3)
         plt.plot(
-            [low[0], high[0]], [low[3], high[3]],
+            [step_time, step_time], [low[3], high[3]],
             'b'
         )
         plt.figure(4)
         plt.plot(
-            [low[0], high[0]], [low[4], high[4]],
+            [step_time, step_time], [low[4], high[4]],
             'b'
         )
         plt.figure(5)
         plt.plot(
-            [low[0], high[0]], [low[5], high[5]],
+            [step_time, step_time], [low[5], high[5]],
             'b'
         )
         plt.figure(6)
         plt.plot(
-            [low[0], high[0]], [low[6], high[6]],
+            [step_time, step_time], [low[6], high[6]],
             'b'
         )
+
+    state = np.array([
+        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+    ])
+    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+    time_horizon = computation_steps*C_num*C_compute_step
+
+    for i in range(100):
+        init_point = sample_point(state[0,:], state[1,:])
+        init_ref = copy.deepcopy(ref)
+        trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps)
+        trace = np.array(trace)
+        plt.figure(0)
+        plt.plot(trace[:,1], trace[:,2], 'r')
+        plt.figure(1)
+        plt.plot(trace[:,0], trace[:,1], 'r')
+        plt.figure(2)
+        plt.plot(trace[:,0], trace[:,2], 'r')
+        plt.figure(3)
+        plt.plot(trace[:,0], trace[:,3], 'r')
+        plt.figure(4)
+        plt.plot(trace[:,0], trace[:,4], 'r')
+        plt.figure(5)
+        plt.plot(trace[:,0], trace[:,5], 'r')
+        plt.figure(6)
+        plt.plot(trace[:,0], trace[:,6], 'r')
+
     plt.show()
         
 

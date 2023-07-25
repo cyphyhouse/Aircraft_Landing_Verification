@@ -21,11 +21,12 @@ class FixedWingAgent3(BaseAgent):
         # self.safeTraj = ctrlArgs[2]
         self.cst_input = [pi/18,0,0]
         # self.predictedSimulation = None
-        # self.estimated_state = None
+        self.estimated_state = None
 
     def aircraft_dynamics(self, state, t):
         # This function are the "tracking" dynamics used for the dubin's aircraft
         x,y,z,heading, pitch, velocity = state
+        x_est, y_est, z_est, heading_est, pitch_est, velocity_est = self.estimated_state
         headingInput, pitchInput, accelInput = self.cst_input
 
         heading = heading%(2*pi)
@@ -38,10 +39,10 @@ class FixedWingAgent3(BaseAgent):
 
         xref, yref, zref, headingref, pitchref, velref = self.goal_state
         # print(f"Goal state: {xref}; Estimate state: {x}")
-        x_err = cos(heading)*(xref - x) + sin(heading)*(yref - y)
-        y_err = -sin(heading)*(xref - x) + cos(heading)*(yref - y)
-        z_err = zref - z
-        heading_err = headingref - heading
+        x_err = cos(heading_est)*(xref - x_est) + sin(heading_est)*(yref - y_est)
+        y_err = -sin(heading_est)*(xref - x_est) + cos(heading_est)*(yref - y_est)
+        z_err = zref - z_est
+        heading_err = headingref - heading_est
 
         new_vel_xy = velref*cos(pitchref)*cos(heading_err)+self.K1[0]*x_err
         new_heading_input = heading_err + velref*(self.K1[1]*y_err + self.K1[2]*sin(heading_err))
@@ -49,8 +50,8 @@ class FixedWingAgent3(BaseAgent):
         new_vel = sqrt(new_vel_xy**2 + new_vel_z**2)
 
         headingInput = new_heading_input
-        accelInput = self.K2[0]*(new_vel - velocity)
-        pitchInput = (pitchref - pitch) + (self.K2[1]*z_err)
+        accelInput = self.K2[0]*(new_vel - velocity_est)
+        pitchInput = (pitchref - pitch_est) + (self.K2[1]*z_err)
 
         # if 'SAFETY' in str(mode[0]):
         #     if velocity <= 70:
@@ -130,7 +131,7 @@ class FixedWingAgent3(BaseAgent):
             x_ground_truth = state[:6]
             x_estimate = state[6:12]
             ref_state = state[12:]
-            x_next = self.step(x_ground_truth, x_ground_truth, time_step, ref_state)
+            x_next = self.step(x_estimate, x_ground_truth, time_step, ref_state)
             x_next[3] = x_next[3]%(np.pi*2)
             if x_next[3] > np.pi:
                 x_next[3] = x_next[3]-np.pi*2
