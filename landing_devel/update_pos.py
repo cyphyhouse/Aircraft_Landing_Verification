@@ -389,6 +389,14 @@ def update_aircraft_position(net, device):
 
     # Ground Truth Velocity
     vel_ground_truth = 0
+
+    # Estimated orientation
+    roll_estimation_prev = 0
+    pitch_estimation_prev = -np.deg2rad(3)
+    yaw_estimation_prev = 0
+
+    max_angular_rate = np.deg2rad(5)
+
     while not rospy.is_shutdown():
         time.sleep(0.1)
         if perception.estimated_state is None or len(perception.estimated_state) == 0:
@@ -416,6 +424,19 @@ def update_aircraft_position(net, device):
         ref_states.append(ref_state)
 
         cur_time += delta_t
+
+
+        '''
+        Filter
+        '''
+        if abs(estimated_state[3] - roll_estimation_prev) > max_angular_rate*delta_t:
+            estimated_state[3] = roll_estimation_prev + np.sign(estimated_state[3] - roll_estimation_prev)*max_angular_rate*delta_t
+
+        if abs(estimated_state[4] - pitch_estimation_prev) > max_angular_rate*delta_t:
+            estimated_state[4] = pitch_estimation_prev + np.sign(estimated_state[4] - pitch_estimation_prev)*max_angular_rate*delta_t
+
+        if abs(estimated_state[5] - yaw_estimation_prev) > max_angular_rate*delta_t:
+            estimated_state[5] = yaw_estimation_prev + np.sign(estimated_state[5] - yaw_estimation_prev)*max_angular_rate*delta_t
         # -------------------------------------------------------------------------------------------------------------------------------------------
         '''
         PD controller
@@ -514,6 +535,10 @@ def update_aircraft_position(net, device):
         idx += 1
         set_new_state_counter += 1
 
+        # Store estimation for filtering
+        roll_estimation_prev = estimated_state[3]
+        pitch_estimation_prev = estimated_state[4]
+        yaw_estimation_prev = estimated_state[5]
         
         np.save("ground_truth", np.array(true_states))
         np.save("estimation", np.array(estimated_states))

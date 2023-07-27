@@ -97,10 +97,32 @@
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
     <state world_name='default'>
-      <sim_time>3584 63000000</sim_time>
-      <real_time>0 0</real_time>
-      <wall_time>1689284416 81666894</wall_time>
-      <iterations>0</iterations>
+      <sim_time>4680 108000000</sim_time>
+      <real_time>874 660717320</real_time>
+      <wall_time>1690487757 607050280</wall_time>
+      <iterations>851139</iterations>
+      <model name='baylands_01'>
+        <pose>2111.81 -131.822 0.5 0 0 -2.83319</pose>
+        <scale>1 1 1</scale>
+        <link name='body'>
+          <pose>2111.81 -131.822 0.5 0 0 -2.83319</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+        <link name='body2'>
+          <pose>2111.81 -131.822 0.5 0 0 -2.83319</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+        <link name='body3'>
+          <pose>2111.81 -131.822 0.5 0 0 -2.83319</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
       <model name='grass_land_large'>
         <pose>-133.779 -837.946 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -3076,6 +3098,38 @@
         <scale>1 1 1</scale>
         <link name='link'>
           <pose>878.257 199.838 0 0 -0 0</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='ksql_ground'>
+        <pose>-236.531 -1443.88 10 0 -0 0</pose>
+        <scale>2 1 1</scale>
+        <link name='body'>
+          <pose>-236.531 -1443.88 10 0 -0 0</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+        <link name='buildings'>
+          <pose>-236.531 -1443.88 10 0 -0 0</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='ksql_ground_clone'>
+        <pose>-400.405 1449.03 10 0 -0 3.1415</pose>
+        <scale>1 1 1</scale>
+        <link name='body'>
+          <pose>-400.405 1449.03 10 0 -0 3.1415</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+        <link name='buildings'>
+          <pose>-400.405 1449.03 10 0 -0 3.1415</pose>
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0 0 0 0 -0 0</acceleration>
           <wrench>0 0 0 0 -0 0</wrench>
@@ -17329,7 +17383,7 @@
     </model>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-        <pose>-1639.57 -77.4546 713.714 0 0.686282 -0.057155</pose>
+        <pose>-874.405 380.073 1949.32 0 0.939312 -2.80944</pose>
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>
@@ -21736,6 +21790,264 @@
       </link>
       <static>1</static>
       <pose>-3184.54 137.95 0 0 -0 0</pose>
+    </model>
+    <model name='ksql_ground'>
+      <pose>330.74 -1469.18 -3.5 0 -0 0</pose>
+      <static>1</static>
+      <link name='body'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Terrain.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Terrain.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <link name='buildings'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Buildings.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Buildings.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+    </model>
+    <model name='ksql_ground_clone'>
+      <pose>-297.285 1043.15 10 0 -0 0</pose>
+      <static>1</static>
+      <link name='body'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Terrain.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Terrain.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <link name='buildings'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Buildings.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://ksql_airport/media/SanCarlosAirport_Buildings.DAE</uri>
+              <scale>2 1 1</scale>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+    </model>
+    <model name='baylands_01'>
+      <pose>2085.69 174.695 -1.3 0 -0 0</pose>
+      <static>1</static>
+      <link name='body'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://baylands/media/baylands_01.DAE</uri>
+            </mesh>
+          </geometry>
+          <material>
+            <script>
+              <uri>model://baylands/media/scripts/</uri>
+              <uri>model://baylands/media/Textures/</uri>
+              <name>OakTree/Branch</name>
+            </script>
+          </material>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://baylands/media/baylands_01.DAE</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <link name='body2'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://baylands/media/baylands_02.DAE</uri>
+            </mesh>
+          </geometry>
+          <material>
+            <script>
+              <uri>model://baylands/media/scripts/</uri>
+              <uri>model://baylands/media/Textures/</uri>
+              <name>OakTree/Branch</name>
+            </script>
+          </material>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://baylands/media/baylands_02.DAE</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <link name='body3'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://baylands/media/baylands_03.DAE</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://baylands/media/baylands_03.DAE</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
     </model>
   </world>
 </sdf>

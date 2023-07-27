@@ -1,7 +1,7 @@
 import numpy as np
 from math import cos, sin, atan2, sqrt, pi, asin
 from scipy.integrate import odeint
-from verse.agent import BaseAgent
+# from verse.agent import BaseAgent
 
 class AircraftTrackingAgent():
     def __init__(self):
@@ -29,6 +29,7 @@ class AircraftTrackingAgent():
         # self.safeTraj = ctrlArgs[2]
         self.cst_input = [pi/18,0,0]
         # self.predictedSimulation = None
+        self.initial_state = None
         self.estimated_state = None
 
     def aircraft_dynamics(self, state, t):
@@ -67,9 +68,12 @@ class AircraftTrackingAgent():
         #         accelInput = -10
 
         # Time derivative of the states
-        dxdt = velocity*cos(heading)*cos(pitch)
-        dydt = velocity*sin(heading)*cos(pitch)
-        dzdt = velocity*sin(pitch)
+        # dxdt = velocity*cos(heading)*cos(pitch)
+        # dydt = velocity*sin(heading)*cos(pitch)
+        # dzdt = velocity*sin(pitch)
+        dxdt = self.initial_state[5]*cos(self.initial_state[3])*cos(self.initial_state[4])
+        dydt = self.initial_state[5]*sin(self.initial_state[3])*cos(self.initial_state[4])
+        dzdt = self.initial_state[5]*sin(self.initial_state[4])
         dheadingdt = headingInput
         dpitchdt = pitchInput
         dveldt = accelInput
@@ -104,6 +108,7 @@ class AircraftTrackingAgent():
         self.goal_state = goal_state
         self.estimated_state = cur_state_estimated
         initial_condition[3] = initial_condition[3]%(2*pi)
+        self.initial_state = initial_condition
         sol = self.simulate(initial_condition, time_step, time_step)
         # print("")
         return list(sol[-1])
