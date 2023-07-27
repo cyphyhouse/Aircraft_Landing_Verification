@@ -326,6 +326,27 @@ def run_sim_random(
 
     return traj
 
+def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step):
+    time_points = np.arange(0, time_horizon+computation_step/2, computation_step)
+
+    traj = [np.insert(init_point, 0, 0)]
+    point = init_point 
+    ref = init_ref
+    for t in time_points[1:]:
+        estimate_lower, estimate_upper = get_vision_estimation(point)
+        estimate_point = sample_point(estimate_lower, estimate_upper)
+        init = np.concatenate((point, estimate_point, ref))
+        scenario.set_init(
+            [[init]],
+            [(FixedWingMode.Normal,)]
+        )
+        res = scenario.simulate(computation_step, time_step)
+        trace = res.nodes[0].trace['a1']
+        point = trace[-1,1:7]
+        traj.append(np.insert(point, 0, t))
+        ref = run_ref(ref, computation_step)
+    return traj
+
 if __name__ == "__main__":
     
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
@@ -353,18 +374,21 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 1000
+    num_sample = 1200
     computation_steps = 0.1
     time_steps = 0.01
+    C_compute_step = 80
+    C_num = 2
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
-    reachable_set = []
+    C_list = [np.hstack((np.array([[0],[0]]),state))]
     # point_idx_list_list = []
     # point_list_list = []
 
-    for step in range(80):
-        try:
+    for C_step in range(C_num):
+        reachable_set = []
+        for step in range(C_compute_step):
             box = get_bounding_box(hull)
             state_low = box[0,:]
             state_high = box[1,:]
@@ -375,9 +399,9 @@ if __name__ == "__main__":
             point_list = []
             point_idx_list = []
             
-            if step == 37:
-                print('stop')
-            
+            # if step == 37:
+            #     print('stop')
+
             if hull.vertices.shape[0]<num_sample:
                 # vertex_num = int(num_sample*0.05)
                 # sample_num = num_sample - vertex_num
@@ -392,11 +416,14 @@ if __name__ == "__main__":
                 vertex_sample = hull.points[vertex_idxs,:]
                 sample_sample = sample_point_poly(hull, sample_num)
                 samples = np.vstack((vertex_sample, sample_sample))
-                
+            
+            point_idx = np.argmax(hull.points[:,1])
+            samples = np.vstack((samples, hull.points[point_idx,:]))
+            # samples = sample_point_poly(hull, num_sample)
 
             for i in range(samples.shape[0]):
                 point = samples[i,:]
-                print(step, i, point)
+                print(C_step, step, i, point)
 
                 estimate_low, estimate_high = get_vision_estimation(point)
 
@@ -414,41 +441,38 @@ if __name__ == "__main__":
                 # this may be the cause for the VisibleDeprecationWarning
                 # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
                 # "-2 \leq myball1.x + myball2.x \leq 5"
-                traces = fixed_wing_scenario.verify(computation_steps, time_steps)
+                traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
                 traces_list.append(traces)
 
-            # point_idx_list_list.append(point_idx_list)
-            # point_list_list.append(point_list)
-            # Combine traces to get next init set 
-            # next_low = np.array([float('inf')]*num_dim)
-            # next_high = np.array([-float('inf')]*num_dim)
-            
-            # next_ref = []
-            # for i in range(len(traces_list)):
-            #     trace = traces_list[i].nodes[0].trace['a1']
-            #     trace_low = trace[-2][1:7]
-            #     trace_high = trace[-1][1:7]
-            #     next_low = np.minimum(trace_low, next_low)
-            #     next_high = np.maximum(trace_high, next_high)
-            #     # next_ref = trace[-1,13:]
             hull = get_next_poly(traces_list)
-
             # state_low = next_low 
             # state_high = next_high 
-
             ref = run_ref(ref, computation_steps)
-        except:
-            break
+        
+        next_init = get_bounding_box(hull)
+        # last_rect = reachable_set[-1]
+        # next_init = np.array(last_rect)[:,1:]
+        C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
+        C_list.append(C_set)
 
-    start_time = datetime.now()
-    time_str = start_time.strftime("%m-%d_%H-%M-%S")
+        tmp = [
+            [next_init[0,0], next_init[1,0]],
+            [next_init[0,1], next_init[1,1]],
+            [next_init[0,2], next_init[1,2]],
+            [next_init[0,3], next_init[1,3]],
+            [next_init[0,4], next_init[1,4]],
+            [next_init[0,5], next_init[1,5]],
+        ]
+        vertices = np.array(list(itertools.product(*tmp)))
+        hull = scipy.spatial.ConvexHull(vertices)
 
-    with open(f'reachable_set_{time_str}.pickle', 'wb+') as f:
-        pickle.dump(reachable_set, f)
+    for C_rect in C_list:
+        # rect_low = C_rect[0]
+        # rect_high = C_rect[1]
 
-    for rectangle in reachable_set:
-        low = rectangle[0]
-        high = rectangle[1]
+        low = C_rect[0]
+        high = C_rect[1]
+        step_time = low[0]*C_compute_step*computation_steps
         plt.figure(0)
         plt.plot(
             [low[1], high[1], high[1], low[1], low[1]], 
@@ -457,33 +481,112 @@ if __name__ == "__main__":
         )
         plt.figure(1)
         plt.plot(
-            [low[0], high[0]], [low[1], high[1]],
+            [step_time, step_time], [low[1], high[1]],
             'b'
         )
         plt.figure(2)
         plt.plot(
-            [low[0], high[0]], [low[2], high[2]],
+            [step_time, step_time], [low[2], high[2]],
             'b'
         )
         plt.figure(3)
         plt.plot(
-            [low[0], high[0]], [low[3], high[3]],
+            [step_time, step_time], [low[3], high[3]],
             'b'
         )
         plt.figure(4)
         plt.plot(
-            [low[0], high[0]], [low[4], high[4]],
+            [step_time, step_time], [low[4], high[4]],
             'b'
         )
         plt.figure(5)
         plt.plot(
-            [low[0], high[0]], [low[5], high[5]],
+            [step_time, step_time], [low[5], high[5]],
             'b'
         )
         plt.figure(6)
         plt.plot(
-            [low[0], high[0]], [low[6], high[6]],
+            [step_time, step_time], [low[6], high[6]],
             'b'
         )
+
+    state = np.array([
+        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+    ])
+    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+    time_horizon = computation_steps*C_num*C_compute_step
+
+    for i in range(100):
+        init_point = sample_point(state[0,:], state[1,:])
+        init_ref = copy.deepcopy(ref)
+        trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps)
+        trace = np.array(trace)
+        plt.figure(0)
+        plt.plot(trace[:,1], trace[:,2], 'r')
+        plt.figure(1)
+        plt.plot(trace[:,0], trace[:,1], 'r')
+        plt.figure(2)
+        plt.plot(trace[:,0], trace[:,2], 'r')
+        plt.figure(3)
+        plt.plot(trace[:,0], trace[:,3], 'r')
+        plt.figure(4)
+        plt.plot(trace[:,0], trace[:,4], 'r')
+        plt.figure(5)
+        plt.plot(trace[:,0], trace[:,5], 'r')
+        plt.figure(6)
+        plt.plot(trace[:,0], trace[:,6], 'r')
+
     plt.show()
+        
+
+    # start_time = datetime.now()
+    # time_str = start_time.strftime("%m-%d_%H-%M-%S")
+
+    # with open(f'reachable_set_{time_str}.pickle', 'wb+') as f:
+    #     pickle.dump(reachable_set, f)
+
+    # plt.figure(0)
+    # plt.figure(1)
+    # plt.figure(2)
+    # for rectangle in reachable_set:
+    #     low = rectangle[0]
+    #     high = rectangle[1]
+    #     plt.figure(0)
+    #     plt.plot(
+    #         [low[1], high[1], high[1], low[1], low[1]], 
+    #         [low[2], low[2], high[2], high[2], low[2]],
+    #         'b'
+    #     )
+    #     plt.figure(1)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[1], high[1]],
+    #         'b'
+    #     )
+    #     plt.figure(2)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[2], high[2]],
+    #         'b'
+    #     )
+    #     plt.figure(3)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[3], high[3]],
+    #         'b'
+    #     )
+    #     plt.figure(4)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[4], high[4]],
+    #         'b'
+    #     )
+    #     plt.figure(5)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[5], high[5]],
+    #         'b'
+    #     )
+    #     plt.figure(6)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[6], high[6]],
+    #         'b'
+    #     )
+    # plt.show()
 

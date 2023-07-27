@@ -1,6 +1,6 @@
 from verse.plotter.plotter2D import *
-from fixed_wing_agent import FixedWingAgent
 from fixed_wing_agent2 import AircraftTrackingAgent
+from fixed_wing_agent3 import FixedWingAgent3
 from verse import Scenario, ScenarioConfig
 from enum import Enum, auto
 import copy
@@ -138,12 +138,16 @@ def get_vision_estimation(point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     yaw_c = forward_yaw_c(input_tensor).detach().numpy()
     yaw_r = np.abs(np.reshape(yaw_r, (-1)))
     yaw_c = np.reshape(yaw_c, (-1))
+    yaw_r = np.array([0.001])
+    yaw_c = np.array([point[3]])
 
     input_tensor = torch.FloatTensor([point[(0,4),]], device='cpu')
     pitch_r = forward_pitch_r(input_tensor).detach().numpy()
     pitch_c = forward_pitch_c(input_tensor).detach().numpy()
     pitch_r = np.abs(np.reshape(pitch_r, (-1)))
     pitch_c = np.reshape(pitch_c, (-1))
+    pitch_r = np.array([0.001])
+    pitch_c = np.array([point[4]])
 
     low = np.concatenate((x_c-x_r, y_c-y_r, z_c-z_r, yaw_c-yaw_r, pitch_c-pitch_r, point[5:]))
     high = np.concatenate((x_c+x_r, y_c+y_r, z_c+z_r, yaw_c+yaw_r, pitch_c+pitch_r, point[5:]))
@@ -156,8 +160,8 @@ def run_ref(ref_state, time_step, approaching_angle=3):
     delta_z = k*delta_x # *time_step
     return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
 
-def run_vision_sim(scenario, init_point, init_ref, time_horizon, time_step):
-    time_points = np.arange(0, time_horizon+time_step/2, time_step)
+def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step):
+    time_points = np.arange(0, time_horizon+computation_step/2, computation_step)
 
     traj = [np.insert(init_point, 0, 0)]
     point = init_point 
@@ -167,14 +171,14 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, time_step):
         estimate_point = sample_point(estimate_lower, estimate_upper)
         init = np.concatenate((point, estimate_point, ref))
         scenario.set_init(
-            [init],
-            [(FixedWingMode.Normal)]
+            [[init]],
+            [(FixedWingMode.Normal,)]
         )
-        res = scenario.simulate(time_step, time_step)
-        trace = res.nodes[0].trace['a1'][-1]
-        point = trace[:,6]
+        res = scenario.simulate(computation_step, time_step)
+        trace = res.nodes[0].trace['a1']
+        point = trace[-1,1:7]
         traj.append(np.insert(point, 0, t))
-        ref = run_ref(ref, time_step)
+        ref = run_ref(ref, computation_step)
     return traj
 
 if __name__ == "__main__":
@@ -197,10 +201,10 @@ if __name__ == "__main__":
     # this may be the cause for the VisibleDeprecationWarning
     # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
     # "-2 \leq myball1.x + myball2.x \leq 5"
-    traces = ideal_control_system.verify(100, 0.1)
+    # traces = ideal_control_system.verify(80, 0.1)
     # TODO: There should be a print({traces}) function
 
-    reach_tube = traces.nodes[0].trace['a1']
+    # reach_tube = traces.nodes[0].trace['a1']
     # print(reach_tube)
 
     plt.figure(0)
@@ -211,48 +215,48 @@ if __name__ == "__main__":
     plt.figure(5)
     plt.figure(6)
 
-    for i in range(0, len(reach_tube),2):
-        low = reach_tube[i]
-        high = reach_tube[i+1]
-        plt.figure(0)
-        plt.plot(
-            [low[1], high[1], high[1], low[1], low[1]], 
-            [low[2], low[2], high[2], high[2], low[2]],
-            'r'
-        )
+    # for i in range(0, len(reach_tube),2):
+    #     low = reach_tube[i]
+    #     high = reach_tube[i+1]
+    #     plt.figure(0)
+    #     plt.plot(
+    #         [low[1], high[1], high[1], low[1], low[1]], 
+    #         [low[2], low[2], high[2], high[2], low[2]],
+    #         'r'
+    #     )
 
-        plt.figure(1)
-        plt.plot(
-            [low[0], high[0]], [low[1], high[1]],
-            'r'
-        )
-        plt.figure(2)
-        plt.plot(
-            [low[0], high[0]], [low[2], high[2]],
-            'r'
-        )
-        plt.figure(3)
-        plt.plot(
-            [low[0], high[0]], [low[3], high[3]],
-            'r'
-        )
-        plt.figure(4)
-        plt.plot(
-            [low[0], high[0]], [low[4], high[4]],
-            'r'
-        )
-        plt.figure(5)
-        plt.plot(
-            [low[0], high[0]], [low[5], high[5]],
-            'r'
-        )
-        plt.figure(6)
-        plt.plot(
-            [low[0], high[0]], [low[6], high[6]],
-            'r'
-        )
+    #     plt.figure(1)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[1], high[1]],
+    #         'r'
+    #     )
+    #     plt.figure(2)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[2], high[2]],
+    #         'r'
+    #     )
+    #     plt.figure(3)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[3], high[3]],
+    #         'r'
+    #     )
+    #     plt.figure(4)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[4], high[4]],
+    #         'r'
+    #     )
+    #     plt.figure(5)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[5], high[5]],
+    #         'r'
+    #     )
+    #     plt.figure(6)
+    #     plt.plot(
+    #         [low[0], high[0]], [low[6], high[6]],
+    #         'r'
+    #     )
 
-    with open('reachable_set_07-25_06-32-15.pickle', 'rb') as f:
+    with open('reachable_set_07-27_12-14-43.pickle', 'rb') as f:
         reachable_set = pickle.load(f)
 
     for rectangle in reachable_set:
@@ -295,6 +299,38 @@ if __name__ == "__main__":
             'b'
         )
 
+    state = np.array([
+        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+    ])
+    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+    time_horizon = 8
+
+    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
+    script_path = os.path.realpath(os.path.dirname(__file__))
+    fixed_wing_controller = os.path.join(script_path, 'fixed_wing3_dl.py')
+    aircraft = FixedWingAgent3("a1")
+    fixed_wing_scenario.add_agent(aircraft)
+
+    for i in range(100):
+        init_point = sample_point(state[0,:], state[1,:])
+        init_ref = copy.deepcopy(ref)
+        trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, 0.1, 0.01)
+        trace = np.array(trace)
+        plt.figure(0)
+        plt.plot(trace[:,1], trace[:,2], 'r')
+        plt.figure(1)
+        plt.plot(trace[:,0], trace[:,1], 'r')
+        plt.figure(2)
+        plt.plot(trace[:,0], trace[:,2], 'r')
+        plt.figure(3)
+        plt.plot(trace[:,0], trace[:,3], 'r')
+        plt.figure(4)
+        plt.plot(trace[:,0], trace[:,4], 'r')
+        plt.figure(5)
+        plt.plot(trace[:,0], trace[:,5], 'r')
+        plt.figure(6)
+        plt.plot(trace[:,0], trace[:,6], 'r')
 
     plt.show()
 

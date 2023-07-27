@@ -149,12 +149,16 @@ def get_vision_estimation(point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     yaw_c = forward_yaw_c(input_tensor).detach().numpy()
     yaw_r = np.abs(np.reshape(yaw_r, (-1)))
     yaw_c = np.reshape(yaw_c, (-1))
+    yaw_r = np.array([0.001])
+    yaw_c = np.array([point[3]])
 
     input_tensor = torch.FloatTensor([point[(0,4),]], device='cpu')
     pitch_r = forward_pitch_r(input_tensor).detach().numpy()
     pitch_c = forward_pitch_c(input_tensor).detach().numpy()
     pitch_r = np.abs(np.reshape(pitch_r, (-1)))
     pitch_c = np.reshape(pitch_c, (-1))
+    pitch_r = np.array([0.001])
+    pitch_c = np.array([point[4]])
 
     low = np.concatenate((x_c-x_r, y_c-y_r, z_c-z_r, yaw_c-yaw_r, pitch_c-pitch_r, point[5:]))
     high = np.concatenate((x_c+x_r, y_c+y_r, z_c+z_r, yaw_c+yaw_r, pitch_c+pitch_r, point[5:]))
@@ -340,7 +344,7 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         trace = res.nodes[0].trace['a1']
         point = trace[-1,1:7]
         traj.append(np.insert(point, 0, t))
-        ref = run_ref(ref, time_step)
+        ref = run_ref(ref, computation_step)
     return traj
 
 if __name__ == "__main__":
@@ -370,11 +374,11 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 2000
+    num_sample = 200
     computation_steps = 0.1
     time_steps = 0.01
-    C_compute_step = 50
-    C_num = 1
+    C_compute_step = 80
+    C_num = 2
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -395,8 +399,8 @@ if __name__ == "__main__":
             point_list = []
             point_idx_list = []
             
-            if step == 37:
-                print('stop')
+            # if step == 37:
+            #     print('stop')
             
             if hull.vertices.shape[0]<num_sample:
                 # vertex_num = int(num_sample*0.05)
@@ -412,7 +416,7 @@ if __name__ == "__main__":
                 vertex_sample = hull.points[vertex_idxs,:]
                 sample_sample = sample_point_poly(hull, sample_num)
                 samples = np.vstack((vertex_sample, sample_sample))
-                
+            # samples = sample_point_poly(hull, num_sample)
 
             for i in range(samples.shape[0]):
                 point = samples[i,:]

@@ -143,12 +143,16 @@ def get_vision_estimation(point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     yaw_c = forward_yaw_c(input_tensor).detach().numpy()
     yaw_r = np.abs(np.reshape(yaw_r, (-1)))
     yaw_c = np.reshape(yaw_c, (-1))
+    yaw_r = np.array([0.0001])
+    yaw_c = np.array([point[3]])
 
     input_tensor = torch.FloatTensor([point[(0,4),]], device='cpu')
     pitch_r = forward_pitch_r(input_tensor).detach().numpy()
     pitch_c = forward_pitch_c(input_tensor).detach().numpy()
     pitch_r = np.abs(np.reshape(pitch_r, (-1)))
     pitch_c = np.reshape(pitch_c, (-1))
+    pitch_r = np.array([0.0001])
+    pitch_c = np.array([point[4]])
 
     low = np.concatenate((x_c-x_r, y_c-y_r, z_c-z_r, yaw_c-yaw_r, pitch_c-pitch_r, point[5:]))
     high = np.concatenate((x_c+x_r, y_c+y_r, z_c+z_r, yaw_c+yaw_r, pitch_c+pitch_r, point[5:]))
@@ -171,112 +175,55 @@ if __name__ == "__main__":
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
     state = np.array([
-        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 0-0.0001], 
-        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 0+0.0001]
+        [-3050.0, -20, 110.0, 0, -np.deg2rad(3), 10], 
+        [-3010.0, 20, 130.0, 0, -np.deg2rad(3), 10]
     ])
     state_low = state[0,:]
     state_high = state[1,:]
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 40
-    computation_steps = 0.05
+    num_sample = 5
+    computation_steps = 0.1
     time_steps = 0.01
 
-    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
-    reachable_set = []
+    for i in range(20):
+        ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+        point = sample_point(state_low, state_high)
 
-    reachable_set.append([np.insert(state_low, 0, 0*computation_steps), np.insert(state_high, 0, 0*computation_steps)])
+        traj = [np.insert(point, 0, 0)]
+        for step in range(1500):
+            est_lower, est_upper = get_vision_estimation(point)
+            est_point = sample_point(est_lower, est_upper)
+            init = np.concatenate((point, est_point, ref))
 
-    traces_list = []
-    point_list = []
-
-    for i in range(num_sample):
-        
-        if i==0:
-            point = state_low  
-        elif i==1:
-            point = state_high
-        else:
-            point = sample_point(state_low, state_high)
-        point_list.append(point)
-
-        estimate_low, estimate_high = get_vision_estimation(point)
-
-        init_low = np.concatenate((point, estimate_low, ref))
-        init_high = np.concatenate((point, estimate_high, ref))
-        init = np.vstack((init_low, init_high))       
-
-        fixed_wing_scenario.set_init(
-            [init],
-            [
-                (FixedWingMode.Normal,)
-            ],
-        )
-        # TODO: WE should be able to initialize each of the balls separately
-        # this may be the cause for the VisibleDeprecationWarning
-        # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
-        # "-2 \leq myball1.x + myball2.x \leq 5"
-        traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
-        traces_list.append(traces)
-
-    # Combine traces to get next init set 
-    next_low = np.array([float('inf')]*num_dim)
-    next_high = np.array([-float('inf')]*num_dim)
-    
-    next_ref = []
-    for i in range(len(traces_list)):
-        trace = traces_list[i].nodes[0].trace['a1']
-        trace_low = trace[-2][1:7]
-        trace_high = trace[-1][1:7]
-        next_low = np.minimum(trace_low, next_low)
-        next_high = np.maximum(trace_high, next_high)
-        # next_ref = trace[-1,13:]
-
-    # state_low = next_low 
-    # state_high = next_high 
-
-    ref = run_ref(ref, computation_steps)
-
-    plt.plot(
-        [state_low[1], state_low[1], state_high[1], state_high[1], state_low[1]],
-        [state_low[3], state_high[3], state_high[3], state_low[3], state_low[3]],
-        'r',
-        label='X_t'
-    )
-
-    point_list = np.array(point_list)
-
-    plt.plot(point_list[:,1], point_list[:,3], 'r*', label='x_{t}^i')
-
-    plt.plot(
-        [next_low[1], next_low[1], next_high[1], next_high[1], next_low[1]],
-        [next_low[3], next_high[3], next_high[3], next_low[3], next_low[3]],
-        'b',
-        label='X_{t+1}'        
-    )
-
-    for i in range(len(traces_list)):
-        trace = traces_list[i].nodes[0].trace['a1']
-        trace_low = trace[-2][1:7]
-        trace_high = trace[-1][1:7]
-        next_low = np.minimum(trace_low, next_low)
-        next_high = np.maximum(trace_high, next_high)
-        if i==0:
-            plt.plot(
-                [trace_low[1], trace_low[1], trace_high[1], trace_high[1], trace_low[1]],
-                [trace_low[3], trace_high[3], trace_high[3], trace_low[3], trace_low[3]],
-                'g',
-                label='X_{t+1}^i'        
+            fixed_wing_scenario.set_init(
+                [[init]],
+                [
+                    (FixedWingMode.Normal,)
+                ],
             )
-        else:
-            plt.plot(
-                [trace_low[1], trace_low[1], trace_high[1], trace_high[1], trace_low[1]],
-                [trace_low[3], trace_high[3], trace_high[3], trace_low[3], trace_low[3]],
-                'g',
-            )
-    plt.legend()
-    plt.xlabel('y')
-    plt.ylabel('yaw')
+
+            res = fixed_wing_scenario.simulate(computation_steps, time_steps)
+            lstate = res.nodes[0].trace['a1'][-1,1:7]
+            traj.append(np.insert(lstate, 0, (step+1)*computation_steps))
+            ref = run_ref(ref, computation_steps)
+            point = lstate
+
+        traj = np.array(traj)
+        plt.figure(0)
+        plt.plot(traj[:,1], traj[:,2], 'b')
+        plt.figure(1)
+        plt.plot(traj[:,0], traj[:,1], 'b')
+        plt.figure(2)
+        plt.plot(traj[:,0], traj[:,2], 'b')
+        plt.figure(3)
+        plt.plot(traj[:,0], traj[:,3], 'b')
+        plt.figure(4)
+        plt.plot(traj[:,0], traj[:,4], 'b')
+        plt.figure(5)
+        plt.plot(traj[:,0], traj[:,5], 'b')
+        plt.figure(6)
+        plt.plot(traj[:,0], traj[:,6], 'b')
     plt.show()
