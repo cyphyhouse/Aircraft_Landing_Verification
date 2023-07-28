@@ -11,6 +11,8 @@ from model import get_model_rect2, get_model_rect, get_model_rect3
 import torch 
 import numpy as np 
 from typing import Tuple
+import scipy.spatial 
+import itertools
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
@@ -181,6 +183,61 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
+def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
+    vertex_list = []
+    for analysis_tree in trace_list:
+        rect_low = analysis_tree.nodes[0].trace['a1'][-4][1:7]
+        rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
+        tmp = [
+            [rect_low[0], rect_high[0]],
+            [rect_low[1], rect_high[1]],
+            [rect_low[2], rect_high[2]],
+            [rect_low[3], rect_high[3]],
+            [rect_low[4], rect_high[4]],
+            [rect_low[5], rect_high[5]],
+        ]
+        vertex_list.append(rect_low)
+        vertex_list.append(rect_high)
+    # vertices = np.array(vertex_list)
+    vertices = []
+    for vertex in vertex_list:
+        away = True
+        for i in range(len(vertices)):
+            if np.linalg.norm(np.array(vertex)-np.array(vertices[i]))<0.01:
+                away = False
+                break 
+        if away:
+            vertices.append(vertex)
+
+    vertices = np.array(vertices)
+    hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB Q12 Qc')    
+    return hull
+
+def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
+    vertices = hull.points[hull.vertices,:]
+    weights = np.random.uniform(0,1,vertices.shape[0])
+    weights = weights/np.sum(weights)
+    start_point = np.zeros(vertices.shape[1])
+    for i in range(vertices.shape[1]):
+        start_point[i] = np.sum(vertices[:,i]*weights)
+    # return start_point
+
+    sampled_point = []
+    for i in range(n):
+        vertex_idx = np.random.choice(hull.vertices)
+        vertex = hull.points[vertex_idx, :]
+        offset = vertex - start_point 
+        start_point = start_point + np.random.uniform(0,1)*offset 
+        sampled_point.append(start_point)
+
+    return np.array(sampled_point)
+
+def get_bounding_box(hull: scipy.spatial.ConvexHull) -> np.ndarray:
+    vertices = hull.points[hull.vertices, :]
+    lower_bound = np.min(vertices, axis=0)
+    upper_bound = np.max(vertices, axis=0)
+    return np.vstack((lower_bound, upper_bound))
+
 if __name__ == "__main__":
     ideal_control_system = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
@@ -256,8 +313,124 @@ if __name__ == "__main__":
     #         'r'
     #     )
 
-    with open('reachable_set_07-27_12-14-43.pickle', 'rb') as f:
-        reachable_set = pickle.load(f)
+    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
+    script_path = os.path.realpath(os.path.dirname(__file__))
+    fixed_wing_controller = os.path.join(script_path, 'fixed_wing3_dl.py')
+    aircraft = FixedWingAgent3("a1")
+    fixed_wing_scenario.add_agent(aircraft)
+    # x, y, z, yaw, pitch, v
+    state = np.array([
+        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+    ])
+    tmp = [
+        [state[0,0], state[1,0]],
+        [state[0,1], state[1,1]],
+        [state[0,2], state[1,2]],
+        [state[0,3], state[1,3]],
+        [state[0,4], state[1,4]],
+        [state[0,5], state[1,5]],
+    ]
+    vertices = np.array(list(itertools.product(*tmp)))
+    hull = scipy.spatial.ConvexHull(vertices)
+    # state_low = state[0,:]
+    # state_high = state[1,:]
+    num_dim = state.shape[1]
+
+    # Parameters
+    num_sample = 10
+    computation_steps = 0.1
+    time_steps = 0.01
+    num_steps = 1
+
+    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+
+    reachable_set = []
+    # point_idx_list_list = []
+    sampled_points = []
+    reachable_partitions = []
+
+    for step in range(num_steps):
+        try:
+            box = get_bounding_box(hull)
+            state_low = box[0,:]
+            state_high = box[1,:]
+
+            reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
+
+            traces_list = []
+            # point_list = []
+            # point_idx_list = []
+            
+            # if hull.vertices.shape[0]<num_sample:
+            #     # vertex_num = int(num_sample*0.05)
+            #     # sample_num = num_sample - vertex_num
+            #     # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
+            #     vertex_sample = hull.points[hull.vertices,:]
+            #     sample_sample = sample_point_poly(hull, 100)
+            #     samples = np.vstack((vertex_sample, sample_sample))
+            # else:
+            #     vertex_num = int(num_sample*0.5)
+            #     sample_num = num_sample - vertex_num
+            #     vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
+            #     vertex_sample = hull.points[vertex_idxs,:]
+            #     sample_sample = sample_point_poly(hull, sample_num)
+            #     samples = np.vstack((vertex_sample, sample_sample))
+            samples = sample_point_poly(hull, num_sample)
+
+            for i in range(samples.shape[0]):
+                point = samples[i,:]
+                print(step, i, point)
+
+                estimate_low, estimate_high = get_vision_estimation(point)
+
+                init_low = np.concatenate((point, estimate_low, ref))
+                init_high = np.concatenate((point, estimate_high, ref))
+                init = np.vstack((init_low, init_high))       
+
+                fixed_wing_scenario.set_init(
+                    [init],
+                    [
+                        (FixedWingMode.Normal,)
+                    ],
+                )
+                # TODO: WE should be able to initialize each of the balls separately
+                # this may be the cause for the VisibleDeprecationWarning
+                # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+                # "-2 \leq myball1.x + myball2.x \leq 5"
+                traces = fixed_wing_scenario.verify(computation_steps+time_steps, time_steps)
+                traces_list.append(traces)
+
+            # point_idx_list_list.append(point_idx_list)
+            # point_list_list.append(point_list)
+            # Combine traces to get next init set 
+            # next_low = np.array([float('inf')]*num_dim)
+            # next_high = np.array([-float('inf')]*num_dim)
+            
+            # next_ref = []
+            # for i in range(len(traces_list)):
+            #     trace = traces_list[i].nodes[0].trace['a1']
+            #     trace_low = trace[-2][1:7]
+            #     trace_high = trace[-1][1:7]
+            #     next_low = np.minimum(trace_low, next_low)
+            #     next_high = np.maximum(trace_high, next_high)
+            #     # next_ref = trace[-1,13:]
+            sampled_points.append(samples)
+            reachable_partitions.append(traces_list)
+            hull = get_next_poly(traces_list)
+
+            # state_low = next_low 
+            # state_high = next_high 
+
+            ref = run_ref(ref, computation_steps)
+        except:
+            break
+
+    box = get_bounding_box(hull)
+    state_low = box[0,:]
+    state_high = box[1,:]
+
+    reachable_set.append([np.insert(state_low, 0, (step+1)*computation_steps), np.insert(state_high, 0, (step+1)*computation_steps)])
 
     for rectangle in reachable_set:
         low = rectangle[0]
@@ -299,12 +472,52 @@ if __name__ == "__main__":
             'b'
         )
 
+    for i, sampled_point_step in enumerate(sampled_points):
+        # plt.figure(0)
+        # plt.plot(sampled_point_step[:,1], sampled_point_step[:,2],'g*')
+        low = reachable_set[i][0]
+        high = reachable_set[i][1]
+        
+        plt.figure(1)
+        plt.plot( [low[0]]*sampled_point_step.shape[0], sampled_point_step[:,0],'g*')
+        plt.figure(2)
+        plt.plot( [low[0]]*sampled_point_step.shape[0], sampled_point_step[:,1],'g*')
+        plt.figure(3)
+        plt.plot( [low[0]]*sampled_point_step.shape[0], sampled_point_step[:,2],'g*')
+        plt.figure(4)
+        plt.plot( [low[0]]*sampled_point_step.shape[0], sampled_point_step[:,3],'g*')
+        plt.figure(5)
+        plt.plot( [low[0]]*sampled_point_step.shape[0], sampled_point_step[:,4],'g*')
+        plt.figure(6)
+        plt.plot( [low[0]]*sampled_point_step.shape[0], sampled_point_step[:,5],'g*')
+
+    for i, rect_step in enumerate(reachable_partitions):
+        low = reachable_set[i+1][0]
+        high = reachable_set[i+1][1]
+        for res in rect_step:
+            trace = res.nodes[0].trace['a1']
+            tmp_low = trace[-4]
+            tmp_high = trace[-1]
+            plt.figure(1)
+            plt.plot([low[0], high[0]], [tmp_low[1], tmp_high[1]],'g')
+            plt.figure(2)
+            plt.plot([low[0], high[0]], [tmp_low[2], tmp_high[2]],'g')
+            plt.figure(3)
+            plt.plot([low[0], high[0]], [tmp_low[3], tmp_high[3]],'g')
+            plt.figure(4)
+            plt.plot([low[0], high[0]], [tmp_low[4], tmp_high[4]],'g')
+            plt.figure(5)
+            plt.plot([low[0], high[0]], [tmp_low[5], tmp_high[5]],'g')
+            plt.figure(6)
+            plt.plot([low[0], high[0]], [tmp_low[6], tmp_high[6]],'g')
+            
+
     state = np.array([
         [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
         [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
     ])
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-    time_horizon = 8
+    time_horizon = num_steps*computation_steps
 
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
@@ -312,8 +525,9 @@ if __name__ == "__main__":
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
 
-    for i in range(100):
-        init_point = sample_point(state[0,:], state[1,:])
+    for i in range(len(samples)):
+        init_point = samples[i]
+        # init_point = sample_point(state[0,:], state[1,:])
         init_ref = copy.deepcopy(ref)
         trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, 0.1, 0.01)
         trace = np.array(trace)

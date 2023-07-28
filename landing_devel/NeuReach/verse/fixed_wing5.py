@@ -261,7 +261,7 @@ def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
 def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     vertex_list = []
     for analysis_tree in trace_list:
-        rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
+        rect_low = analysis_tree.nodes[0].trace['a1'][-4][1:7]
         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
         tmp = [
             [rect_low[0], rect_high[0]],
@@ -375,8 +375,8 @@ if __name__ == "__main__":
             point_list = []
             point_idx_list = []
             
-            if step == 37:
-                print('stop')
+            # if step == 37:
+            #     print('stop')
             
             if hull.vertices.shape[0]<num_sample:
                 # vertex_num = int(num_sample*0.05)
@@ -414,7 +414,7 @@ if __name__ == "__main__":
                 # this may be the cause for the VisibleDeprecationWarning
                 # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
                 # "-2 \leq myball1.x + myball2.x \leq 5"
-                traces = fixed_wing_scenario.verify(computation_steps, time_steps)
+                traces = fixed_wing_scenario.verify(computation_steps+time_steps, time_steps)
                 traces_list.append(traces)
 
             # point_idx_list_list.append(point_idx_list)

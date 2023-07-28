@@ -261,7 +261,7 @@ def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
 def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     vertex_list = []
     for analysis_tree in trace_list:
-        rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
+        rect_low = analysis_tree.nodes[0].trace['a1'][-4][1:7]
         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
         tmp = [
             [rect_low[0], rect_high[0]],
@@ -374,7 +374,7 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 1200
+    num_sample = 100
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
@@ -417,6 +417,8 @@ if __name__ == "__main__":
                 sample_sample = sample_point_poly(hull, sample_num)
                 samples = np.vstack((vertex_sample, sample_sample))
             
+            point_idx = np.argmax(hull.points[:,0])
+            samples = np.vstack((samples, hull.points[point_idx,:]))
             point_idx = np.argmax(hull.points[:,1])
             samples = np.vstack((samples, hull.points[point_idx,:]))
             # samples = sample_point_poly(hull, num_sample)
@@ -441,7 +443,7 @@ if __name__ == "__main__":
                 # this may be the cause for the VisibleDeprecationWarning
                 # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
                 # "-2 \leq myball1.x + myball2.x \leq 5"
-                traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+                traces = fixed_wing_scenario.verify(computation_steps+time_steps, time_steps, params={'bloating_method':'GLOBAL'})
                 traces_list.append(traces)
 
             hull = get_next_poly(traces_list)
