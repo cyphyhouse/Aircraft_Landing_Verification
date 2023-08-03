@@ -261,17 +261,16 @@ def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
 def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     vertex_list = []
     for analysis_tree in trace_list:
-        rect_low = analysis_tree.nodes[0].trace['a1'][-4][1:7]
+        rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
-        # tmp = [
-        #     [rect_low[0], rect_high[0]],
-        #     [rect_low[1], rect_high[1]],
-        #     [rect_low[2], rect_high[2]],
-        #     [rect_low[3], rect_high[3]],
-        #     [rect_low[4], rect_high[4]],
-        #     [rect_low[5], rect_high[5]],
-        # ]
-        rect_high[1:] = analysis_tree.nodes[0].trace['a1'][-3][2:7]
+        tmp = [
+            [rect_low[0], rect_high[0]],
+            [rect_low[1], rect_high[1]],
+            [rect_low[2], rect_high[2]],
+            [rect_low[3], rect_high[3]],
+            [rect_low[4], rect_high[4]],
+            [rect_low[5], rect_high[5]],
+        ]
         vertex_list.append(rect_low)
         vertex_list.append(rect_high)
     # vertices = np.array(vertex_list)
@@ -375,11 +374,11 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 100
+    num_sample = 1200
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
-    C_num = 5
+    C_num = 10
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -417,33 +416,10 @@ if __name__ == "__main__":
                 vertex_sample = hull.points[vertex_idxs,:]
                 sample_sample = sample_point_poly(hull, sample_num)
                 samples = np.vstack((vertex_sample, sample_sample))
-
-            # samples = sample_point_poly(hull, num_sample)
             
-            point_idx = np.argmax(hull.points[:,0])
+            point_idx = np.argmax(hull.points[:,1])
             samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,1])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,2])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,3])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,4])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,5])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            point_idx = np.argmin(hull.points[:,0])
-            samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,1])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,2])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,3])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,4])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,5])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
+            # samples = sample_point_poly(hull, num_sample)
 
             for i in range(samples.shape[0]):
                 point = samples[i,:]
@@ -465,7 +441,7 @@ if __name__ == "__main__":
                 # this may be the cause for the VisibleDeprecationWarning
                 # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
                 # "-2 \leq myball1.x + myball2.x \leq 5"
-                traces = fixed_wing_scenario.verify(computation_steps+time_steps, time_steps, params={'bloating_method':'GLOBAL'})
+                traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
                 traces_list.append(traces)
 
             hull = get_next_poly(traces_list)
@@ -541,7 +517,7 @@ if __name__ == "__main__":
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
     time_horizon = computation_steps*C_num*C_compute_step
 
-    for i in range(20):
+    for i in range(100):
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = copy.deepcopy(ref)
         trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps)
@@ -613,4 +589,3 @@ if __name__ == "__main__":
     #         'b'
     #     )
     # plt.show()
-
