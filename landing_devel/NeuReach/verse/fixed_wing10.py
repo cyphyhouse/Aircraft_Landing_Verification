@@ -383,7 +383,7 @@ if __name__ == "__main__":
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
-    C_num = 10
+    C_num = 15
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -484,6 +484,9 @@ if __name__ == "__main__":
         # next_init = np.array(last_rect)[:,1:]
         C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
         C_list.append(C_set)
+
+        with open('computed_cone.pickle','wb+') as f:
+            pickle.dump(C_list, f)
 
         tmp = [
             [next_init[0,0], next_init[1,0]],

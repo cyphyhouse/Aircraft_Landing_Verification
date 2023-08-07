@@ -1,5 +1,10 @@
 import numpy as np 
 import copy
+from enum import Enum, auto
+
+class ObjectiveType(Enum):
+    MIN = auto()
+    MAX = auto()
 
 def run_ref(ref_state, time_step, approaching_angle=3):
     k = np.tan(approaching_angle*(np.pi/180))
@@ -19,8 +24,17 @@ if __name__ == "__main__":
     K1 = [0.01,0.01,0.01,0.01]
     K2 = [0.005,0.005]
 
-    C_compute_step = 20
+    C_compute_step = 10
     computation_step = 0.1
+    C_bound = 20
+
+    objective_variable = 'y'
+    objective_type = ObjectiveType.MAX
+
+    if objective_type == ObjectiveType.MAX:
+        objective_str = 'GRB.MAXIMIZE'
+    elif objective_type == ObjectiveType.MIN:
+        objective_str = 'GRB.MINIMIZE'    
 
     model_header_str = "\
 import gurobipy as gp\n\
@@ -129,10 +143,13 @@ try:\n\
         model_step_str_list.append(model_step_str)
 
     model_end_str = f"\
-    # Set objective\n\
-    m.setObjective(\n\
-        y{C_compute_step}, GRB.MAXIMIZE\n\
-    )\n\
+    # # Set objective\n\
+    # m.setObjective(\n\
+    #     {objective_variable}{C_compute_step}, {objective_str}\n\
+    # )\n\
+\n\
+    # Set Cone constraint\n\
+    m.addConstr({objective_variable}{C_compute_step}>={C_bound})\n\
 \n\
     m.params.NonConvex = 2\n\
 \n\
@@ -158,5 +175,7 @@ except AttributeError:\n\
     
     model_str = model_str + model_end_str
 
-    with open('gurobi_model.py','w+') as f:
+    with open('gurobi_model_vcs_constraint.py','w+') as f:
         f.write(model_str)
+    
+    # y = 19.3362
