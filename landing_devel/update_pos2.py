@@ -38,6 +38,8 @@ from scipy.integrate import odeint
 # import aircraft_controller
 from agent_aircraft import AircraftTrackingAgent
 
+import copy
+
 # Path to the image directory. 
 script_dir = os.path.dirname(os.path.realpath(__file__)) 
 img_path = os.path.join(script_dir, './imgs')
@@ -320,12 +322,25 @@ def create_state_msd(x, y, z, roll, pitch, yaw):
 
 data_path = script_dir
 
+def run_ref(ref_state, time_step, approaching_angle=3):
+    k = np.tan(approaching_angle*(np.pi/180))
+    delta_x = ref_state[-1]*time_step
+    delta_z = k*delta_x # *time_step
+    return np.array([ref_state[0]+delta_x, 0, ref_state[2]-delta_z, ref_state[3], ref_state[4], ref_state[5]])
+
+def sample_point(low: np.ndarray, high: np.ndarray) -> np.ndarray:
+    return np.random.uniform(low, high) 
+
 def update_aircraft_position(net, device):
     '''
     Main function.
     '''
     # Initial state of the aircraft.
-    initial_state = [-2500.0, 0, 120.0, 0, -np.deg2rad(3), 0]
+    initial_state = sample_point(
+        np.array([-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, -0.0001]),
+        np.array([-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 0.0001])
+    )
+    initial_ref = [-3000.0, 0, 120.0, 0, -np.deg2rad(3), 0]
 
     # One simulation length.
     delta_t = 0.1
@@ -389,7 +404,7 @@ def update_aircraft_position(net, device):
     tracking_controller = AircraftTrackingAgent()
 
     # Ground Truth Velocity
-    vel_ground_truth = 0
+    vel_ground_truth = 10
 
     # Estimated orientation
     roll_estimation_prev = 0
@@ -398,7 +413,8 @@ def update_aircraft_position(net, device):
 
     max_angular_rate = np.deg2rad(5)
 
-    while not rospy.is_shutdown():
+    ref_state = copy.deepcopy(initial_ref)
+    for i in range(80):
         time.sleep(0.1)
         if perception.estimated_state is None or len(perception.estimated_state) == 0:
             continue
@@ -416,15 +432,15 @@ def update_aircraft_position(net, device):
         '''
         # ref_state = path(initial_state, estimated_state, ref_speed, approaching_angle, dt=delta_t)
         # TODO ground truth back to estimated state.
-        if np.linalg.norm(np.array(estimated_state[:3]) - np.array(waypoints[waypoints_index])) < 10:
-            waypoints_index += 1
-        if waypoints_index >= len(waypoints):
-            break
+        # if np.linalg.norm(np.array(estimated_state[:3]) - np.array(waypoints[waypoints_index])) < 10:
+        #     waypoints_index += 1
+        # if waypoints_index >= len(waypoints):
+        #     break
 
-        ref_state = waypoints[waypoints_index]
-        ref_states.append(ref_state)
+        # ref_state = waypoints[waypoints_index]
+        # ref_states.append(ref_state)
 
-        cur_time += delta_t
+        # cur_time += delta_t
 
 
         '''
@@ -524,6 +540,7 @@ def update_aircraft_position(net, device):
 
             time.sleep(0.5)
 
+        ref_state = run_ref(ref_state, 0.1)
 
         true_state = cur_state
         # print("Ground Truth: ", true_state)
