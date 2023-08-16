@@ -104,7 +104,6 @@ class DiscriDataAutoLand_Train(data.Dataset):
         # print(self.data_train)
         # print()
 
-
     def __len__(self):
         return len(self.data_train)
 
@@ -134,7 +133,6 @@ class DiscriDataAutoLand_Train2(data.Dataset):
         # self.label_train = np.load(label_path)
         # print(self.data_train)
         # print()
-
 
     def __len__(self):
         return len(self.data_train)

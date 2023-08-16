@@ -26,6 +26,7 @@ from utils.data_loading import BasicDataset
 import os
 
 import pickle
+import matplotlib.pyplot as plt 
 
 # from scipy.spatial.transform import Rotation 
 # import matplotlib.pyplot as plt 
@@ -186,7 +187,12 @@ class Perception:
         
         # Get probabilistic heat maps corresponding to the key points.
         output = self.predict_img(img)
-        
+
+        plt.figure(0)
+        plt.imshow(img)
+        plt.figure(1)
+        plt.imshow(np.sum(output[0].detach().numpy(),axis=0))
+        plt.show()
 
         # Key points detection using trained nn. Extract pixels with highest probability.
         keypoints = []
@@ -331,7 +337,7 @@ if __name__ == "__main__":
         vision.idx=i
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-        time_horizon = 20
+        time_horizon = 80
 
         try:
             # Run simulation.
@@ -341,9 +347,9 @@ if __name__ == "__main__":
         except rospy.exceptions.ROSInterruptException:
             rospy.loginfo("Stop updating aircraft positions.")
             
-        with open('vcs_sim_new.pickle','wb+') as f:
-            pickle.dump(traj_list, f)
-        with open('vcs_estimate.pickle','wb+') as f:
-            pickle.dump(estimate_traj_list, f)
+        # with open('vcs_sim_new.pickle','wb+') as f:
+        #     pickle.dump(traj_list, f)
+        # with open('vcs_estimate.pickle','wb+') as f:
+        #     pickle.dump(estimate_traj_list, f)
 
     print(vision.error_idx)

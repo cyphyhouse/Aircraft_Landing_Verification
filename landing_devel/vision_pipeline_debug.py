@@ -42,20 +42,20 @@ script_dir = os.path.realpath(os.path.dirname(__file__))
 data_path = os.path.join(script_dir, 'data')
 label_path = os.path.join(script_dir, 'estimation_label')
 
-keypoints = [[-1221.370483, 16.052534, 0.0],
-            [-1279.224854, 16.947235, 0.0],
-            [-1279.349731, 8.911615, 0.0],
-            [-1221.505737, 8.033512, 0.0],
-            [-1221.438110, -8.496282, 0.0],
-            [-1279.302002, -8.493725, 0.0],
-            [-1279.315796, -16.504263, 0.0],
-            [-1221.462402, -16.498976, 0.0],
-            [-1520.81, 26.125700, 0.0],
-            [-1559.122925, 26.101082, 0.0],
-            [-1559.157471, -30.753305, 0.0],
-            [-1520.886353,  -30.761044, 0.0],
-            [-1561.039063, 31.522200, 0.0],
-            [-1561.039795, -33.577713, 0.0]]
+keypoints = [[-1221.370483, 16.052534, 5.0],
+            [-1279.224854, 16.947235, 5.0],
+            [-1279.349731, 8.911615, 5.0],
+            [-1221.505737, 8.033512, 5.0],
+            [-1221.438110, -8.496282, 5.0],
+            [-1279.302002, -8.493725, 5.0],
+            [-1279.315796, -16.504263, 5.0],
+            [-1221.462402, -16.498976, 5.0],
+            [-1520.81, 26.125700, 5.0],
+            [-1559.122925, 26.101082, 5.0],
+            [-1559.157471, -30.753305, 5.0],
+            [-1520.886353,  -30.761044, 5.0],
+            [-1561.039063, 31.522200, 5.0],
+            [-1561.039795, -33.577713, 5.0]]
 
 state = [-3001.4117941120794, -14.106879907553605, 61.10726693286948, 0.018147651076384247, -0.03218774235308877, 0.09911239499369592]
 
@@ -208,14 +208,18 @@ def state_estimator(cv_image):
 
 def set_light_properties(light_value: float) -> None:
     
+    light_condition = 204*light_value 
+    if light_condition > 255:
+        light_condition = 255
     rospy.wait_for_service(GZ_SET_LIGHT_PROPERTIES)
     try:
+
         set_light_properties_srv = \
             rospy.ServiceProxy(GZ_SET_LIGHT_PROPERTIES, SetLightProperties)
         resp = set_light_properties_srv(
             light_name='sun',
             cast_shadows=True,
-            diffuse=ColorRGBA(int(204*light_value),int(204*light_value),int(204*light_value),255),
+            diffuse=ColorRGBA(int(light_condition),int(light_condition),int(light_condition),255),
             specular=ColorRGBA(51, 51, 51, 255),
             attenuation_constant=0.9,
             attenuation_linear=0.01,
@@ -232,13 +236,13 @@ def sample_state_estimator():
     rospy.Subscriber("/fixedwing/chase/camera/rgb", Image, image_callback)
     # Predicted path that the agent will be following over the time horizon
 
-    light_value = 1.0
+    light_value = 0.1
     print(f"Light level: {light_value}")
     set_light_properties(light_value)
     time.sleep(0.1)
 
     idx = 0
-    state_rand = [-2708.9986682963045, 23.6804793297202, 77.7645566849827, 0.0022644115353173885, 0.0026439804801031697, -0.05950231500194519]
+    state_rand = [-3000.0, 0.0, 120.0, 0.0, 0.0, 0.0]
     state_msg = create_state_msd(state_rand[0], state_rand[1], state_rand[2], state_rand[3], state_rand[4], state_rand[5])
 
     rospy.wait_for_service('/gazebo/set_model_state')
