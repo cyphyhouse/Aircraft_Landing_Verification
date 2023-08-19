@@ -240,7 +240,7 @@ class Perception:
 
     def set_pos(self, point: np.ndarray) -> np.ndarray:
         # Set aircraft to given pose
-        init_msg = create_state_msd(point[0], point[1], point[2], point[3], point[4], point[5])
+        init_msg = create_state_msd(point[0], point[1], point[2], point[3], -point[4], point[5])
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
             # Set initial state.
@@ -248,6 +248,8 @@ class Perception:
             resp = set_state(init_msg)
         except rospy.ServiceException:
             print("Service call failed")
+
+        self.image_updated = False
 
 def sample_box(lb: np.ndarray, ub: np.ndarray) -> np.ndarray:
     res = np.random.uniform(lb, ub)
@@ -269,6 +271,29 @@ def sample_pose() -> np.ndarray:
     yaw = np.deg2rad(np.random.uniform(-yaw_r, yaw_r))
     return [x,y,z,roll, pitch,yaw]
 
+def sample_2X0():
+    lb, ub, Elb, Eub, Ermax = (
+        [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
+        [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
+        [0.5],
+        [1.2],
+        [0.35],
+    )
+
+    x = sample_pose()
+    Ec = sample_box(Elb, Eub)
+    Er1 = np.random.uniform(0, Ermax)
+    if Ec-Er1<Elb:
+        Er1 = Ec-Elb 
+    elif Ec+Er1>Eub:
+        Er1 = Eub-Ec
+
+    Er2 = np.random.uniform(0, Ermax)
+    if Ec-Er2<Elb:
+        Er2 = Ec-Elb 
+    elif Ec+Er2>Eub:
+        Er2 = Eub-Ec
+    return (x, Ec, Er1), (x, Ec, Er2)
 
 def sample_X0() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     lb, ub, Elb, Eub, Ermax = (
@@ -278,6 +303,7 @@ def sample_X0() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         [1.2],
         [0.35],
     )
+
     # x = sample_box(lb, ub)
     x = sample_pose()
     Ec = sample_box(Elb, Eub)
@@ -305,21 +331,12 @@ def get_init_center(X0: Tuple[np.ndarray,np.ndarray,np.ndarray]) -> Tuple[np.nda
 if __name__ == "__main__":
     rospy.init_node('aircraft_landing')
 
-    # x, y, z, roll, pitch, yaw
-    P =     P = (
-        [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
-        [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.5],
-        [1.2],
-        [3.5],
-    )
-
     perception = Perception()
-    X0 = sample_X0()
-    for i in range(100):
-        x0 = sample_x0(X0)
 
-        res = simulate(x0, perception)
-        print(X0)
-        print(x0)
-        print(res)
+    x = [-2851.1846498132927, 46.743851209170955, 109.99733644558349, 0, -0.1333963449351654, 0.08398311235112048]
+    e = [1.00548329 + np.random.uniform(-0.11618985,0.11618985)]
+    x0 = (x,e)
+
+    res = simulate(x0, perception)
+    print(x0)
+    print(res)
