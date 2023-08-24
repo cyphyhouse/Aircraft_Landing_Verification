@@ -99,6 +99,7 @@ class Perception:
         self.state = None
         self.error_idx = []
         self.idx = None
+        self.estimated_state = None # x, y, z, roll, pitch, yaw
 
     def state_callback(self, msg):
         pos = msg.pose[1].position
@@ -189,7 +190,7 @@ class Perception:
             angles = np.array([z1, x, z2])
             yawpitchroll_angles = -angles
             yawpitchroll_angles[0] = (yawpitchroll_angles[0] + (5/2)*np.pi)%(2*np.pi) # change rotation sense if needed, comment this line otherwise
-            yawpitchroll_angles[1] = -(yawpitchroll_angles[1]+np.pi/2)
+            yawpitchroll_angles[1] = (yawpitchroll_angles[1]+np.pi/2)
             if yawpitchroll_angles[0] > np.pi:
                 yawpitchroll_angles[0] -= 2*np.pi
 
@@ -222,13 +223,14 @@ class Perception:
         img = self.image
         self.vision_estimation(img)
 
+        # x, y, z, yaw, pitch, roll
         estimated_state = np.array([
             self.estimated_state[0],
             self.estimated_state[1],
             self.estimated_state[2],
             self.estimated_state[5],
             self.estimated_state[4],
-            point[5]
+            self.estimated_state[3]
         ])
 
         # if np.linalg.norm(estimated_state - point) > 50:

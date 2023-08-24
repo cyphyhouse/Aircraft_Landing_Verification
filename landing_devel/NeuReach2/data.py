@@ -22,10 +22,14 @@ def mute():
 
 def sample_trajs(num_traces, sample_x0, simulate, get_init_center, perception, X0):
     traces = []
+    x0s = []
     traces.append(simulate(get_init_center(X0), perception))
+    x0s.append(get_init_center(X0))
     for id_trace in range(num_traces):
-        traces.append(simulate(sample_x0(X0), perception))
-    return np.array(traces)
+        x0 = sample_x0(X0)
+        traces.append(simulate(x0, perception))
+        x0s.append(x0)
+    return np.array(traces),np.array(x0s)
 
 class VisionData(data.Dataset):
     def __init__(self, config, num_X0s=10000, num_traces=20, num_t=0, dim = None, use_data = True, data_file='data.pickle'):
@@ -53,11 +57,11 @@ class VisionData(data.Dataset):
                 self.data = pickle.load(f)
         else:
             func = partial(sample_trajs, num_traces, self.config.sample_x0, self.config.simulate, self.config.get_init_center, self.perception)
-            traces = list(tqdm.tqdm(map(func, self.X0s), total=len(self.X0s)))
+            traces, x0s = list(tqdm.tqdm(map(func, self.X0s), total=len(self.X0s)))
             self.data = []
             for i in range(len(self.X0s)):
                 trace = traces[i]
-                self.data.append((self.X0s[i], trace.reshape((-1,1))))
+                self.data.append((self.X0s[i], trace.reshape((-1,1)), x0s.reshape((-1,1))))
             if data_file is not None:
                 with open(data_file, 'wb+') as f:
                     pickle.dump(self.data, f)
