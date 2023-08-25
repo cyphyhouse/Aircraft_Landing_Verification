@@ -6,6 +6,8 @@ from scipy.optimize import curve_fit
 from sklearn.linear_model import LinearRegression, QuantileRegressor
 import statsmodels.api as sm 
 
+model_dim = 4
+
 def func_x1(x,a):
     y = a*np.sqrt(x)
     return y 
@@ -35,9 +37,9 @@ for i in range(len(data)):
 # Getting Model for center center model
 Ec_list = np.array(Ec_list)
 state_list = np.array(state_list)
-state_list = state_list[:,(0,2)]
+state_list = state_list[:,(0,model_dim)]
 trace_mean_list = np.array(trace_mean_list)
-trace_mean_list = trace_mean_list[:, (0,2)]
+trace_mean_list = trace_mean_list[:, (0,model_dim)]
 
 X = np.vstack((state_list[:,0], state_list[:,1], Ec_list)).T
 Y = trace_mean_list[:,1]
@@ -46,7 +48,7 @@ state_list_process = np.zeros((2,0))
 Ec_list_process = np.array([])
 trace_mean_list_process = np.array([])
 Xp0 = np.arange(-3000, 2000, 1000)
-Xp1 = np.arange(50, 120, 10)
+Xp1 = np.arange(-9, 3, 1)
 Ep = np.arange(0.5, 1.2, 0.1)
 for i in range(Xp0.shape[0]):
     for j in range(Xp1.shape[0]):
@@ -102,12 +104,12 @@ print("Coefficients:", coefficient_center_radius)
 # Getting Model for Radius
 x_state_value = state_list[:,(0,1)]
 center_center = model_center_center.predict(X)
-trace_list_combine = trace_list[0][:,(0,2)]
+trace_list_combine = trace_list[0][:,(0,model_dim)]
 X_radius = [x_state_value[0,:]]*trace_list[0].shape[0]
 mean_radius = [trace_mean_list[0,:]]*trace_list[0].shape[0]
 tmp = [center_center[0]]*trace_list[0].shape[0]
 for i in range(1, len(trace_list)):
-    trace_list_combine = np.vstack((trace_list_combine, trace_list[i][:,(0,2)]))
+    trace_list_combine = np.vstack((trace_list_combine, trace_list[i][:,(0,model_dim)]))
     X_radius += ([x_state_value[i,:]]*trace_list[i].shape[0])
     mean_radius += ([trace_mean_list[i,:]]*trace_list[i].shape[0])
     tmp += ([center_center[i]]*trace_list[i].shape[0])
@@ -116,7 +118,7 @@ mean_radius = np.array(mean_radius)
 tmp = np.array(tmp)
 Y_radius = np.abs(trace_list_combine[:,1]-mean_radius[:,1])
 # Y_radius = np.abs(trace_list_combine[:,1]-X_radius[:,1])
-quantile = 0.95
+quantile = 0.985
 model_radius = sm.QuantReg(Y_radius, sm.add_constant(X_radius))
 result = model_radius.fit(q=quantile, max_iter=5000)
 coefficient_radius = result.params
@@ -156,7 +158,7 @@ for i in range(state_list.shape[0]):
     radius = (coefficient_radius[0] + coefficient_radius[1]*x + coefficient_radius[2]*y)*model_radius_decay(er)
     traces = trace_list[i]
     for j in range(trace_list[i].shape[0]):
-        x_est = trace_list[i][j,2]
+        x_est = trace_list[i][j,model_dim]
         if x_est<center_center+center_radius+radius and \
             x_est>center_center-center_radius-radius:
             sample_contained += 1
@@ -183,7 +185,7 @@ for i in range(len(data)):
     traces = data[i][1]
     traces = np.reshape(traces,(-1,6))
     trace_list.append(traces)
-state_list = np.array(state_list)[:,(0,2)]
+state_list = np.array(state_list)[:,(0,model_dim)]
 
 sample_contained = 0
 total_sample = 0
@@ -206,7 +208,7 @@ for i in range(state_list.shape[0]):
     radius = (coefficient_radius[0] + coefficient_radius[1]*x + coefficient_radius[2]*y)*model_radius_decay(er)
     traces = trace_list[i]
     for j in range(trace_list[i].shape[0]):
-        x_est = trace_list[i][j,2]
+        x_est = trace_list[i][j,model_dim]
         if x_est<center_center+center_radius+radius and \
             x_est>center_center-center_radius-radius:
             sample_contained += 1
@@ -233,7 +235,7 @@ for i in range(len(data)):
     traces = data[i][1]
     traces = np.reshape(traces,(-1,6))
     trace_list.append(traces)
-state_list = np.array(state_list)[:,(0,2)]
+state_list = np.array(state_list)[:,(0,model_dim)]
 
 sample_contained = 0
 total_sample = 0
@@ -257,7 +259,7 @@ for i in range(state_list.shape[0]):
     traces = trace_list[i]
     print(center_radius, radius, center_radius+radius)
     for j in range(trace_list[i].shape[0]):
-        x_est = trace_list[i][j,2]
+        x_est = trace_list[i][j,model_dim]
         if x_est<center_center+center_radius+radius and \
             x_est>center_center-center_radius-radius:
             sample_contained += 1
