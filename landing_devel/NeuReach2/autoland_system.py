@@ -223,14 +223,14 @@ class Perception:
         img = self.image
         self.vision_estimation(img)
 
-        # x, y, z, yaw, pitch, roll
+        # x, y, z, roll, pitch, yaw
         estimated_state = np.array([
             self.estimated_state[0],
             self.estimated_state[1],
             self.estimated_state[2],
-            self.estimated_state[5],
+            self.estimated_state[3],
             self.estimated_state[4],
-            self.estimated_state[3]
+            self.estimated_state[5],
         ])
 
         # if np.linalg.norm(estimated_state - point) > 50:
