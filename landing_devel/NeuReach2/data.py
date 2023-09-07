@@ -110,4 +110,4 @@ def get_vision_dataloader(config, args):
 if __name__ == "__main__":
     import autoland_system as AutoLand
     rospy.init_node('aircraft_landing')
-    tmp = VisionData(num_X0s = 10000, num_traces = 20, config=AutoLand, data_file = 'data_train.pickle', use_data=False)
+    tmp = VisionData(num_X0s = 10000, num_traces = 20, config=AutoLand, data_file = 'data.pickle', use_data=False)

@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     res = {
         'dim': 'z',
-        'coef_center_center':model_center_center.coef_.tolist(),
+        'coef_center_center':model_center_center.coef_.tolist()+[model_center_center.intercept_],
         'coef_center_radius':coefficient_center_radius.tolist(),
         'coef_radius': coefficient_radius.tolist()
     }

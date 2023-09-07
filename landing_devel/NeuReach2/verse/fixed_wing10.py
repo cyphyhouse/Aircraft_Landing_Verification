@@ -15,6 +15,7 @@ import polytope as pc
 import itertools
 import scipy.spatial
 from datetime import datetime 
+from verse.analysis.verifier import ReachabilityMethod
 
 import pickle 
 import json 
@@ -156,7 +157,7 @@ def apply_model(model, point, Ec, Er):
     elif dim == 'z':
         point = point[(0,2),]
     elif dim == 'yaw':
-        point = point[(0,3),]
+        point = point[(0,5),]
     elif dim == 'pitch':
         point = point[(0,4),]
 
@@ -244,63 +245,9 @@ def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
 
     return np.array(sampled_point)
 
-# def sample_point_poly(hull: scipy.spatial.ConvexHull):
-#     box = get_bounding_box(hull)
-#     point = np.random.uniform(box[0,:], box[1,:])
-#     while not in_hull(point, hull):
-#         point = np.random.uniform(box[0,:], box[1,:])
-#     return point 
-    # verts = hull.points[hull.vertices,:]
-    # vert_mean = np.mean(verts, axis=0)
-    # weights = np.random.uniform(0,1,(verts.shape[0]))
-    # weights = weights/np.sum(weights)
-    # # point = np.sum((verts-vert_mean)*weights, axis=0)
-    # res = verts[0,:]*weights[0]
-    # for i in range(1, len(weights)):
-    #     res += verts[i,:]*weights[i]
-    # return res
-
-# def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
-#     vertex_list = []
-#     for analysis_tree in trace_list:
-#         rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
-#         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
-#         tmp = [
-#             [rect_low[0], rect_high[0]],
-#             [rect_low[1], rect_high[1]],
-#             [rect_low[2], rect_high[2]],
-#             [rect_low[3], rect_high[3]],
-#             [rect_low[4], rect_high[4]],
-#             [rect_low[5], rect_high[5]],
-#         ]
-#         vertex_list += list(itertools.product(*tmp))
-#     vertices = np.array(vertex_list)
-#     hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB')
-    
-#     return hull
-
-# def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
-#     vertex_list = []
-#     for analysis_tree in trace_list:
-#         rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
-#         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
-#         # tmp = [
-#         #     [rect_low[0], rect_high[0]],
-#         #     [rect_low[1], rect_high[1]],
-#         #     [rect_low[2], rect_high[2]],
-#         #     [rect_low[3], rect_high[3]],
-#         #     [rect_low[4], rect_high[4]],
-#         #     [rect_low[5], rect_high[5]],
-#         # ]
-#         vertex_list.append(rect_low)
-#         vertex_list.append(rect_high)
-#     vertices = np.array(vertex_list)
-#     # hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB')
-    
-#     return vertices
-
 def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     vertex_list = []
+    sample_vertex = np.zeros((0,6))
     for analysis_tree in trace_list:
         rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
         rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
@@ -312,19 +259,20 @@ def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
             [rect_low[4], rect_high[4]],
             [rect_low[5], rect_high[5]],
         ]
-        # rect_high[0] = analysis_tree.nodes[0].trace['a1'][-1][1]
-        # tmp_low = (rect_high[0]+rect_low[0])/2-(rect_high[0]-rect_low[0])/4
-        # tmp_high = (rect_high[0]+rect_low[0])/2+(rect_high[0]-rect_low[0])/4
-        # rect_low[0] = tmp_low 
-        # rect_high[0] = tmp_high
+        # vertices = np.array(list(itertools.product(*tmp)))
+        sample = np.random.uniform(rect_low, rect_high)
+        sample_vertex = np.vstack((sample_vertex, sample))
         vertex_list.append(rect_low)
         vertex_list.append(rect_high)
-    # vertices = np.array(vertex_list)
+
+    # sample_idx  = np.random.choice(sample_vertex.shape[0], sample_vertex.shape[0]-23, replace = False)
+    # sample_vertex = sample_vertex[sample_idx, :]
+    sample_vertex = sample_vertex[:64,:]
     vertices = []
     for vertex in vertex_list:
         away = True
         for i in range(len(vertices)):
-            if np.linalg.norm(np.array(vertex)-np.array(vertices[i]))<0.01:
+            if np.linalg.norm(np.array(vertex)-np.array(vertices[i]))<0.05:
                 away = False
                 break 
         if away:
@@ -332,7 +280,7 @@ def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
 
     vertices = np.array(vertices)
     hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB Q12 Qc')    
-    return hull
+    return hull, sample_vertex
 
 def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step):
     time_points = np.arange(0, time_horizon+computation_step/2, computation_step)
@@ -341,7 +289,7 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
     point = init_point 
     ref = init_ref
     for t in time_points[1:]:
-        estimate_lower, estimate_upper = get_vision_estimation(point, [0.85], [0])
+        estimate_lower, estimate_upper = get_vision_estimation(point, [0.85], [0.35])
         estimate_point = sample_point(estimate_lower, estimate_upper)
         init = np.concatenate((point, estimate_point, ref))
         scenario.set_init(
@@ -355,9 +303,32 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
+def verify_step(point, Ec, Er):
+    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
+    aircraft = FixedWingAgent3("a1")
+    fixed_wing_scenario.add_agent(aircraft)
+    estimate_low, estimate_high = get_vision_estimation(point, Ec, Er)
+    init_low = np.concatenate((point, estimate_low, ref))
+    init_high = np.concatenate((point, estimate_high, ref))
+    init = np.vstack((init_low, init_high))       
+
+    fixed_wing_scenario.set_init(
+        [init],
+        [
+            (FixedWingMode.Normal,)
+        ],
+    )
+    # TODO: WE should be able to initialize each of the balls separately
+    # this may be the cause for the VisibleDeprecationWarning
+    # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+    # "-2 \leq myball1.x + myball2.x \leq 5"
+    traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+    return traces
+
 if __name__ == "__main__":
     
-    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
+    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
+    # fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
     fixed_wing_controller = os.path.join(script_path, 'fixed_wing3_dl.py')
     aircraft = FixedWingAgent3("a1")
@@ -382,7 +353,7 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 1200
+    num_sample = 100
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
@@ -395,112 +366,99 @@ if __name__ == "__main__":
     # point_list_list = []
 
     for C_step in range(C_num):
-        reachable_set = []
-        for step in range(C_compute_step):
-            box = get_bounding_box(hull)
-            state_low = box[0,:]
-            state_high = box[1,:]
+        try:
+            reachable_set = []
+            for step in range(C_compute_step):
+                box = get_bounding_box(hull)
+                state_low = box[0,:]
+                state_high = box[1,:]
 
-            reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
+                reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
 
-            traces_list = []
-            point_list = []
-            point_idx_list = []
+                traces_list = []
+                point_list = []
+                point_idx_list = []
+                
+                # if step == 37:
+                #     print('stop')
+
+                if step == 0:
+                    # vertex_num = int(num_sample*0.05)
+                    # sample_num = num_sample - vertex_num
+                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
+                    vertex_sample = hull.points[hull.vertices,:]
+                    sample_sample = sample_point_poly(hull, 100)
+                    samples = np.vstack((vertex_sample, sample_sample))
+                else:
+                    # vertex_num = int(num_sample*0.5)
+                    # sample_num = num_sample - vertex_num
+                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
+                    # vertex_sample = hull.points[vertex_idxs,:]
+                    # sample_sample = sample_point_poly(hull, sample_num)
+                    # samples = np.vstack((vertex_sample, sample_sample))
+
+                    sample_sample = sample_point_poly(hull, 100)
+                    samples = np.vstack((vertex_sample, sample_sample))
+                    # samples = vertex_sample
+                
+                point_idx = np.argmax(hull.points[:,1])
+                samples = np.vstack((samples, hull.points[point_idx,:]))
+                # samples = sample_point_poly(hull, num_sample)
+                
+                point_idx = np.argmax(hull.points[:,0])
+                samples = np.vstack((samples, hull.points[point_idx,:]))
+                point_idx = np.argmin(hull.points[:,0])
+                samples = np.vstack((samples, hull.points[point_idx,:]))
+
+                for i in range(samples.shape[0]):
+                    point = samples[i,:]
+                    print(C_step, step, i, point)
+
+                    estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.35])
+
+                    init_low = np.concatenate((point, estimate_low, ref))
+                    init_high = np.concatenate((point, estimate_high, ref))
+                    init = np.vstack((init_low, init_high))       
+
+                    fixed_wing_scenario.set_init(
+                        [init],
+                        [
+                            (FixedWingMode.Normal,)
+                        ],
+                    )
+                    # TODO: WE should be able to initialize each of the balls separately
+                    # this may be the cause for the VisibleDeprecationWarning
+                    # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+                    # "-2 \leq myball1.x + myball2.x \leq 5"
+                    traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+                    traces_list.append(traces)
+
+                hull, vertex_sample = get_next_poly(traces_list)
+                # state_low = next_low 
+                # state_high = next_high 
+                ref = run_ref(ref, computation_steps)
             
-            # if step == 37:
-            #     print('stop')
+            next_init = get_bounding_box(hull)
+            # last_rect = reachable_set[-1]
+            # next_init = np.array(last_rect)[:,1:]
+            C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
+            C_list.append(C_set)
 
-            if hull.vertices.shape[0]<num_sample:
-                # vertex_num = int(num_sample*0.05)
-                # sample_num = num_sample - vertex_num
-                # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
-                vertex_sample = hull.points[hull.vertices,:]
-                sample_sample = sample_point_poly(hull, 100)
-                samples = np.vstack((vertex_sample, sample_sample))
-            else:
-                vertex_num = int(num_sample*0.5)
-                sample_num = num_sample - vertex_num
-                vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
-                vertex_sample = hull.points[vertex_idxs,:]
-                sample_sample = sample_point_poly(hull, sample_num)
-                samples = np.vstack((vertex_sample, sample_sample))
-            
-            point_idx = np.argmax(hull.points[:,1])
-            samples = np.vstack((samples, hull.points[point_idx,:]))
-            # samples = sample_point_poly(hull, num_sample)
-            
-            point_idx = np.argmax(hull.points[:,0])
-            samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,1])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,2])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,3])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,4])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmax(hull.points[:,5])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            point_idx = np.argmin(hull.points[:,0])
-            samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,1])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,2])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,3])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,4])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
-            # point_idx = np.argmin(hull.points[:,5])
-            # samples = np.vstack((samples, hull.points[point_idx,:]))
+            with open('computed_cone_large.pickle','wb+') as f:
+                pickle.dump(C_list, f)
 
-            for i in range(samples.shape[0]):
-                point = samples[i,:]
-                print(C_step, step, i, point)
-
-                estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0])
-
-                init_low = np.concatenate((point, estimate_low, ref))
-                init_high = np.concatenate((point, estimate_high, ref))
-                init = np.vstack((init_low, init_high))       
-
-                fixed_wing_scenario.set_init(
-                    [init],
-                    [
-                        (FixedWingMode.Normal,)
-                    ],
-                )
-                # TODO: WE should be able to initialize each of the balls separately
-                # this may be the cause for the VisibleDeprecationWarning
-                # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
-                # "-2 \leq myball1.x + myball2.x \leq 5"
-                traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
-                traces_list.append(traces)
-
-            hull = get_next_poly(traces_list)
-            # state_low = next_low 
-            # state_high = next_high 
-            ref = run_ref(ref, computation_steps)
-        
-        next_init = get_bounding_box(hull)
-        # last_rect = reachable_set[-1]
-        # next_init = np.array(last_rect)[:,1:]
-        C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
-        C_list.append(C_set)
-
-        with open('computed_cone_small.pickle','wb+') as f:
-            pickle.dump(C_list, f)
-
-        tmp = [
-            [next_init[0,0], next_init[1,0]],
-            [next_init[0,1], next_init[1,1]],
-            [next_init[0,2], next_init[1,2]],
-            [next_init[0,3], next_init[1,3]],
-            [next_init[0,4], next_init[1,4]],
-            [next_init[0,5], next_init[1,5]],
-        ]
-        vertices = np.array(list(itertools.product(*tmp)))
-        hull = scipy.spatial.ConvexHull(vertices)
+            tmp = [
+                [next_init[0,0], next_init[1,0]],
+                [next_init[0,1], next_init[1,1]],
+                [next_init[0,2], next_init[1,2]],
+                [next_init[0,3], next_init[1,3]],
+                [next_init[0,4], next_init[1,4]],
+                [next_init[0,5], next_init[1,5]],
+            ]
+            vertices = np.array(list(itertools.product(*tmp)))
+            hull = scipy.spatial.ConvexHull(vertices)
+        except:
+            break
 
     for C_rect in C_list:
         # rect_low = C_rect[0]
@@ -553,7 +511,7 @@ if __name__ == "__main__":
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
     time_horizon = computation_steps*C_num*C_compute_step
 
-    for i in range(100):
+    for i in range(20):
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = copy.deepcopy(ref)
         trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps)
@@ -574,54 +532,4 @@ if __name__ == "__main__":
         plt.plot(trace[:,0], trace[:,6], 'r')
 
     plt.show()
-        
-
-    # start_time = datetime.now()
-    # time_str = start_time.strftime("%m-%d_%H-%M-%S")
-
-    # with open(f'reachable_set_{time_str}.pickle', 'wb+') as f:
-    #     pickle.dump(reachable_set, f)
-
-    # plt.figure(0)
-    # plt.figure(1)
-    # plt.figure(2)
-    # for rectangle in reachable_set:
-    #     low = rectangle[0]
-    #     high = rectangle[1]
-    #     plt.figure(0)
-    #     plt.plot(
-    #         [low[1], high[1], high[1], low[1], low[1]], 
-    #         [low[2], low[2], high[2], high[2], low[2]],
-    #         'b'
-    #     )
-    #     plt.figure(1)
-    #     plt.plot(
-    #         [low[0], high[0]], [low[1], high[1]],
-    #         'b'
-    #     )
-    #     plt.figure(2)
-    #     plt.plot(
-    #         [low[0], high[0]], [low[2], high[2]],
-    #         'b'
-    #     )
-    #     plt.figure(3)
-    #     plt.plot(
-    #         [low[0], high[0]], [low[3], high[3]],
-    #         'b'
-    #     )
-    #     plt.figure(4)
-    #     plt.plot(
-    #         [low[0], high[0]], [low[4], high[4]],
-    #         'b'
-    #     )
-    #     plt.figure(5)
-    #     plt.plot(
-    #         [low[0], high[0]], [low[5], high[5]],
-    #         'b'
-    #     )
-    #     plt.figure(6)
-    #     plt.plot(
-    #         [low[0], high[0]], [low[6], high[6]],
-    #         'b'
-    #     )
-    # plt.show()
+       

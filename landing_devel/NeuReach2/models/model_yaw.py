@@ -139,7 +139,7 @@ if __name__ == "__main__":
         Er_list.append(Er[0])
         traces = data[i][1]
         traces = np.reshape(traces,(-1,6))
-        traces[:,[3,5]] = traces[:,[5,3]]
+        # traces[:,[3,5]] = traces[:,[5,3]]
         trace_list.append(traces)
         trace_mean = np.mean(traces, axis=0)
         trace_mean_list.append(trace_mean)
@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     res = {
         'dim': 'yaw',
-        'coef_center_center':model_center_center.coef_.tolist(),
+        'coef_center_center':model_center_center.coef_.tolist()+[model_center_center.intercept_],
         'coef_center_radius':coefficient_center_radius.tolist(),
         'coef_radius': coefficient_radius.tolist()
     }
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         Er_list.append(Er[0])
         traces = data[i][1]
         traces = np.reshape(traces,(-1,6))
-        traces[:,[3,5]] = traces[:,[5,3]]
+        # traces[:,[3,5]] = traces[:,[5,3]]
         trace_list.append(traces)
     state_list = np.array(state_list)[:,(0,model_dim)]
 
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         Er_list.append(Er[0])
         traces = data[i][1]
         traces = np.reshape(traces,(-1,6))
-        traces[:,[3,5]] = traces[:,[5,3]]
+        # traces[:,[3,5]] = traces[:,[5,3]]
         trace_list.append(traces)
     state_list = np.array(state_list)[:,(0,model_dim)]
 

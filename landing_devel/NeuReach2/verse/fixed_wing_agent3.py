@@ -15,7 +15,7 @@ class FixedWingAgent3(BaseAgent):
         self.static_parameters = None 
         self.uncertain_parameters = None
         self.decision_logic = ControllerIR.empty()
-        self.K1 = [0.01,0.01,0.01,0.01]
+        self.K1 = [0.01,0.001,0.01,0.01]
         self.K2 = [0.005,0.005]
         self.scenarioType = '2D'
         # self.safeTraj = ctrlArgs[2]
