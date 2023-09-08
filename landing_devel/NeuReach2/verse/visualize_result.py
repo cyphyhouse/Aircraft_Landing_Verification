@@ -18,6 +18,8 @@ import copy
 from fixed_wing_agent3 import FixedWingAgent3
 from verse import Scenario, ScenarioConfig
 
+import os 
+
 class Faces():
     def __init__(self,tri, sig_dig=12, method="convexhull"):
         self.method=method
@@ -150,7 +152,7 @@ def apply_model(model, point, Ec, Er):
         x = point
         ec = Ec[0]
         er = Er[0]
-        center_center = coef_cc[0] * x + coef_cc[1]
+        center_center = coef_cc[0] * x + coef_cc[1] * ec + coef_cc[2]
         center_radius = coef_cr[0] \
             + x*coef_cr[1] \
             + ec*coef_cr[2] \
@@ -164,7 +166,7 @@ def apply_model(model, point, Ec, Er):
         y = point[1]
         ec = Ec[0]
         er = Er[0]
-        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]
+        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]*ec+coef_cc[3]
         center_radius = coef_cr[0] \
             + x*coef_cr[1] \
             + y*coef_cr[2] \
@@ -217,22 +219,52 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
 
 if __name__ == "__main__":
     # with open('./src/landing_devel/NeuReach/verse/computed_cone.pickle','rb') as f:
-    with open('computed_cone_large.pickle', 'rb') as f:
-        C_list = pickle.load(f)
+    with open('computed_cone_35.pickle', 'rb') as f:
+        C_list_35 = pickle.load(f)
 
-    C_list_truncate = C_list[:12]
+    C_list_35_truncate = C_list_35[:12]
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     ax.set_xlim(-3050, -3010)
     ax.set_ylim(-20, 20)
     ax.set_zlim(110, 130)
 
-    for i in range(len(C_list_truncate)):
-        rect = C_list[i]
+    for i in range(len(C_list_35_truncate)):
+        rect = C_list_35[i]
 
         pos_rect = rect[:,1:4]
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k')
+
+    with open('computed_cone_25.pickle', 'rb') as f:
+        C_list_25 = pickle.load(f)
+    C_list_25_truncate = C_list_25[:12]
+    for i in range(len(C_list_25_truncate)):
+        rect = C_list_25[i]
+
+        pos_rect = rect[:,1:4]
+        poly = pc.box2poly(pos_rect.T)
+        plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
+
+    with open('computed_cone_15.pickle', 'rb') as f:
+        C_list_15 = pickle.load(f)
+    C_list_15_truncate = C_list_15[:12]
+    for i in range(len(C_list_15_truncate)):
+        rect = C_list_15[i]
+
+        pos_rect = rect[:,1:4]
+        poly = pc.box2poly(pos_rect.T)
+        plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='g')
+
+    with open('computed_cone_05.pickle', 'rb') as f:
+        C_list_05 = pickle.load(f)
+    C_list_05_truncate = C_list_05[:12]
+    for i in range(len(C_list_05_truncate)):
+        rect = C_list_05[i]
+
+        pos_rect = rect[:,1:4]
+        poly = pc.box2poly(pos_rect.T)
+        plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='y')
 
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
@@ -241,12 +273,12 @@ if __name__ == "__main__":
     fixed_wing_scenario.add_agent(aircraft)
     
 
-    state = np.array([
-        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
-        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
-    ])
-    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-    time_horizon = 0.1*((len(C_list_truncate)-1)*80+1)
+    # state = np.array([
+    #     [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+    #     [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+    # ])
+    # ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+    # time_horizon = 0.1*((len(C_list_truncate)-1)*80+1)
 
     # for i in range(10):
     #     init_point = sample_point(state[0,:], state[1,:])
@@ -257,13 +289,71 @@ if __name__ == "__main__":
     #     ax.scatter(trace[::80,1], trace[::80,2], trace[::80,3], marker='x', color='m', s=30)
 
     # with open('./src/landing_devel/NeuReach/verse/vcs_sim.pickle','rb') as f:
-    with open('vcs_sim.pickle','rb') as f:
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    with open(os.path.join(script_dir,'vcs_sim.pickle'),'rb') as f:
         vcs_sim_trajectories = pickle.load(f)
+    with open(os.path.join(script_dir,'vcs_estimate.pickle'), 'rb') as f:
+        vcs_sim_estimate = pickle.load(f)
+    with open(os.path.join(script_dir,'vcs_init.pickle'),'rb') as f:
+        vcs_sim_init = pickle.load(f)
 
-    for traj in vcs_sim_trajectories:
-        traj = np.array(traj)[:(len(C_list)-1)*80+1,:]
+    for i in range(len(vcs_sim_trajectories)):
+        traj = np.array(vcs_sim_trajectories[i])
         ax.plot(traj[:,1], traj[:,2], traj[:,3], linewidth=1, color='b')
         ax.scatter(traj[::80,1], traj[::80,2], traj[::80,3], marker='x', color='m', s=30)
+
+    for i in range(len(C_list_35)):
+        rect = C_list_35[i]
+        for j, traj in enumerate(vcs_sim_trajectories):
+            if not (
+                rect[0,1]<traj[i*80][1]<rect[1,1] and \
+                rect[0,2]<traj[i*80][2]<rect[1,2] and \
+                rect[0,3]<traj[i*80][3]<rect[1,3] and \
+                rect[0,4]<traj[i*80][4]<rect[1,4] and \
+                rect[0,5]<traj[i*80][5]<rect[1,5]
+            ):
+                print(35, i, j, vcs_sim_init[j])
+                # break
+
+    for i in range(len(C_list_25)):
+        rect = C_list_25[i]
+        for j, traj in enumerate(vcs_sim_trajectories):
+            if not (
+                rect[0,1]<traj[i*80][1]<rect[1,1] and \
+                rect[0,2]<traj[i*80][2]<rect[1,2] and \
+                rect[0,3]<traj[i*80][3]<rect[1,3] and \
+                rect[0,4]<traj[i*80][4]<rect[1,4] and \
+                rect[0,5]<traj[i*80][5]<rect[1,5]
+            ):
+                print(25, i, j, vcs_sim_init[j])
+                # break
+
+    for i in range(len(C_list_15)):
+        rect = C_list_15[i]
+        for j, traj in enumerate(vcs_sim_trajectories):
+            if not (
+                rect[0,1]<traj[i*80][1]<rect[1,1] and \
+                rect[0,2]<traj[i*80][2]<rect[1,2] and \
+                rect[0,3]<traj[i*80][3]<rect[1,3] and \
+                rect[0,4]<traj[i*80][4]<rect[1,4] and \
+                rect[0,5]<traj[i*80][5]<rect[1,5]
+            ):
+                print(15, i, j, vcs_sim_init[j])
+                # break
+
+    for i in range(len(C_list_05)):
+        rect = C_list_05[i]
+        for j, traj in enumerate(vcs_sim_trajectories):
+            if not (
+                rect[0,1]<traj[i*80][1]<rect[1,1] and \
+                rect[0,2]<traj[i*80][2]<rect[1,2] and \
+                rect[0,3]<traj[i*80][3]<rect[1,3] and \
+                rect[0,4]<traj[i*80][4]<rect[1,4] and \
+                rect[0,5]<traj[i*80][5]<rect[1,5]
+            ):
+                print(5, i, j, vcs_sim_init[j])
+                # break
+
 
     ax.set_xlabel('x')
     ax.set_ylabel('y')

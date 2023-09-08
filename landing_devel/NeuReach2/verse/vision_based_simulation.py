@@ -356,14 +356,16 @@ if __name__ == "__main__":
     
     traj_list = []
     estimate_traj_list = []
-    for i in range(10):
+    init_list = []
+    for i in range(50):
         vision.idx=i
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-        time_horizon = 80
+        time_horizon = 100
 
         e = np.random.uniform(0.5, 1.2)
         set_light_properties(e)
+        init_list.append((init_point, [e]))
 
         try:
             # Run simulation.
@@ -377,5 +379,7 @@ if __name__ == "__main__":
             pickle.dump(traj_list, f)
         with open('vcs_estimate.pickle','wb+') as f:
             pickle.dump(estimate_traj_list, f)
+        with open('vcs_init.pickle', 'wb+') as f:
+            pickle.dump(init_list, f)
 
     print(vision.error_idx)

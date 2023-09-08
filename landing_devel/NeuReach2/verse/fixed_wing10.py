@@ -353,7 +353,7 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 100
+    num_sample = 200
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
@@ -387,7 +387,7 @@ if __name__ == "__main__":
                     # sample_num = num_sample - vertex_num
                     # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
                     vertex_sample = hull.points[hull.vertices,:]
-                    sample_sample = sample_point_poly(hull, 100)
+                    sample_sample = sample_point_poly(hull, num_sample)
                     samples = np.vstack((vertex_sample, sample_sample))
                 else:
                     # vertex_num = int(num_sample*0.5)
@@ -397,7 +397,7 @@ if __name__ == "__main__":
                     # sample_sample = sample_point_poly(hull, sample_num)
                     # samples = np.vstack((vertex_sample, sample_sample))
 
-                    sample_sample = sample_point_poly(hull, 100)
+                    sample_sample = sample_point_poly(hull, num_sample)
                     samples = np.vstack((vertex_sample, sample_sample))
                     # samples = vertex_sample
                 

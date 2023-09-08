@@ -167,7 +167,7 @@ def apply_model(model, point, Ec, Er):
         x = point
         ec = Ec[0]
         er = Er[0]
-        center_center = coef_cc[0] * x + coef_cc[1]
+        center_center = coef_cc[0] * x + coef_cc[1] * ec + coef_cc[2]
         center_radius = coef_cr[0] \
             + x*coef_cr[1] \
             + ec*coef_cr[2] \
@@ -181,7 +181,7 @@ def apply_model(model, point, Ec, Er):
         y = point[1]
         ec = Ec[0]
         er = Er[0]
-        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]
+        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]*ec+coef_cc[3]
         center_radius = coef_cr[0] \
             + x*coef_cr[1] \
             + y*coef_cr[2] \
@@ -284,14 +284,14 @@ def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB Q12 Qc')    
     return hull, sample_vertex
 
-def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step):
+def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step, Ec, Er):
     time_points = np.arange(0, time_horizon+computation_step/2, computation_step)
 
     traj = [np.insert(init_point, 0, 0)]
     point = init_point 
     ref = init_ref
     for t in time_points[1:]:
-        estimate_lower, estimate_upper = get_vision_estimation(point, [0.85], [0.35])
+        estimate_lower, estimate_upper = get_vision_estimation(point, Ec, Er)
         estimate_point = sample_point(estimate_lower, estimate_upper)
         init = np.concatenate((point, estimate_point, ref))
         scenario.set_init(
@@ -305,7 +305,7 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
-def verify_step(point, Ec, Er, ref, computation_steps, time_steps):
+def verify_step(point, Ec, Er, ref):
     # print(C_step, step, i, point)
 
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
@@ -332,9 +332,8 @@ def verify_step(point, Ec, Er, ref, computation_steps, time_steps):
     return np.array(traces.root.trace['a1'])
 
 @ray.remote
-def verify_step_remote(point, Ec, Er, ref, computation_steps, time_steps):
+def verify_step_remote(point, Ec, Er, ref):
     # print(C_step, step, i, point)
-
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
@@ -354,6 +353,7 @@ def verify_step_remote(point, Ec, Er, ref, computation_steps, time_steps):
     # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
     # "-2 \leq myball1.x + myball2.x \leq 5"
     traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+    # tmp = pickle.dumps(np.array(traces))
     # tmp = pickle.dumps(traces.root.trace['a1'])
     return np.array(traces.root.trace['a1'])
 
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
-    ray.init(num_cpus=8)
+    ray.init(num_cpus=12,log_to_driver=False)
     state = np.array([
         [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
         [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
@@ -386,12 +386,14 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 100
+    num_sample = 150
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
-    C_num = 1
-    parallel = False
+    C_num = 10
+    parallel = True
+    Ec = [0.85] 
+    Er = [0.05]
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -400,7 +402,7 @@ if __name__ == "__main__":
     # point_list_list = []
 
     for C_step in range(C_num):
-        # try:
+        try:
             reachable_set = []
             for step in range(C_compute_step):
                 print(">>>>>>>>>>>>>>>>", C_step, step)
@@ -422,7 +424,7 @@ if __name__ == "__main__":
                     # sample_num = num_sample - vertex_num
                     # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
                     vertex_sample = hull.points[hull.vertices,:]
-                    sample_sample = sample_point_poly(hull, 100)
+                    sample_sample = sample_point_poly(hull, num_sample)
                     samples = np.vstack((vertex_sample, sample_sample))
                 else:
                     # vertex_num = int(num_sample*0.5)
@@ -432,7 +434,7 @@ if __name__ == "__main__":
                     # sample_sample = sample_point_poly(hull, sample_num)
                     # samples = np.vstack((vertex_sample, sample_sample))
 
-                    sample_sample = sample_point_poly(hull, 100)
+                    sample_sample = sample_point_poly(hull, num_sample)
                     samples = np.vstack((vertex_sample, sample_sample))
                     # samples = vertex_sample
                 
@@ -450,11 +452,12 @@ if __name__ == "__main__":
                 for i in range(samples.shape[0]):
 
                     point = samples[i,:]
+                    
                     if parallel:
-                        task_list.append(verify_step_remote.remote(point, [0.85], [0.35], ref, computation_steps, time_steps))
+                        task_list.append(verify_step_remote.remote(point, Ec, Er, ref))
                     else:
                         print(C_step, step, i, point)
-                        trace = verify_step(point, [0.85], [0.35], ref, computation_steps, time_steps)
+                        trace = verify_step(point, Ec, Er, ref)
                         traces_list.append(trace)
 
                     # estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.35])
@@ -478,10 +481,14 @@ if __name__ == "__main__":
 
                 if parallel:
                     traces_list = ray.get(task_list)
+                # hull2, vertex_sample2 = get_next_poly(traces_list)
                 hull, vertex_sample = get_next_poly(traces_list)
-                box1 = get_bounding_box(hull)
-                plt.figure(6)
-                plt.plot([step*0.1, step*0.1],[box[0,-1],box[1,-1]],'g')
+                # box1 = get_bounding_box(hull)
+                # box2 = get_bounding_box(hull2)
+                # if (box1 != box2).any():
+                #     print('stop')
+                # plt.figure(6)
+                # plt.plot([step*0.1, step*0.1],[box[0,-1],box[1,-1]],'g')
                 # state_low = next_low 
                 # state_high = next_high 
                 ref = run_ref(ref, computation_steps)
@@ -492,8 +499,8 @@ if __name__ == "__main__":
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
             C_list.append(C_set)
 
-            # with open('computed_cone_large.pickle','wb+') as f:
-            #     pickle.dump(C_list, f)
+            with open('computed_cone_05.pickle','wb+') as f:
+                pickle.dump(C_list, f)
 
             tmp = [
                 [next_init[0,0], next_init[1,0]],
@@ -505,8 +512,8 @@ if __name__ == "__main__":
             ]
             vertices = np.array(list(itertools.product(*tmp)))
             hull = scipy.spatial.ConvexHull(vertices)
-        # except:
-        #     break
+        except:
+            break
 
     ray.shutdown()
 
@@ -571,7 +578,7 @@ if __name__ == "__main__":
     for i in range(20):
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = copy.deepcopy(ref)
-        trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps)
+        trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps, Ec, Er)
         trace = np.array(trace)
         plt.figure(0)
         plt.plot(trace[:,1], trace[:,2], 'r')

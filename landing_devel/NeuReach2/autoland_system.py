@@ -99,7 +99,7 @@ class Perception:
         self.state = None
         self.error_idx = []
         self.idx = None
-        self.estimated_state = None # x, y, z, roll, pitch, yaw
+        self.estimated_state = None # x, y, z, yaw, pitch, roll
 
     def state_callback(self, msg):
         pos = msg.pose[1].position
@@ -194,7 +194,7 @@ class Perception:
             if yawpitchroll_angles[0] > np.pi:
                 yawpitchroll_angles[0] -= 2*np.pi
 
-            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item() - body_height, yawpitchroll_angles[2], yawpitchroll_angles[1] - pitch_offset, yawpitchroll_angles[0]]
+            self.estimated_state = [camera_position[0].item(), camera_position[1].item(), camera_position[2].item() - body_height, yawpitchroll_angles[0], yawpitchroll_angles[1] - pitch_offset, yawpitchroll_angles[2]]
         else:
             print("Pose Estimation Failed.")
 
@@ -223,7 +223,7 @@ class Perception:
         img = self.image
         self.vision_estimation(img)
 
-        # x, y, z, roll, pitch, yaw
+        # x, y, z, yaw, pitch, roll
         estimated_state = np.array([
             self.estimated_state[0],
             self.estimated_state[1],
@@ -242,7 +242,7 @@ class Perception:
 
     def set_pos(self, point: np.ndarray) -> np.ndarray:
         # Set aircraft to given pose
-        init_msg = create_state_msd(point[0], point[1], point[2], point[3], -point[4], point[5])
+        init_msg = create_state_msd(point[0], point[1], point[2], point[5], -point[4], point[3])
         rospy.wait_for_service('/gazebo/set_model_state')
         try:
             # Set initial state.
@@ -271,7 +271,7 @@ def sample_pose() -> np.ndarray:
     pitch = np.deg2rad(-3 + np.random.uniform(-pitch_r, pitch_r))
     yaw_r = -0.003*(x-(-3000))+10
     yaw = np.deg2rad(np.random.uniform(-yaw_r, yaw_r))
-    return [x,y,z,roll, pitch,yaw]
+    return [x,y,z,yaw, pitch,roll]
 
 def sample_2X0():
     lb, ub, Elb, Eub, Ermax = (
@@ -335,7 +335,7 @@ if __name__ == "__main__":
 
     perception = Perception()
 
-    x = [-2851.1846498132927, 46.743851209170955, 109.99733644558349, 0, -0.1333963449351654, 0.08398311235112048]
+    x = [-2851.1846498132927, 46.743851209170955, 109.99733644558349, 0.08398311235112048, -0.1333963449351654, 0]
     e = [1.00548329 + np.random.uniform(-0.11618985,0.11618985)]
     x0 = (x,e)
 

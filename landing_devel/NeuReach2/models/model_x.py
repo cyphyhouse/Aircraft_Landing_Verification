@@ -7,7 +7,7 @@ from sklearn.linear_model import LinearRegression, QuantileRegressor
 import statsmodels.api as sm 
 import json 
 
-def compute_model_x(data):
+def compute_model_x(data, pcc=0.9, pcr=0.95, pr=0.95):
     state_list = []
     Er_list = []
     Ec_list = []
@@ -59,7 +59,7 @@ def compute_model_x(data):
             E_partition = Ec_list[idx]
             trace_mean_partition = trace_mean_list[idx,0]
             tmp = np.abs(trace_mean_partition - X_partition)
-            percentile = np.percentile(tmp, 90)
+            percentile = np.percentile(tmp, pcc*100)
             state_list_process = np.concatenate((state_list_process,X_partition[tmp<percentile]))
             Ec_list_process = np.concatenate((Ec_list_process,E_partition[tmp<percentile]))
             trace_mean_list_process = np.concatenate((trace_mean_list_process,trace_mean_partition[tmp<percentile]))
@@ -85,7 +85,7 @@ def compute_model_x(data):
 
     X_center_radius = sm.add_constant(X_center_radius)
     model_center_radius = sm.QuantReg(Y_center_radius, X_center_radius) 
-    result = model_center_radius.fit(q=0.95)
+    result = model_center_radius.fit(q=pcr)
     coefficient_center_radius = result.params 
     print("Coefficients:", coefficient_center_radius)
     # -------------------------------------
@@ -107,7 +107,7 @@ def compute_model_x(data):
     tmp = np.array(tmp)
     Y_radius = np.abs(trace_list_radius[:,0]-mean_radius[:,0])
     # Y_radius = np.abs(trace_list_radius[:,0]-X_radius)
-    quantile = 0.95
+    quantile = pr
     model_radius = sm.QuantReg(Y_radius, sm.add_constant(X_radius))
     result = model_radius.fit(q=quantile)
     coefficient_radius = result.params
