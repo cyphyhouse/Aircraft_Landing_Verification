@@ -19,9 +19,23 @@ import time
 import squaternion 
 import os 
 import matplotlib.pyplot as plt 
+import cv2 
+import imgaug.augmenters as iaa 
 
 body_height = 0.77
 pitch_offset = 0
+
+def set_rain_properties(img: np.ndarray, rain_value: float) -> None:
+    density = rain_value*0.5
+    aug = iaa.Rain(drop_size=(0.02, 0.02), speed=(0.1,0.1), nb_iterations=(2,2), density=(density,density))
+    img_aug = aug(image = img)
+    return img_aug
+
+def set_snow_properties(img: np.ndarray, snow_value: float) -> None:
+    density = snow_value*0.5
+    aug = iaa.Snowflakes(density = (density, density))
+    img_aug = aug(image = img)
+    return img_aug
 
 def set_light_properties(light_value: float) -> None:
     GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
@@ -45,6 +59,7 @@ def set_light_properties(light_value: float) -> None:
         rospy.logwarn("Service call failed: %s" % e)
 
 e_param_list = [set_light_properties]
+e_img_updater_list = [set_rain_properties]
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -205,12 +220,23 @@ class Perception:
             time.sleep(0.1)
 
     def set_environment(self, e_param: np.ndarray) -> None:
-        if len(e_param) != len(e_param_list):
+        if len(e_param) != len(e_param_list)+len(e_img_updater_list):
             raise ValueError("Input environmental parameters doesn't match existing handlers")
 
-        for i in range(len(e_param)):
+        for i in range(len(e_param_list)):
             setter = e_param_list[i] 
             setter(e_param[i])
+
+    def apply_img_update(self, img, e_param):
+        if len(e_param) != len(e_param_list)+len(e_img_updater_list):
+            raise ValueError("Input environmental parameters doesn't match existing handlers")
+
+        for i in range(len(e_img_updater_list)):
+            updater = e_img_updater_list[i]
+            e = e_param[i+len(e_param_list)]
+            img = updater(img, e)
+
+        return img
 
     def set_percept(self, point: np.ndarray, e_param: np.ndarray) -> np.ndarray:
         # Set aircraft to pos
@@ -221,6 +247,7 @@ class Perception:
         self.wait_img_update()
 
         img = self.image
+        img = self.apply_img_update(img, e_param)
         self.vision_estimation(img)
 
         # x, y, z, yaw, pitch, roll
@@ -277,33 +304,35 @@ def sample_2X0():
     lb, ub, Elb, Eub, Ermax = (
         [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
         [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.5],
-        [1.2],
-        [0.35],
+        [0.5, 0],
+        [1.2, 0.5],
+        [0.35, 0.25],
     )
 
     x = sample_pose()
     Ec = sample_box(Elb, Eub)
     Er1 = np.random.uniform(0, Ermax)
-    if Ec-Er1<Elb:
-        Er1 = Ec-Elb 
-    elif Ec+Er1>Eub:
-        Er1 = Eub-Ec
+    for i in range(len(Er1)):
+        if Ec[i]-Er1[i]<Elb[i]:
+            Er1[i] = Ec[i]-Elb[i]
+        elif Ec[i]+Er1[i]>Eub[i]:
+            Er1[i] = Eub[i]-Ec[i]
 
     Er2 = np.random.uniform(0, Ermax)
-    if Ec-Er2<Elb:
-        Er2 = Ec-Elb 
-    elif Ec+Er2>Eub:
-        Er2 = Eub-Ec
+    for i in range(len(Er2)):
+        if Ec[i]-Er2[i]<Elb[i]:
+            Er2[i] = Ec[i]-Elb[i] 
+        elif Ec[i]+Er2[i]>Eub[i]:
+            Er2[i] = Eub[i]-Ec[i]
     return (x, Ec, Er1), (x, Ec, Er2)
 
 def sample_X0() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     lb, ub, Elb, Eub, Ermax = (
         [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
         [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.5],
-        [1.2],
-        [0.35],
+        [0.5,0],
+        [1.2, 0.5],
+        [0.35, 0.25],
     )
 
     # x = sample_box(lb, ub)

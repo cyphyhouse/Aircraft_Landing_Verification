@@ -218,49 +218,57 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
     return traj
 
 if __name__ == "__main__":
-    # with open('./src/landing_devel/NeuReach/verse/computed_cone.pickle','rb') as f:
-    with open('computed_cone_35.pickle', 'rb') as f:
-        C_list_35 = pickle.load(f)
-
-    C_list_35_truncate = C_list_35[:12]
     fig = plt.figure()
     ax = plt.axes(projection='3d')
     ax.set_xlim(-3050, -3010)
     ax.set_ylim(-20, 20)
     ax.set_zlim(110, 130)
 
-    for i in range(len(C_list_35_truncate)):
-        rect = C_list_35[i]
+    with open('computed_cone_085_35.pickle', 'rb') as f:
+        C_list_085_35 = pickle.load(f)
+    C_list_085_35_truncate = C_list_085_35[:12]
+    for i in range(len(C_list_085_35_truncate)):
+        rect = C_list_085_35[i]
 
         pos_rect = rect[:,1:4]
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k')
 
-    with open('computed_cone_25.pickle', 'rb') as f:
-        C_list_25 = pickle.load(f)
-    C_list_25_truncate = C_list_25[:12]
-    for i in range(len(C_list_25_truncate)):
-        rect = C_list_25[i]
+    with open('computed_cone_085_25.pickle', 'rb') as f:
+        C_list_085_25 = pickle.load(f)
+    C_list_085_25_truncate = C_list_085_25[:12]
+    for i in range(len(C_list_085_25_truncate)):
+        rect = C_list_085_25[i]
 
         pos_rect = rect[:,1:4]
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
 
-    with open('computed_cone_15.pickle', 'rb') as f:
-        C_list_15 = pickle.load(f)
-    C_list_15_truncate = C_list_15[:12]
-    for i in range(len(C_list_15_truncate)):
-        rect = C_list_15[i]
+    with open('computed_cone_085_15.pickle', 'rb') as f:
+        C_list_085_15 = pickle.load(f)
+    C_list_085_15_truncate = C_list_085_15[:12]
+    for i in range(len(C_list_085_15_truncate)):
+        rect = C_list_085_15[i]
 
         pos_rect = rect[:,1:4]
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='g')
 
-    with open('computed_cone_05.pickle', 'rb') as f:
-        C_list_05 = pickle.load(f)
-    C_list_05_truncate = C_list_05[:12]
-    for i in range(len(C_list_05_truncate)):
-        rect = C_list_05[i]
+    # with open('computed_cone_100_15.pickle', 'rb') as f:
+    #     C_list_100_15 = pickle.load(f)
+    # C_list_100_15_truncate = C_list_100_15[:12]
+    # for i in range(len(C_list_100_15_truncate)):
+    #     rect = C_list_100_15[i]
+
+    #     pos_rect = rect[:,1:4]
+    #     poly = pc.box2poly(pos_rect.T)
+    #     plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
+
+    with open('computed_cone_085_05.pickle', 'rb') as f:
+        C_list_085_05 = pickle.load(f)
+    C_list_085_05_truncate = C_list_085_05[:12]
+    for i in range(len(C_list_085_05_truncate)):
+        rect = C_list_085_05[i]
 
         pos_rect = rect[:,1:4]
         poly = pc.box2poly(pos_rect.T)
@@ -302,8 +310,8 @@ if __name__ == "__main__":
         ax.plot(traj[:,1], traj[:,2], traj[:,3], linewidth=1, color='b')
         ax.scatter(traj[::80,1], traj[::80,2], traj[::80,3], marker='x', color='m', s=30)
 
-    for i in range(len(C_list_35)):
-        rect = C_list_35[i]
+    for i in range(len(C_list_085_35)):
+        rect = C_list_085_35[i]
         for j, traj in enumerate(vcs_sim_trajectories):
             if not (
                 rect[0,1]<traj[i*80][1]<rect[1,1] and \
@@ -315,8 +323,8 @@ if __name__ == "__main__":
                 print(35, i, j, vcs_sim_init[j])
                 # break
 
-    for i in range(len(C_list_25)):
-        rect = C_list_25[i]
+    for i in range(len(C_list_085_25)):
+        rect = C_list_085_25[i]
         for j, traj in enumerate(vcs_sim_trajectories):
             if not (
                 rect[0,1]<traj[i*80][1]<rect[1,1] and \
@@ -328,8 +336,8 @@ if __name__ == "__main__":
                 print(25, i, j, vcs_sim_init[j])
                 # break
 
-    for i in range(len(C_list_15)):
-        rect = C_list_15[i]
+    for i in range(len(C_list_085_15)):
+        rect = C_list_085_15[i]
         for j, traj in enumerate(vcs_sim_trajectories):
             if not (
                 rect[0,1]<traj[i*80][1]<rect[1,1] and \
@@ -341,8 +349,22 @@ if __name__ == "__main__":
                 print(15, i, j, vcs_sim_init[j])
                 # break
 
-    for i in range(len(C_list_05)):
-        rect = C_list_05[i]
+    # for i in range(len(C_list_100_15)):
+    #     rect = C_list_100_15[i]
+    #     for j, traj in enumerate(vcs_sim_trajectories):
+    #         if not (
+    #             rect[0,1]<traj[i*80][1]<rect[1,1] and \
+    #             rect[0,2]<traj[i*80][2]<rect[1,2] and \
+    #             rect[0,3]<traj[i*80][3]<rect[1,3] and \
+    #             rect[0,4]<traj[i*80][4]<rect[1,4] and \
+    #             rect[0,5]<traj[i*80][5]<rect[1,5]
+    #         ):
+    #             print(15, i, j, vcs_sim_init[j])
+    #             # break
+
+
+    for i in range(len(C_list_085_05)):
+        rect = C_list_085_05[i]
         for j, traj in enumerate(vcs_sim_trajectories):
             if not (
                 rect[0,1]<traj[i*80][1]<rect[1,1] and \

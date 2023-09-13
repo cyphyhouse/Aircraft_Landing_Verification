@@ -27,6 +27,7 @@ import os
 
 import pickle
 import matplotlib.pyplot as plt 
+from std_msgs.msg import ColorRGBA
 
 # from scipy.spatial.transform import Rotation 
 # import matplotlib.pyplot as plt 
@@ -47,6 +48,29 @@ import copy
 import argparse
 import logging
 from enum import Enum, auto
+from gazebo_msgs.srv import SetModelState, SetLightProperties
+
+def set_light_properties(light_value: float) -> None:
+    GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
+    rospy.wait_for_service(GZ_SET_LIGHT_PROPERTIES)
+    try:
+        set_light_properties_srv = \
+            rospy.ServiceProxy(GZ_SET_LIGHT_PROPERTIES, SetLightProperties)
+        resp = set_light_properties_srv(
+            light_name='sun',
+            cast_shadows=True,
+            diffuse=ColorRGBA(int(204*light_value),int(204*light_value),int(204*light_value),255),
+            specular=ColorRGBA(51, 51, 51, 255),
+            attenuation_constant=0.9,
+            attenuation_linear=0.01,
+            attenuation_quadratic=0.0,
+            direction=Vector3(-0.483368, 0.096674, -0.870063),
+            pose=Pose(position=Point(0, 0, 10), orientation=Quaternion(0, 0, 0, 1))
+        )
+        # TODO Check response
+    except rospy.ServiceException as e:
+        rospy.logwarn("Service call failed: %s" % e)
+
 
 class FixedWingMode(Enum):
     # NOTE: Any model should have at least one mode
@@ -188,11 +212,11 @@ class Perception:
         # Get probabilistic heat maps corresponding to the key points.
         output = self.predict_img(img)
 
-        plt.figure(0)
-        plt.imshow(img)
-        plt.figure(1)
-        plt.imshow(np.sum(output[0].detach().numpy(),axis=0))
-        plt.show()
+        # plt.figure(0)
+        # plt.imshow(img)
+        # plt.figure(1)
+        # plt.imshow(np.sum(output[0].detach().numpy(),axis=0))
+        # plt.show()
 
         # Key points detection using trained nn. Extract pixels with highest probability.
         keypoints = []
@@ -256,10 +280,10 @@ class Perception:
             point[5]
         ])
 
-        if np.linalg.norm(estimated_state - point) > 50:
-            print(">>>>>> Estimated Corrupted ", estimated_state)
-            estimated_state = point 
-            self.error_idx.append(self.idx)
+        # if np.linalg.norm(estimated_state - point) > 50:
+        #     print(">>>>>> Estimated Corrupted ", estimated_state)
+        #     estimated_state = point 
+        #     self.error_idx.append(self.idx)
         
 
         return estimated_state
@@ -306,6 +330,7 @@ if __name__ == "__main__":
     rospy.init_node('update_poses', anonymous=True)
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+    set_light_properties(0.4)
 
     net = UNet(n_channels=3, n_classes=14, bilinear=args.bilinear) 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

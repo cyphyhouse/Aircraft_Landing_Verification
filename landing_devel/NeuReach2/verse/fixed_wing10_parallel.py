@@ -499,7 +499,7 @@ if __name__ == "__main__":
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
             C_list.append(C_set)
 
-            with open('computed_cone_05.pickle','wb+') as f:
+            with open('computed_cone_085_05.pickle','wb+') as f:
                 pickle.dump(C_list, f)
 
             tmp = [
