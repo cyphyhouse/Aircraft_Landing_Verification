@@ -28,6 +28,14 @@ from aircraft_simulator import *
 
 import os
 import random
+import imgaug.augmenters as iaa 
+
+def set_rain_properties(img: np.ndarray, rain_value: float) -> None:
+    density = rain_value*0.5
+    aug = iaa.Rain(drop_size=(0.02, 0.02), speed=(0.1,0.1), nb_iterations=(2,2), density=(density,density))
+    img_aug = aug(image = img)
+    return img_aug
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 img_path = os.path.join(script_dir,'./imgs')
@@ -194,12 +202,15 @@ def update_aircraft_position():
             f.write(f"\n{idx},{state_rand[0]},{state_rand[1]},{state_rand[2]},{q.x},{q.y},{q.z},{q.w}")
         cv2.imshow('camera', cv_img)
         cv2.waitKey(3)
+        
+
         path = os.path.join(img_path, f"img_{idx}.png")
         if cv_img is not None:
+            img = set_rain_properties(cv_img, np.random.uniform(0,0.3))
             print(path)
-            cv2.imwrite(path, cv_img)
+            cv2.imwrite(path, img)
         idx += 1
-        if idx > 20000:
+        if idx > 10000:
             break
 
 

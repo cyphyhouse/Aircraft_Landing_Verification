@@ -368,8 +368,8 @@ if __name__ == "__main__":
     # x, y, z, yaw, pitch, v
     ray.init(num_cpus=12,log_to_driver=False)
     state = np.array([
-        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
-        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+        [-3050.0, -20, 110.0, 0-0.01, -np.deg2rad(3)-0.01, 10-0.1], 
+        [-3010.0, 20, 130.0, 0+0.01, -np.deg2rad(3)+0.01, 10+0.1]
     ])
     tmp = [
         [state[0,0], state[1,0]],
@@ -393,7 +393,7 @@ if __name__ == "__main__":
     C_num = 10
     parallel = True
     Ec = [0.85] 
-    Er = [0.05]
+    Er = [0.15]
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -499,7 +499,7 @@ if __name__ == "__main__":
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
             C_list.append(C_set)
 
-            with open('computed_cone_085_05.pickle','wb+') as f:
+            with open('computed_cone_085_15_2.pickle','wb+') as f:
                 pickle.dump(C_list, f)
 
             tmp = [

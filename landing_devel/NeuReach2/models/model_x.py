@@ -171,8 +171,8 @@ if __name__ == "__main__":
         'coef_center_radius':coefficient_center_radius.tolist(),
         'coef_radius': coefficient_radius.tolist()
     }
-    with open(os.path.join(script_dir,'model_x.json'),'w+') as f:
-        json.dump(res, f, indent=4)
+    # with open(os.path.join(script_dir,'model_x.json'),'w+') as f:
+    #     json.dump(res, f, indent=4)
 
     model_radius_decay = lambda r: (1/np.sqrt(0.35))*np.sqrt(r) # Input to this function is the radius of environmental parameters
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
             + ec**2*coefficient_center_radius[4]
         radius = (coefficient_radius[0] + coefficient_radius[1]*x)*model_radius_decay(er)
         traces = trace_list[i]
-        # print(center_radius, radius, center_radius+radius)
+        print(center_radius, radius, center_radius+radius)
         for j in range(trace_list[i].shape[0]):
             x_est = trace_list[i][j,0]
             if x_est<center_center+center_radius+radius and \

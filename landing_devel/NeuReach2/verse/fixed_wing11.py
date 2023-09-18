@@ -16,8 +16,12 @@ import itertools
 import scipy.spatial
 from datetime import datetime 
 from verse.analysis.verifier import ReachabilityMethod
+from verse.analysis.analysis_tree import AnalysisTree
+
 import pickle 
 import json 
+
+from typing import List 
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
@@ -165,7 +169,7 @@ def apply_model(model, point, Ec, Er):
         x = point
         ec = Ec[0]
         er = Er[0]
-        center_center = coef_cc[0] * x + coef_cc[1]
+        center_center = coef_cc[0] * x + coef_cc[1] * ec + coef_cc[2]
         center_radius = coef_cr[0] \
             + x*coef_cr[1] \
             + ec*coef_cr[2] \
@@ -179,7 +183,7 @@ def apply_model(model, point, Ec, Er):
         y = point[1]
         ec = Ec[0]
         er = Er[0]
-        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]
+        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]*ec+coef_cc[3]
         center_radius = coef_cr[0] \
             + x*coef_cr[1] \
             + y*coef_cr[2] \
@@ -266,6 +270,7 @@ def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
 
     # sample_idx  = np.random.choice(sample_vertex.shape[0], sample_vertex.shape[0]-23, replace = False)
     # sample_vertex = sample_vertex[sample_idx, :]
+    sample_vertex = sample_vertex[:64,:]
     vertices = []
     for vertex in vertex_list:
         away = True
@@ -287,7 +292,7 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
     point = init_point 
     ref = init_ref
     for t in time_points[1:]:
-        estimate_lower, estimate_upper = get_vision_estimation(point, [0.85], [0.30])
+        estimate_lower, estimate_upper = get_vision_estimation(point, [0.85], [0.35])
         estimate_point = sample_point(estimate_lower, estimate_upper)
         init = np.concatenate((point, estimate_point, ref))
         scenario.set_init(
@@ -301,6 +306,223 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
+def verify_step(point, Ec, Er):
+    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
+    aircraft = FixedWingAgent3("a1")
+    fixed_wing_scenario.add_agent(aircraft)
+    estimate_low, estimate_high = get_vision_estimation(point, Ec, Er)
+    init_low = np.concatenate((point, estimate_low, ref))
+    init_high = np.concatenate((point, estimate_high, ref))
+    init = np.vstack((init_low, init_high))       
+
+    fixed_wing_scenario.set_init(
+        [init],
+        [
+            (FixedWingMode.Normal,)
+        ],
+    )
+    # TODO: WE should be able to initialize each of the balls separately
+    # this may be the cause for the VisibleDeprecationWarning
+    # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+    # "-2 \leq myball1.x + myball2.x \leq 5"
+    traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+    return traces
+
+def get_partitions(hull: List[np.ndarray])->List[np.ndarray]:
+    # Given a list of rectangles,
+    # Get the list of corresponding partitions
+    bounding_box = get_bounding_box_partitions(hull)
+    x_partition_size = int((bounding_box[1,0]-bounding_box[0,0])/10)+1
+    y_partition_size = int((bounding_box[1,1]-bounding_box[0,1])/2)+1
+    z_partition_size = int((bounding_box[1,2]-bounding_box[0,2])/5)+1
+    yaw_partition_size = int((bounding_box[1,3]-bounding_box[0,3])/0.005)+1
+    pitch_partition_size = int((bounding_box[1,4]-bounding_box[0,4])/0.005)+1
+    v_partition_size = int((bounding_box[1,5]-bounding_box[0,5])/0.01)+1
+    
+    x_range = np.linspace(bounding_box[0,0], bounding_box[1,0], x_partition_size)
+    y_range = np.linspace(bounding_box[0,1], bounding_box[1,1], y_partition_size)
+    z_range = np.linspace(bounding_box[0,2], bounding_box[1,2], z_partition_size)
+    yaw_range = np.linspace(bounding_box[0,3], bounding_box[1,3], yaw_partition_size)
+    pitch_range = np.linspace(bounding_box[0,4], bounding_box[1,4], pitch_partition_size)
+    v_range = np.linspace(bounding_box[0,5], bounding_box[1,5], v_partition_size)
+
+    used_partitions = []
+    partition_map = np.zeros((
+        len(x_range)-1,
+        len(y_range)-1,
+        len(z_range)-1,
+        len(yaw_range)-1,
+        len(pitch_range)-1,
+        len(v_range)-1,
+    ))                 
+    for partition in hull:
+        x_indices_list = []
+        for i in range(len(x_range)-1):
+            if (partition[0,0]>=x_range[i] and partition[0,0]<=x_range[i+1]) or \
+                (partition[1,0]>=x_range[i] and partition[1,0]<=x_range[i+1]) or \
+                (partition[0,0]<=x_range[i] and partition[1,0]>=x_range[i+1]):
+                x_indices_list.append(i)
+        
+        y_indices_list = []
+        for i in range(len(y_range)-1):
+            if (partition[0,1]>=y_range[i] and partition[0,1]<=y_range[i+1]) or \
+                (partition[1,1]>=y_range[i] and partition[1,1]<=y_range[i+1]) or \
+                (partition[0,1]<=y_range[i] and partition[1,1]>=y_range[i+1]):
+                y_indices_list.append(i)
+
+        z_indices_list = []
+        for i in range(len(z_range)-1):
+            if (partition[0,2]>=z_range[i] and partition[0,2]<=z_range[i+1]) or \
+                (partition[1,2]>=z_range[i] and partition[1,2]<=z_range[i+1]) or \
+                (partition[0,2]<=z_range[i] and partition[1,2]>=z_range[i+1]):
+                z_indices_list.append(i)
+
+        yaw_indices_list = []
+        for i in range(len(yaw_range)-1):
+            if (partition[0,3]>=yaw_range[i] and partition[0,3]<=yaw_range[i+1]) or \
+                (partition[1,3]>=yaw_range[i] and partition[1,3]<=yaw_range[i+1]) or \
+                (partition[0,3]<=yaw_range[i] and partition[1,3]>=yaw_range[i+1]):
+                yaw_indices_list.append(i)
+
+        pitch_indices_list = []
+        for i in range(len(pitch_range)-1):
+            if (partition[0,4]>=pitch_range[i] and partition[0,4]<=pitch_range[i+1]) or \
+                (partition[1,4]>=pitch_range[i] and partition[1,4]<=pitch_range[i+1]) or \
+                (partition[0,4]<=pitch_range[i] and partition[1,4]>=pitch_range[i+1]):
+                pitch_indices_list.append(i)
+
+        v_indices_list = []
+        for i in range(len(v_range)-1):
+            if (partition[0,5]>=v_range[i] and partition[0,5]<=v_range[i+1]) or \
+                (partition[1,5]>=v_range[i] and partition[1,5]<=v_range[i+1]) or \
+                (partition[0,5]<=v_range[i] and partition[1,5]>=v_range[i+1]):
+                v_indices_list.append(i)
+
+        new_partitions = list(itertools.product(x_indices_list, y_indices_list, z_indices_list, yaw_indices_list, pitch_indices_list, v_indices_list))
+
+        for npar in new_partitions:
+            if partition_map[npar]!=1:
+                partition_map[npar]==1
+                part = np.array([
+                    [
+                        x_range[npar[0]], 
+                        y_range[npar[1]], 
+                        z_range[npar[2]], 
+                        yaw_range[npar[3]], 
+                        pitch_range[npar[4]], 
+                        v_range[npar[5]]
+                    ],
+                    [
+                        x_range[npar[0]+1], 
+                        y_range[npar[1]+1], 
+                        z_range[npar[2]+1], 
+                        yaw_range[npar[3]+1], 
+                        pitch_range[npar[4]+1], 
+                        v_range[npar[5]+1]
+                    ],
+                ])
+                used_partitions.append(part)
+    return used_partitions
+
+def apply_model_partition(model, partition, Ec, Er):
+    dim = model['dim']
+    point_list = []
+    point = partition[0,:]
+    point_list.append(point)
+    point = partition[1,:]
+    point_list.append(point)
+    if dim == 'x':
+        pass
+    elif dim == 'y':
+        point = copy.deepcopy(partition[0,:])
+        point[1] = partition[1,1]
+        point_list.append(point)
+        point = copy.deepcopy(partition[1,:])
+        point[1] = partition[0,1]
+        point_list.append(point)
+    elif dim == 'z':
+        point = copy.deepcopy(partition[0,:])
+        point[2] = partition[1,2]
+        point_list.append(point)
+        point = copy.deepcopy(partition[1,:])
+        point[2] = partition[0,2]
+        point_list.append(point)
+    elif dim == 'yaw':
+        point = copy.deepcopy(partition[0,:])
+        point[3] = partition[1,3]
+        point_list.append(point)
+        point = copy.deepcopy(partition[1,:])
+        point[3] = partition[0,3]
+        point_list.append(point)
+    elif dim == 'pitch':
+        point = copy.deepcopy(partition[0,:])
+        point[4] = partition[1,4]
+        point_list.append(point)
+        point = copy.deepcopy(partition[1,:])
+        point[4] = partition[0,4]
+        point_list.append(point)
+
+    max_r = 0 
+    max_c = -float('inf')
+    min_c = float('inf')
+
+    for point in point_list:
+        c, r = apply_model(model, point, Ec, Er)
+        if c>max_c:
+            max_c = c 
+        if c<min_c:
+            min_c = c 
+        if r > max_r:
+            max_r = r 
+    return min_c-max_r, max_c+max_r 
+
+def get_vision_estimation_partition(partition: np.ndarray, Ec: List[float], Er: List[float])->Tuple[np.ndarray, np.ndarray]:
+    # Given a partition and a range of environmental parameters defined by Ec and Er
+    # Get the range of possible percepted states 
+    x_est_low, x_est_high = apply_model_partition(model_x, partition, Ec, Er)
+    y_est_low, y_est_high = apply_model_partition(model_y, partition, Ec, Er)
+    z_est_low, z_est_high = apply_model_partition(model_z, partition, Ec, Er)
+    yaw_est_low, yaw_est_high = apply_model_partition(model_yaw, partition, Ec, Er)
+    pitch_est_low, pitch_est_high = apply_model_partition(model_pitch, partition, Ec, Er)
+    
+    low = np.array([
+        x_est_low,
+        y_est_low,
+        z_est_low,
+        yaw_est_low,
+        pitch_est_low,
+        partition[0,-1]
+    ])
+    high = np.array([
+        x_est_high,
+        y_est_high,
+        z_est_high,
+        yaw_est_high,
+        pitch_est_high,
+        partition[1,-1]
+    ])
+
+    return low, high
+
+def get_next_init(traces_list: List[AnalysisTree])->List[np.ndarray]:
+    # Given a list of analysis trees,
+    # Export the last rectangle in each reachable set
+    res_list = []
+    for trace in traces_list:
+        low = trace.nodes[0].trace['a1'][-2][1:7]
+        high = trace.nodes[0].trace['a1'][-1][1:7]
+        res_list.append(np.array([low, high]))
+    return res_list
+
+def get_bounding_box_partitions(hull: List[np.ndarray]) -> np.ndarray:
+    # Given a list of rectangles
+    # Get a bounding box that enlose all rectangles
+    hull_array = np.array(hull)
+    hull_array = np.reshape(hull_array, (-1,hull_array.shape[2]))
+    ub = np.max(hull_array, axis=0)
+    lb = np.min(hull_array, axis=0)
+    return np.vstack((lb, ub))
+
 if __name__ == "__main__":
     
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
@@ -311,8 +533,8 @@ if __name__ == "__main__":
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
     state = np.array([
-        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
-        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+        [-3050.0, -20, 110.0, 0-0.01, -np.deg2rad(3)-0.01, 10-0.01], 
+        [-3010.0, 20, 130.0, 0+0.01, -np.deg2rad(3)+0.01, 10+0.01]
     ])
     tmp = [
         [state[0,0], state[1,0]],
@@ -329,74 +551,33 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 100
+    num_sample = 200
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
-    C_num = 3
+    C_num = 15
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
     C_list = [np.hstack((np.array([[0],[0]]),state))]
     # point_idx_list_list = []
     # point_list_list = []
-    plt.figure(1)
-    store_init = None
+    hull = [state]
+
     for C_step in range(C_num):
         # try:
             reachable_set = []
             for step in range(C_compute_step):
-                box = get_bounding_box(hull)
-                state_low = box[0,:]
-                state_high = box[1,:]
-
-                reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
-
+                partitions = get_partitions(hull)
                 traces_list = []
-                point_list = []
-                point_idx_list = []
-                
-                # if step == 37:
-                #     print('stop')
+                for i in range(len(partitions)):
+                    partition = partitions[i]
+                    print(C_step, step, i, partition)
+                    estimate_low, estimate_high = get_vision_estimation_partition(copy.deepcopy(partition), [0.85], [0.35])
+                    
+                    init_low = np.concatenate((partition[0,:], estimate_low, ref))
+                    init_high = np.concatenate((partition[1,:], estimate_high, ref))
 
-                if step == 0:
-                    # vertex_num = int(num_sample*0.05)
-                    # sample_num = num_sample - vertex_num
-                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
-                    vertex_sample = hull.points[hull.vertices,:]
-                    sample_sample = sample_point_poly(hull, 50)
-                    samples = np.vstack((vertex_sample, sample_sample))
-                    # samples = vertex_sample
-                    store_init = copy.deepcopy(samples)
-                else:
-                    # vertex_num = int(num_sample*0.5)
-                    # sample_num = num_sample - vertex_num
-                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
-                    # vertex_sample = hull.points[vertex_idxs,:]
-                    # sample_sample = sample_point_poly(hull, sample_num)
-                    # samples = np.vstack((vertex_sample, sample_sample))
-
-                    # sample_sample = sample_point_poly(hull, 20)
-                    # samples = np.vstack((vertex_sample, sample_sample))
-                    samples = vertex_sample
-                
-                point_idx = np.argmax(hull.points[:,1])
-                samples = np.vstack((samples, hull.points[point_idx,:]))
-                # samples = sample_point_poly(hull, num_sample)
-                
-                point_idx = np.argmax(hull.points[:,0])
-                samples = np.vstack((samples, hull.points[point_idx,:]))
-                point_idx = np.argmin(hull.points[:,0])
-                samples = np.vstack((samples, hull.points[point_idx,:]))
-
-                for i in range(samples.shape[0]):
-                    point = samples[i,:]
-                    print(C_step, step, i, point)
-
-                    estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.30])
-
-                    init_low = np.concatenate((point, estimate_low, ref))
-                    init_high = np.concatenate((point, estimate_high, ref))
                     init = np.vstack((init_low, init_high))       
 
                     fixed_wing_scenario.set_init(
@@ -411,15 +592,13 @@ if __name__ == "__main__":
                     # "-2 \leq myball1.x + myball2.x \leq 5"
                     traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
                     traces_list.append(traces)
-                    plt.plot([step*0.1, (step+1)*0.1],[traces.root.trace['a1'][0][1], traces.root.trace['a1'][-1][1]],'g')
-                    plt.plot([step*0.1, (step+1)*0.1],[traces.root.trace['a1'][0][1], traces.root.trace['a1'][-2][1]],'g')
 
-                hull, vertex_sample = get_next_poly(traces_list)
-                # state_low = next_low 
-                # state_high = next_high 
+                hull = get_next_init(traces_list)
+
                 ref = run_ref(ref, computation_steps)
-            
-            next_init = get_bounding_box(hull)
+
+                
+            next_init = get_bounding_box_partitions(hull)
             # last_rect = reachable_set[-1]
             # next_init = np.array(last_rect)[:,1:]
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
@@ -428,16 +607,17 @@ if __name__ == "__main__":
             # with open('computed_cone_large.pickle','wb+') as f:
             #     pickle.dump(C_list, f)
 
-            tmp = [
-                [next_init[0,0], next_init[1,0]],
-                [next_init[0,1], next_init[1,1]],
-                [next_init[0,2], next_init[1,2]],
-                [next_init[0,3], next_init[1,3]],
-                [next_init[0,4], next_init[1,4]],
-                [next_init[0,5], next_init[1,5]],
-            ]
-            vertices = np.array(list(itertools.product(*tmp)))
-            hull = scipy.spatial.ConvexHull(vertices)
+            # tmp = [
+            #     [next_init[0,0], next_init[1,0]],
+            #     [next_init[0,1], next_init[1,1]],
+            #     [next_init[0,2], next_init[1,2]],
+            #     [next_init[0,3], next_init[1,3]],
+            #     [next_init[0,4], next_init[1,4]],
+            #     [next_init[0,5], next_init[1,5]],
+            # ]
+            # vertices = np.array(list(itertools.product(*tmp)))
+            # hull = scipy.spatial.ConvexHull(vertices)
+            hull = next_init
         # except:
         #     break
 
@@ -494,7 +674,6 @@ if __name__ == "__main__":
 
     for i in range(20):
         init_point = sample_point(state[0,:], state[1,:])
-        # init_point = store_init[i,:]
         init_ref = copy.deepcopy(ref)
         trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps)
         trace = np.array(trace)

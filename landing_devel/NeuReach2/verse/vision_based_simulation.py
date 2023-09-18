@@ -350,14 +350,14 @@ if __name__ == "__main__":
     
 
     state = np.array([
-        [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
-        [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+        [-3050.0, -20, 110.0, 0-0.01, -np.deg2rad(3)-0.01, 10-0.1], 
+        [-3010.0, 20, 130.0, 0+0.01, -np.deg2rad(3)+0.01, 10+0.1]
     ])
     
     traj_list = []
     estimate_traj_list = []
     init_list = []
-    for i in range(50):
+    for i in range(200):
         vision.idx=i
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])

@@ -7,6 +7,8 @@ from sklearn.linear_model import LinearRegression, QuantileRegressor
 import statsmodels.api as sm 
 import json 
 
+model_radius_decay = lambda r, r_max: (1/np.sqrt(r_max))*np.sqrt(r) # 0.25Input to this function is the radius of environmental parameters
+
 def compute_model_x(data, pcc=0.9, pcr=0.95, pr=0.95):
     state_list = []
     Er_list = []
@@ -126,7 +128,36 @@ def compute_model_x(data, pcc=0.9, pcr=0.95, pr=0.95):
     model_radius = sm.QuantReg(Y_radius, sm.add_constant(X_radius))
     result = model_radius.fit(q=quantile)
     cr = result.params
-    return mcc, ccr, cr
+
+    ccc = mcc.coef_.tolist()+[mcc.intercept_]
+    min_cc = 0
+    min_cr = 0
+    min_r = 0
+    for i in range(state_list.shape[0]):
+        x = state_list[i,0]
+        ec = Ec_list[i]
+        er = Er_list[i]
+        center_center = ccc[0]*x + ccc[1]*ec[0] + ccc[2]*ec[1] + ccc[3]
+        if center_center < min_cc:
+            min_cc = center_center
+        center_radius = ccr[0] \
+            + x*ccr[1] \
+            + ec[0]*ccr[2] \
+            + ec[1]*ccr[3] \
+            + x*ec[0]*ccr[4] \
+            + x*ec[1]*ccr[5] \
+            + ec[0]*ec[1]*ccr[6] \
+            + x**2*ccr[7]\
+            + ec[0]**2*ccr[8]\
+            + ec[1]**2*ccr[9]
+        if center_radius< min_cr:
+            min_cr = center_radius
+        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
+        if radius < min_r:
+            min_r = radius
+    ccr[0] += (-min_cr)
+    cr[0] += (-min_r)
+    return ccc, ccr, cr
 # -------------------------------------
 
 # Testing the obtained models
@@ -168,18 +199,15 @@ if __name__ == "__main__":
     state_list = np.array(state_list)
     trace_mean_list = np.array(trace_mean_list)
 
-    mcc, ccr, cr = compute_model_x(data, pcr=0.5)
-    ccc = mcc.coef_.tolist()+[mcc.intercept_]
+    ccc, ccr, cr = compute_model_x(data, pcc = 0.4, pcr=0.8, pr=0.9)
     res = {
         'dim': 'x',
-        'coef_center_center':mcc.coef_.tolist()+[mcc.intercept_],
+        'coef_center_center':ccc,
         'coef_center_radius':ccr.tolist(),
         'coef_radius': cr.tolist()
     }
     with open(os.path.join(script_dir,'model_x2.json'),'w+') as f:
         json.dump(res, f, indent=4)
-
-    model_radius_decay = lambda r: (1/np.sqrt(0.35))*np.sqrt(r) # Input to this function is the radius of environmental parameters
 
     sample_contained = 0
     total_sample = 0
@@ -198,7 +226,7 @@ if __name__ == "__main__":
             + x**2*ccr[7]\
             + ec[0]**2*ccr[8]\
             + ec[1]**2*ccr[9]
-        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0])*model_radius_decay(er[1])
+        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
         traces = trace_list[i]
         for j in range(trace_list[i].shape[0]):
             x_est = trace_list[i][j,0]
@@ -255,7 +283,7 @@ if __name__ == "__main__":
             + x**2*ccr[7]\
             + ec[0]**2*ccr[8]\
             + ec[1]**2*ccr[9]
-        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0])*model_radius_decay(er[1])
+        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
         print(center_radius, radius)
         traces = trace_list[i]
         for j in range(trace_list[i].shape[0]):

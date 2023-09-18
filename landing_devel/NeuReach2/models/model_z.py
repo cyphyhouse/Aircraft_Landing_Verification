@@ -67,6 +67,53 @@ def compute_model_z(data, pcc=0.9, pcr=0.95, pr=0.95):
 
     model_center_center = LinearRegression()
     model_center_center.fit(X_process,Y_process)
+    # Y_predict = model_center_center.predict(X)
+    # plt.figure(0)
+    # plt.plot(X[:,0], Y, 'b*')
+    # plt.figure(1)
+    # plt.plot(X[:,1], Y, 'b*')
+    # plt.figure(2)
+    # plt.plot(X[:,2], Y, 'b*')
+    # plt.figure(0)
+    # plt.plot(X[:,0], Y_predict, 'r*')
+    # plt.figure(1)
+    # plt.plot(X[:,1], Y_predict, 'r*')
+    # plt.figure(2)
+    # plt.plot(X[:,2], Y_predict, 'r*')
+    # plt.show()
+    # -------------------------------------
+    traj_sim_fn = os.path.join(script_dir, '../verse/vcs_sim.pickle')
+    traj_est_fn = os.path.join(script_dir, '../verse/vcs_estimate.pickle')
+    traj_ini_fn = os.path.join(script_dir, '../verse/vcs_init.pickle')
+    with open(traj_sim_fn, 'rb') as f:
+        vcs_sim = pickle.load(f)
+    with open(traj_est_fn, 'rb') as f:
+        vcs_est = pickle.load(f)
+    with open(traj_ini_fn, 'rb') as f:
+        vcs_ini = pickle.load(f)
+    X_test = np.zeros((1000,3))
+    Y_test = np.zeros(1000)
+    for i in range(len(vcs_sim)):
+        vcs_sim_single = np.array(vcs_sim[i])[:-1,:]
+        vcs_est_single = np.array(vcs_est[i])
+        X_test[:,0] = vcs_sim_single[:,1]
+        X_test[:,1] = vcs_sim_single[:,3]
+        X_test[:,2] = 0.85
+        Y_test = vcs_est_single[:,2]
+        Y_test_predict = model_center_center.predict(X_test)
+        plt.figure(0)
+        plt.plot(X_test[:,0], Y_test, 'b*')
+        plt.figure(1)
+        plt.plot(X_test[:,1], Y_test, 'b*')
+        plt.figure(2)
+        plt.plot(X_test[:,2], Y_test, 'b*')
+        plt.figure(0)
+        plt.plot(X_test[:,0], Y_test_predict, 'r*')
+        plt.figure(1)
+        plt.plot(X_test[:,1], Y_test_predict, 'r*')
+        plt.figure(2)
+        plt.plot(X_test[:,2], Y_test_predict, 'r*')
+    plt.show()
     # -------------------------------------
 
     # Getting Model for Center Radius
@@ -147,7 +194,7 @@ if __name__ == "__main__":
     trace_mean_list = np.array(trace_mean_list)
     trace_mean_list = trace_mean_list[:, (0,2)]
 
-    model_center_center, coefficient_center_radius, coefficient_radius = compute_model_z(data)
+    model_center_center, coefficient_center_radius, coefficient_radius = compute_model_z(data, pcc=0.9, pcr=0.97, pr=0.975)
 
     res = {
         'dim': 'z',

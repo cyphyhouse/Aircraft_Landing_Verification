@@ -69,7 +69,53 @@ def compute_model_yaw(data, pcc=0.8, pcr=0.8, pr=0.97):
 
     model_center_center = LinearRegression()
     model_center_center.fit(X_process,Y_process)
+    # Y_predict = model_center_center.predict(X)
+    # plt.figure(0)
+    # plt.plot(X[:,0], Y, 'b*')
+    # plt.figure(1)
+    # plt.plot(X[:,1], Y, 'b*')
+    # plt.figure(2)
+    # plt.plot(X[:,2], Y, 'b*')
+    # plt.figure(0)
+    # plt.plot(X[:,0], Y_predict, 'r*')
+    # plt.figure(1)
+    # plt.plot(X[:,1], Y_predict, 'r*')
+    # plt.figure(2)
+    # plt.plot(X[:,2], Y_predict, 'r*')
+    # plt.show()
     # -------------------------------------
+    # traj_sim_fn = os.path.join(script_dir, '../verse/vcs_sim.pickle')
+    # traj_est_fn = os.path.join(script_dir, '../verse/vcs_estimate.pickle')
+    # traj_ini_fn = os.path.join(script_dir, '../verse/vcs_init.pickle')
+    # with open(traj_sim_fn, 'rb') as f:
+    #     vcs_sim = pickle.load(f)
+    # with open(traj_est_fn, 'rb') as f:
+    #     vcs_est = pickle.load(f)
+    # with open(traj_ini_fn, 'rb') as f:
+    #     vcs_ini = pickle.load(f)
+    # X_test = np.zeros((1000,3))
+    # Y_test = np.zeros(1000)
+    # for i in range(len(vcs_sim)):
+    #     vcs_sim_single = np.array(vcs_sim[i])[:-1,:]
+    #     vcs_est_single = np.array(vcs_est[i])
+    #     X_test[:,0] = vcs_sim_single[:,1]
+    #     X_test[:,1] = vcs_sim_single[:,5]
+    #     X_test[:,2] = 0.85
+    #     Y_test = vcs_est_single[:,4]
+    #     Y_test_predict = model_center_center.predict(X_test)
+    #     plt.figure(0)
+    #     plt.plot(X_test[:,0], Y_test, 'b*')
+    #     plt.figure(1)
+    #     plt.plot(X_test[:,1], Y_test, 'b*')
+    #     plt.figure(2)
+    #     plt.plot(X_test[:,2], Y_test, 'b*')
+    #     plt.figure(0)
+    #     plt.plot(X_test[:,0], Y_test_predict, 'r*')
+    #     plt.figure(1)
+    #     plt.plot(X_test[:,1], Y_test_predict, 'r*')
+    #     plt.figure(2)
+    #     plt.plot(X_test[:,2], Y_test_predict, 'r*')
+    # plt.show()
 
     # Getting Model for Center Radius
     model_error = np.abs(trace_mean_list_process - model_center_center.predict(X_process))
@@ -146,7 +192,7 @@ if __name__ == "__main__":
     state_list = np.array(state_list)[:,(0,model_dim)]
 
     # Getting Model for center center model
-    model_center_center, coefficient_center_radius, coefficient_radius = compute_model_yaw(data)
+    model_center_center, coefficient_center_radius, coefficient_radius = compute_model_yaw(data, 0.5, 0.95, 0.975)
 
     res = {
         'dim': 'yaw',
@@ -292,7 +338,7 @@ if __name__ == "__main__":
             + ec**2*coefficient_center_radius[9]
         radius = (coefficient_radius[0] + coefficient_radius[1]*x + coefficient_radius[2]*y)*model_radius_decay(er)
         traces = trace_list[i]
-        print(center_radius, radius, center_radius+radius)
+        # print(center_radius, radius, center_radius+radius)
         for j in range(trace_list[i].shape[0]):
             x_est = trace_list[i][j,model_dim]
             if x_est<center_center+center_radius+radius and \

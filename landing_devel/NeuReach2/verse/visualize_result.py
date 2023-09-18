@@ -217,6 +217,8 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
 if __name__ == "__main__":
     fig = plt.figure()
     ax = plt.axes(projection='3d')
@@ -224,7 +226,8 @@ if __name__ == "__main__":
     ax.set_ylim(-20, 20)
     ax.set_zlim(110, 130)
 
-    with open('computed_cone_085_35.pickle', 'rb') as f:
+    fn = os.path.join(script_dir, 'computed_cone_085_35_2.pickle')
+    with open(fn, 'rb') as f:
         C_list_085_35 = pickle.load(f)
     C_list_085_35_truncate = C_list_085_35[:12]
     for i in range(len(C_list_085_35_truncate)):
@@ -234,7 +237,8 @@ if __name__ == "__main__":
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k')
 
-    with open('computed_cone_085_25.pickle', 'rb') as f:
+    fn = os.path.join(script_dir, 'computed_cone_085_25_2.pickle')
+    with open(fn, 'rb') as f:
         C_list_085_25 = pickle.load(f)
     C_list_085_25_truncate = C_list_085_25[:12]
     for i in range(len(C_list_085_25_truncate)):
@@ -244,7 +248,8 @@ if __name__ == "__main__":
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
 
-    with open('computed_cone_085_15.pickle', 'rb') as f:
+    fn = os.path.join(script_dir, 'computed_cone_085_15_2.pickle')
+    with open(fn, 'rb') as f:
         C_list_085_15 = pickle.load(f)
     C_list_085_15_truncate = C_list_085_15[:12]
     for i in range(len(C_list_085_15_truncate)):
@@ -254,25 +259,16 @@ if __name__ == "__main__":
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='g')
 
-    # with open('computed_cone_100_15.pickle', 'rb') as f:
-    #     C_list_100_15 = pickle.load(f)
-    # C_list_100_15_truncate = C_list_100_15[:12]
-    # for i in range(len(C_list_100_15_truncate)):
-    #     rect = C_list_100_15[i]
+    # fn = os.path.join(script_dir, 'computed_cone_085_05.pickle')
+    # with open(fn, 'rb') as f:
+    #     C_list_085_05 = pickle.load(f)
+    # C_list_085_05_truncate = C_list_085_05[:12]
+    # for i in range(len(C_list_085_05_truncate)):
+    #     rect = C_list_085_05[i]
 
     #     pos_rect = rect[:,1:4]
     #     poly = pc.box2poly(pos_rect.T)
-    #     plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
-
-    with open('computed_cone_085_05.pickle', 'rb') as f:
-        C_list_085_05 = pickle.load(f)
-    C_list_085_05_truncate = C_list_085_05[:12]
-    for i in range(len(C_list_085_05_truncate)):
-        rect = C_list_085_05[i]
-
-        pos_rect = rect[:,1:4]
-        poly = pc.box2poly(pos_rect.T)
-        plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='y')
+    #     plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='y')
 
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
     script_path = os.path.realpath(os.path.dirname(__file__))
@@ -297,7 +293,6 @@ if __name__ == "__main__":
     #     ax.scatter(trace[::80,1], trace[::80,2], trace[::80,3], marker='x', color='m', s=30)
 
     # with open('./src/landing_devel/NeuReach/verse/vcs_sim.pickle','rb') as f:
-    script_dir = os.path.dirname(os.path.realpath(__file__))
     with open(os.path.join(script_dir,'vcs_sim.pickle'),'rb') as f:
         vcs_sim_trajectories = pickle.load(f)
     with open(os.path.join(script_dir,'vcs_estimate.pickle'), 'rb') as f:
@@ -305,11 +300,39 @@ if __name__ == "__main__":
     with open(os.path.join(script_dir,'vcs_init.pickle'),'rb') as f:
         vcs_sim_init = pickle.load(f)
 
-    for i in range(len(vcs_sim_trajectories)):
-        traj = np.array(vcs_sim_trajectories[i])
-        ax.plot(traj[:,1], traj[:,2], traj[:,3], linewidth=1, color='b')
-        ax.scatter(traj[::80,1], traj[::80,2], traj[::80,3], marker='x', color='m', s=30)
+    total = 0
+    not_in = 0
+    not_in_0 = 0
+    not_in_1 = 0
+    not_in_2 = 0
+    not_in_3 = 0
+    not_in_4 = 0
+    for j in range(len(vcs_sim_trajectories)):
+        traj = vcs_sim_trajectories[j]
+        est = vcs_sim_estimate[j]
+        for k in range(len(traj)-1):
+            total += 1
+            point = traj[k][1:]
+            lb, ub = get_vision_estimation(point, [0.85], [0.35])
+            est_point = est[k]
+            if any((lb>est_point) | (est_point>ub)):
+                tmp = (lb>est_point) | (est_point>ub)
+                print(tmp)
+                not_in += 1 
+                if tmp[0]:
+                    not_in_0 += 1
+                if tmp[1]:
+                    not_in_1 += 1
+                if tmp[2]:
+                    not_in_2 += 1
+                if tmp[3]:
+                    not_in_3 += 1
+                if tmp[4]:
+                    not_in_4 += 1
+    print(total, not_in)
+    print(not_in_0,not_in_1,not_in_2,not_in_3,not_in_4)
 
+    unsafe_idx_list = []
     for i in range(len(C_list_085_35)):
         rect = C_list_085_35[i]
         for j, traj in enumerate(vcs_sim_trajectories):
@@ -320,8 +343,14 @@ if __name__ == "__main__":
                 rect[0,4]<traj[i*80][4]<rect[1,4] and \
                 rect[0,5]<traj[i*80][5]<rect[1,5]
             ):
+                print(rect[0,1]<traj[i*80][1]<rect[1,1]) 
+                print(rect[0,2]<traj[i*80][2]<rect[1,2]) 
+                print(rect[0,3]<traj[i*80][3]<rect[1,3]) 
+                print(rect[0,4]<traj[i*80][4]<rect[1,4]) 
+                print(rect[0,5]<traj[i*80][5]<rect[1,5])
                 print(35, i, j, vcs_sim_init[j])
-                # break
+                if j not in unsafe_idx_list:
+                    unsafe_idx_list.append(j)
 
     for i in range(len(C_list_085_25)):
         rect = C_list_085_25[i]
@@ -333,24 +362,17 @@ if __name__ == "__main__":
                 rect[0,4]<traj[i*80][4]<rect[1,4] and \
                 rect[0,5]<traj[i*80][5]<rect[1,5]
             ):
+                print(rect[0,1]<traj[i*80][1]<rect[1,1]) 
+                print(rect[0,2]<traj[i*80][2]<rect[1,2]) 
+                print(rect[0,3]<traj[i*80][3]<rect[1,3]) 
+                print(rect[0,4]<traj[i*80][4]<rect[1,4]) 
+                print(rect[0,5]<traj[i*80][5]<rect[1,5])
                 print(25, i, j, vcs_sim_init[j])
-                # break
+                if j not in unsafe_idx_list:
+                    unsafe_idx_list.append(j)
 
-    for i in range(len(C_list_085_15)):
-        rect = C_list_085_15[i]
-        for j, traj in enumerate(vcs_sim_trajectories):
-            if not (
-                rect[0,1]<traj[i*80][1]<rect[1,1] and \
-                rect[0,2]<traj[i*80][2]<rect[1,2] and \
-                rect[0,3]<traj[i*80][3]<rect[1,3] and \
-                rect[0,4]<traj[i*80][4]<rect[1,4] and \
-                rect[0,5]<traj[i*80][5]<rect[1,5]
-            ):
-                print(15, i, j, vcs_sim_init[j])
-                # break
-
-    # for i in range(len(C_list_100_15)):
-    #     rect = C_list_100_15[i]
+    # for i in range(len(C_list_085_15)):
+    #     rect = C_list_085_15[i]
     #     for j, traj in enumerate(vcs_sim_trajectories):
     #         if not (
     #             rect[0,1]<traj[i*80][1]<rect[1,1] and \
@@ -360,22 +382,41 @@ if __name__ == "__main__":
     #             rect[0,5]<traj[i*80][5]<rect[1,5]
     #         ):
     #             print(15, i, j, vcs_sim_init[j])
-    #             # break
+    #             if j not in unsafe_idx_list:
+    #                 unsafe_idx_list.append(j)
+
+    # # for i in range(len(C_list_100_15)):
+    # #     rect = C_list_100_15[i]
+    # #     for j, traj in enumerate(vcs_sim_trajectories):
+    # #         if not (
+    # #             rect[0,1]<traj[i*80][1]<rect[1,1] and \
+    # #             rect[0,2]<traj[i*80][2]<rect[1,2] and \
+    # #             rect[0,3]<traj[i*80][3]<rect[1,3] and \
+    # #             rect[0,4]<traj[i*80][4]<rect[1,4] and \
+    # #             rect[0,5]<traj[i*80][5]<rect[1,5]
+    # #         ):
+    # #             print(15, i, j, vcs_sim_init[j])
+    # #             # break
 
 
-    for i in range(len(C_list_085_05)):
-        rect = C_list_085_05[i]
-        for j, traj in enumerate(vcs_sim_trajectories):
-            if not (
-                rect[0,1]<traj[i*80][1]<rect[1,1] and \
-                rect[0,2]<traj[i*80][2]<rect[1,2] and \
-                rect[0,3]<traj[i*80][3]<rect[1,3] and \
-                rect[0,4]<traj[i*80][4]<rect[1,4] and \
-                rect[0,5]<traj[i*80][5]<rect[1,5]
-            ):
-                print(5, i, j, vcs_sim_init[j])
-                # break
+    # for i in range(len(C_list_085_05)):
+    #     rect = C_list_085_05[i]
+    #     for j, traj in enumerate(vcs_sim_trajectories):
+    #         if not (
+    #             rect[0,1]<traj[i*80][1]<rect[1,1] and \
+    #             rect[0,2]<traj[i*80][2]<rect[1,2] and \
+    #             rect[0,3]<traj[i*80][3]<rect[1,3] and \
+    #             rect[0,4]<traj[i*80][4]<rect[1,4] and \
+    #             rect[0,5]<traj[i*80][5]<rect[1,5]
+    #         ):
+    #             print(5, i, j, vcs_sim_init[j])
+    #             if j not in unsafe_idx_list:
+    #                 unsafe_idx_list.append(j)
 
+    for idx in unsafe_idx_list:
+        traj = np.array(vcs_sim_trajectories[idx])
+        ax.plot(traj[:,1], traj[:,2], traj[:,3], linewidth=1, color='b')
+        ax.scatter(traj[::80,1], traj[::80,2], traj[::80,3], marker='x', color='m', s=30)
 
     ax.set_xlabel('x')
     ax.set_ylabel('y')

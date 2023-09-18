@@ -49,7 +49,7 @@ def compute_model_y(data, pcc=0.9, pcr=0.95, pr=0.95):
         for j in range(Xp1.shape[0]):
             for k in range(Ep.shape[0]):
                 idx = np.where((state_list[:,0]>Xp0[i]) &\
-                                (state_list[:,0]<Xp0[i]+1000) &\
+                                (state_list[:,0]<Xp0[i]+100) &\
                                 (state_list[:,1]>Xp1[j]) &\
                                 (state_list[:,1]<Xp1[j]+10) &\
                                 (Ec_list>Ep[k]) &\

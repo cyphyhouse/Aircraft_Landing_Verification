@@ -70,7 +70,7 @@ if __name__ == "__main__":
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
     
-    mcc, ccr, cr = compute_model_x(data, 0.9, 0.95, 0.95)
+    mcc, ccr, cr = compute_model_x(data, 0.9, 0.95, 0.97)
     model_x = {
         'dim': 'x',
         'coef_center_center':mcc.coef_.tolist()+[mcc.intercept_],
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     with open(os.path.join(script_dir,'model_x.json'),'w+') as f:
         json.dump(model_x, f, indent=4)
 
-    mcc, ccr, cr = compute_model_y(data, 0.9, 0.95, 0.95)
+    mcc, ccr, cr = compute_model_y(data, 0.9, 0.95, 0.97)
     model_y = {
         'dim': 'y',
         'coef_center_center':mcc.coef_.tolist()+[mcc.intercept_],
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     with open(os.path.join(script_dir,'model_y.json'),'w+') as f:
         json.dump(model_y, f, indent=4)
 
-    mcc, ccr, cr = compute_model_z(data, 0.9, 0.95, 0.95)
+    mcc, ccr, cr = compute_model_z(data, 0.9, 0.95, 0.98)
     model_z = {
         'dim': 'z',
         'coef_center_center':mcc.coef_.tolist()+[mcc.intercept_],
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     with open(os.path.join(script_dir,'model_z.json'),'w+') as f:
         json.dump(model_z, f, indent=4)
 
-    mcc, ccr, cr = compute_model_yaw(data, 0.9, 0.95, 0.97)
+    mcc, ccr, cr = compute_model_yaw(data, 0.7, 0.95, 0.97)
     model_yaw = {
         'dim': 'yaw',
         'coef_center_center':mcc.coef_.tolist()+[mcc.intercept_],
