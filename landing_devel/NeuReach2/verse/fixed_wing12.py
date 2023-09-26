@@ -1,3 +1,5 @@
+# Implement Algorithm 1 described in Paper
+
 from verse.plotter.plotter2D import *
 # from fixed_wing_agent import FixedWingAgent
 # from fixed_wing_agent2 import AircraftTrackingAgent
@@ -23,92 +25,12 @@ import ray
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
-model_x_name = '../models/model_x2.json'
-model_y_name = '../models/model_y2.json'
-model_z_name = '../models/model_z2.json'
-model_yaw_name = '../models/model_yaw2.json'
-model_pitch_name = '../models/model_pitch2.json'
-
-with open(os.path.join(script_dir, model_x_name), 'r') as f:
-    model_x = json.load(f)
-with open(os.path.join(script_dir, model_y_name), 'r') as f:
-    model_y = json.load(f)
-with open(os.path.join(script_dir, model_z_name), 'r') as f:
-    model_z = json.load(f)
-with open(os.path.join(script_dir, model_pitch_name), 'r') as f:
-    model_pitch = json.load(f)
-with open(os.path.join(script_dir, model_yaw_name), 'r') as f:
-    model_yaw = json.load(f)
-
-model_radius_decay = lambda r, r_max: (1/np.sqrt(r_max))*np.sqrt(r) # Input to this function is the radius of environmental parameters
-
-# model_x_r_name = "checkpoint_x_r_06-27_23-32-30_471.pth.tar"
-# model_x_c_name = "checkpoint_x_c_06-27_23-32-30_471.pth.tar"
-# model_y_r_name = 'checkpoint_y_r_07-11_15-43-23_40.pth.tar'
-# model_y_c_name = 'checkpoint_y_c_07-11_15-43-23_40.pth.tar'
-# model_z_r_name = 'checkpoint_z_r_07-11_14-50-20_24.pth.tar'
-# model_z_c_name = 'checkpoint_z_c_07-11_14-50-20_24.pth.tar'
-# model_roll_r_name = 'checkpoint_roll_r_07-11_16-53-35_45.pth.tar'
-# model_roll_c_name = 'checkpoint_roll_c_07-11_16-53-35_45.pth.tar'
-# model_pitch_r_name = 'checkpoint_pitch_r_07-11_16-54-45_44.pth.tar'
-# model_pitch_c_name = 'checkpoint_pitch_c_07-11_16-54-45_44.pth.tar'
-# model_yaw_r_name = 'checkpoint_yaw_r_07-11_17-03-31_180.pth.tar'
-# model_yaw_c_name = 'checkpoint_yaw_c_07-11_17-03-31_180.pth.tar'
-
-# model_x_r, forward_x_r = get_model_rect2(1,1,64,64,64)
-# model_x_c, forward_x_c = get_model_rect(1,1,64,64)
-# model_x_r.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_x_r_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_x_c.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_x_c_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_x_r.eval()
-# model_x_c.eval()
-
-# model_y_r, forward_y_r = get_model_rect2(2,1,64,64,64)
-# model_y_c, forward_y_c = get_model_rect(2,1,64,64)
-# model_y_r.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_y_r_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_y_c.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_y_c_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_y_r.eval()
-# model_y_c.eval()
-
-# model_z_r, forward_z_r = get_model_rect2(2,1,64,64,64)
-# model_z_c, forward_z_c = get_model_rect(2,1,64,64)
-# model_z_r.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_z_r_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_z_c.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_z_c_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_z_r.eval()
-# model_z_c.eval()
-
-# model_roll_r, forward_roll_r = get_model_rect2(2,1,64,64,64)
-# model_roll_c, forward_roll_c = get_model_rect(2,1,64,64)
-# model_roll_r.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_roll_r_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_roll_c.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_roll_c_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_roll_r.eval()
-# model_roll_c.eval()
-
-# model_pitch_r, forward_pitch_r = get_model_rect2(2,1,64,64,64)
-# model_pitch_c, forward_pitch_c = get_model_rect(2,1,64,64)
-# model_pitch_r.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_pitch_r_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_pitch_c.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_pitch_c_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_pitch_r.eval()
-# model_pitch_c.eval()
-
-# model_yaw_r, forward_yaw_r = get_model_rect2(2,1,64,64,64)
-# model_yaw_c, forward_yaw_c = get_model_rect(2,1,64,64)
-# model_yaw_r.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_yaw_r_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_yaw_c.load_state_dict(torch.load(os.path.join(script_dir, f'../log/{model_yaw_c_name}'), map_location=torch.device('cpu'))['state_dict'])
-# model_yaw_r.eval()
-# model_yaw_c.eval()
-
 class FixedWingMode(Enum):
     # NOTE: Any model should have at least one mode
     Normal = auto()
     # TODO: The one mode of this automation is called "Normal" and auto assigns it an integer value.
     # Ultimately for simple models we would like to write
     # E.g., Mode = makeMode(Normal, bounce,...)
-
-
-# class TrackMode(Enum):
-#     Lane0 = auto()
-#     #For now this is a dummy notion of Lane
-
 
 class State:
     """Defines the state variables of the model
@@ -147,10 +69,9 @@ def decisionLogic(ego: State):
 def sample_point(low: np.ndarray, high: np.ndarray) -> np.ndarray:
     return np.random.uniform(low, high) 
 
-def apply_model(model, point, Ec, Er):
+def apply_model(model, point):
     dim = model['dim']
-    ccc = model['coef_center_center']
-    ccr = model['coef_center_radius']
+    cc = model['coef_center_center']
     cr = model['coef_radius']
 
     if dim == 'x':
@@ -166,52 +87,22 @@ def apply_model(model, point, Ec, Er):
 
     if dim == 'x':
         x = point
-        ec = Ec
-        er = Er
-        center_center = ccc[0]*x + ccc[1]*ec[0] + ccc[2]*ec[1] + ccc[3]
-        center_radius = ccr[0] \
-            + x*ccr[1] \
-            + ec[0]*ccr[2] \
-            + ec[1]*ccr[3] \
-            + x*ec[0]*ccr[4] \
-            + x*ec[1]*ccr[5] \
-            + ec[0]*ec[1]*ccr[6] \
-            + x**2*ccr[7]\
-            + ec[0]**2*ccr[8]\
-            + ec[1]**2*ccr[9]
-        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
-        
-        return center_center, center_radius + radius 
+        center_center = cc[0]*x + cc[1]
+        radius = cr[0] + x*cr[1] + x**2*cr[2]
+        return center_center, radius 
     else:
         x = point[0]
         y = point[1]
-        ec = Ec
-        er = Er
-        center_center = ccc[0]*x + ccc[1]*y + ccc[2]*ec[0] + ccc[3]*ec[1] + ccc[4]
-        center_radius = ccr[0] \
-            + x*ccr[1] \
-            + y*ccr[2] \
-            + ec[0]*ccr[3] \
-            + ec[1]*ccr[4] \
-            + x*ec[0]*ccr[5] \
-            + y*ec[0]*ccr[6] \
-            + x*ec[1]*ccr[7] \
-            + y*ec[1]*ccr[8] \
-            + x*y*ccr[9] \
-            + ec[0]*ec[1]*ccr[10] \
-            + x**2*ccr[11] \
-            + y**2*ccr[12] \
-            + ec[0]**2*ccr[13] \
-            + ec[1]**2*ccr[14]
-        radius = np.abs((cr[0] + cr[1]*x + cr[2]*y))*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
-        return center_center, center_radius+radius
+        center_center = cc[0]*x + cc[1]*y + cc[2]
+        radius = cr[0] + x*cr[1] + y*cr[2] + x*y*cr[3] + x**2*cr[4] + y**2*cr[5]
+        return center_center, radius
         
-def get_vision_estimation(point: np.ndarray, Ec: np.ndarray, Er: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    x_c, x_r = apply_model(model_x, point, Ec, Er)
-    y_c, y_r = apply_model(model_y, point, Ec, Er)
-    z_c, z_r = apply_model(model_z, point, Ec, Er)
-    yaw_c, yaw_r = apply_model(model_yaw, point, Ec, Er)
-    pitch_c, pitch_r = apply_model(model_pitch, point, Ec, Er)
+def get_vision_estimation(point: np.ndarray, models) -> Tuple[np.ndarray, np.ndarray]:
+    x_c, x_r = apply_model(models[0], point)
+    y_c, y_r = apply_model(models[1], point)
+    z_c, z_r = apply_model(models[2], point)
+    yaw_c, yaw_r = apply_model(models[3], point)
+    pitch_c, pitch_r = apply_model(models[4], point)
 
 
     low = np.array([x_c-x_r, y_c-y_r, z_c-z_r, yaw_c-yaw_r, pitch_c-pitch_r, point[5]])
@@ -316,13 +207,13 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
-def verify_step(point, Ec, Er, ref):
+def verify_step(point, M, computation_steps, time_steps, ref):
     # print(C_step, step, i, point)
 
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
-    estimate_low, estimate_high = get_vision_estimation(point, Ec, Er)
+    estimate_low, estimate_high = get_vision_estimation(point, M)
     init_low = np.concatenate((point, estimate_low, ref))
     init_high = np.concatenate((point, estimate_high, ref))
     init = np.vstack((init_low, init_high))       
@@ -343,12 +234,12 @@ def verify_step(point, Ec, Er, ref):
     return np.array(traces.root.trace['a1'])
 
 @ray.remote
-def verify_step_remote(point, Ec, Er, ref):
+def verify_step_remote(point, M, computation_steps, time_steps, ref):
     # print(C_step, step, i, point)
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
-    estimate_low, estimate_high = get_vision_estimation(point, Ec, Er)
+    estimate_low, estimate_high = get_vision_estimation(point, M)
     init_low = np.concatenate((point, estimate_low, ref))
     init_high = np.concatenate((point, estimate_high, ref))
     init = np.vstack((init_low, init_high))       
@@ -368,24 +259,14 @@ def verify_step_remote(point, Ec, Er, ref):
     # tmp = pickle.dumps(traces.root.trace['a1'])
     return np.array(traces.root.trace['a1'])
 
-if __name__ == "__main__":
-    
-    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
-    # fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
-    script_path = os.path.realpath(os.path.dirname(__file__))
-    fixed_wing_controller = os.path.join(script_path, 'fixed_wing3_dl.py')
-    aircraft = FixedWingAgent3("a1")
-    fixed_wing_scenario.add_agent(aircraft)
+def compute_and_check(X_0, M, R):
     # x, y, z, yaw, pitch, v
     ray.init(num_cpus=12,log_to_driver=False)
     # state = np.array([
     #     [-3050.0, -20, 110.0, 0-0.01, -np.deg2rad(3)-0.01, 10-0.1], 
     #     [-3010.0, 20, 130.0, 0+0.01, -np.deg2rad(3)+0.01, 10+0.1]
     # ])
-    state = np.array([
-        [-3020.0, -5, 118.0, 0-0.001, -np.deg2rad(3)-0.001, 10-0.01], 
-        [-3010.0, 5, 122.0, 0+0.001, -np.deg2rad(3)+0.001, 10+0.01]
-    ])
+    state = X_0
     tmp = [
         [state[0,0], state[1,0]],
         [state[0,1], state[1,1]],
@@ -398,21 +279,13 @@ if __name__ == "__main__":
     hull = scipy.spatial.ConvexHull(vertices)
     # state_low = state[0,:]
     # state_high = state[1,:]
-    num_dim = state.shape[1]
 
     # Parameters
     num_sample = 100
     computation_steps = 0.1
-    time_steps = 0.01
     C_compute_step = 80
-    C_num = 5
+    C_num = 10
     parallel = True
-    Ec1 = [0.75, 0.85, 0.95, 1.05]
-    Ec2 = [0.05, 0.15, 0.25]
-    Er1 = [0.05, 0.15]
-    Er2 = [0.05, 0.15]
-    Ec = [0.55, 0.45] 
-    Er = [0.05, 0.05]
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -432,12 +305,6 @@ if __name__ == "__main__":
                 reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
 
                 traces_list = []
-                point_list = []
-                point_idx_list = []
-                
-                # if step == 37:
-                #     print('stop')
-
                 if step == 0:
                     # vertex_num = int(num_sample*0.05)
                     # sample_num = num_sample - vertex_num
@@ -447,13 +314,6 @@ if __name__ == "__main__":
                     sample_sample = sample_point_poly(hull, num_sample)
                     samples = np.vstack((vertex_sample, sample_sample))
                 else:
-                    # vertex_num = int(num_sample*0.5)
-                    # sample_num = num_sample - vertex_num
-                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
-                    # vertex_sample = hull.points[vertex_idxs,:]
-                    # sample_sample = sample_point_poly(hull, sample_num)
-                    # samples = np.vstack((vertex_sample, sample_sample))
-
                     sample_sample = sample_point_poly(hull, num_sample)
                     samples = np.vstack((vertex_sample, sample_sample))
                     # samples = vertex_sample
@@ -474,30 +334,11 @@ if __name__ == "__main__":
                     point = samples[i,:]
                     
                     if parallel:
-                        task_list.append(verify_step_remote.remote(point, Ec, Er, ref))
+                        task_list.append(verify_step_remote.remote(point, M, computation_steps, time_steps, ref))
                     else:
                         print(C_step, step, i, point)
-                        trace = verify_step(point, Ec, Er, ref)
+                        trace = verify_step(point, M, computation_steps, time_steps, ref)
                         traces_list.append(trace)
-
-                    # estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.35])
-
-                    # init_low = np.concatenate((point, estimate_low, ref))
-                    # init_high = np.concatenate((point, estimate_high, ref))
-                    # init = np.vstack((init_low, init_high))       
-
-                    # fixed_wing_scenario.set_init(
-                    #     [init],
-                    #     [
-                    #         (FixedWingMode.Normal,)
-                    #     ],
-                    # )
-                    # # TODO: WE should be able to initialize each of the balls separately
-                    # # this may be the cause for the VisibleDeprecationWarning
-                    # # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
-                    # # "-2 \leq myball1.x + myball2.x \leq 5"
-                    # traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
-                    # traces_list.append(traces)
 
                 if parallel:
                     traces_list = ray.get(task_list)
@@ -517,10 +358,13 @@ if __name__ == "__main__":
             # last_rect = reachable_set[-1]
             # next_init = np.array(last_rect)[:,1:]
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
-            C_list.append(C_set)
+            
+            # TODO: Check containment of C_set and R
+            res = check_containment(C_set, R)
+            if res == 'unsafe' or res == 'unknown':
+                return res, C_list
 
-            with open('computed_cone_065_005_045_005.pickle','wb+') as f:
-                pickle.dump(C_list, f)
+            C_list.append(C_set)
 
             tmp = [
                 [next_init[0,0], next_init[1,0]],
@@ -536,88 +380,9 @@ if __name__ == "__main__":
         #     break
 
     ray.shutdown()
+    return 'safe', C_list
 
-    for C_rect in C_list:
-        # rect_low = C_rect[0]
-        # rect_high = C_rect[1]
 
-        low = C_rect[0]
-        high = C_rect[1]
-        step_time = low[0]*C_compute_step*computation_steps
-        plt.figure(0)
-        plt.plot(
-            [low[1], high[1], high[1], low[1], low[1]], 
-            [low[2], low[2], high[2], high[2], low[2]],
-            'b'
-        )
-        plt.figure(1)
-        plt.plot(
-            [step_time, step_time], [low[1], high[1]],
-            'b'
-        )
-        plt.figure(2)
-        plt.plot(
-            [step_time, step_time], [low[2], high[2]],
-            'b'
-        )
-        plt.figure(3)
-        plt.plot(
-            [step_time, step_time], [low[3], high[3]],
-            'b'
-        )
-        plt.figure(4)
-        plt.plot(
-            [step_time, step_time], [low[4], high[4]],
-            'b'
-        )
-        plt.figure(5)
-        plt.plot(
-            [step_time, step_time], [low[5], high[5]],
-            'b'
-        )
-        plt.figure(6)
-        plt.plot(
-            [step_time, step_time], [low[6], high[6]],
-            'b'
-        )
-
-    # state = np.array([
-    #     [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
-    #     [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
-    # ])
-    state = np.array([
-        [-3020.0, -5, 118.0, 0-0.001, -np.deg2rad(3)-0.001, 10-0.01], 
-        [-3010.0, 5, 122.0, 0+0.001, -np.deg2rad(3)+0.001, 10+0.01]
-    ])
-    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-    time_horizon = computation_steps*C_num*C_compute_step
-
-    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
-    # fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
-    script_path = os.path.realpath(os.path.dirname(__file__))
-    fixed_wing_controller = os.path.join(script_path, 'fixed_wing3_dl.py')
-    aircraft = FixedWingAgent3("a1")
-    fixed_wing_scenario.add_agent(aircraft)
-
-    for i in range(20):
-        init_point = sample_point(state[0,:], state[1,:])
-        init_ref = copy.deepcopy(ref)
-        trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps, Ec, Er)
-        trace = np.array(trace)
-        plt.figure(0)
-        plt.plot(trace[:,1], trace[:,2], 'r')
-        plt.figure(1)
-        plt.plot(trace[:,0], trace[:,1], 'r')
-        plt.figure(2)
-        plt.plot(trace[:,0], trace[:,2], 'r')
-        plt.figure(3)
-        plt.plot(trace[:,0], trace[:,3], 'r')
-        plt.figure(4)
-        plt.plot(trace[:,0], trace[:,4], 'r')
-        plt.figure(5)
-        plt.plot(trace[:,0], trace[:,5], 'r')
-        plt.figure(6)
-        plt.plot(trace[:,0], trace[:,6], 'r')
-
-    plt.show()
-       
+if __name__ == "__main__":
+    
+    

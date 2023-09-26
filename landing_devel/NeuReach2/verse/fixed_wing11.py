@@ -16,12 +16,13 @@ import itertools
 import scipy.spatial
 from datetime import datetime 
 from verse.analysis.verifier import ReachabilityMethod
+
+from typing import List 
 from verse.analysis.analysis_tree import AnalysisTree
 
 import pickle 
 import json 
-
-from typing import List 
+import ray
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
@@ -251,17 +252,18 @@ def sample_point_poly(hull: scipy.spatial.ConvexHull, n: int) -> np.ndarray:
 def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     vertex_list = []
     sample_vertex = np.zeros((0,6))
-    for analysis_tree in trace_list:
-        rect_low = analysis_tree.nodes[0].trace['a1'][-2][1:7]
-        rect_high = analysis_tree.nodes[0].trace['a1'][-1][1:7]
-        tmp = [
-            [rect_low[0], rect_high[0]],
-            [rect_low[1], rect_high[1]],
-            [rect_low[2], rect_high[2]],
-            [rect_low[3], rect_high[3]],
-            [rect_low[4], rect_high[4]],
-            [rect_low[5], rect_high[5]],
-        ]
+    for trace in trace_list:
+        # trace = pickle.loads(tmp)
+        rect_low = trace[-2,1:7]
+        rect_high = trace[-1,1:7]
+        # tmp = [
+        #     [rect_low[0], rect_high[0]],
+        #     [rect_low[1], rect_high[1]],
+        #     [rect_low[2], rect_high[2]],
+        #     [rect_low[3], rect_high[3]],
+        #     [rect_low[4], rect_high[4]],
+        #     [rect_low[5], rect_high[5]],
+        # ]
         # vertices = np.array(list(itertools.product(*tmp)))
         sample = np.random.uniform(rect_low, rect_high)
         sample_vertex = np.vstack((sample_vertex, sample))
@@ -285,14 +287,14 @@ def get_next_poly(trace_list) -> scipy.spatial.ConvexHull:
     hull = scipy.spatial.ConvexHull(vertices, qhull_options='Qx Qt QbB Q12 Qc')    
     return hull, sample_vertex
 
-def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step):
+def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_step, time_step, Ec, Er):
     time_points = np.arange(0, time_horizon+computation_step/2, computation_step)
 
     traj = [np.insert(init_point, 0, 0)]
     point = init_point 
     ref = init_ref
     for t in time_points[1:]:
-        estimate_lower, estimate_upper = get_vision_estimation(point, [0.85], [0.35])
+        estimate_lower, estimate_upper = get_vision_estimation(point, Ec, Er)
         estimate_point = sample_point(estimate_lower, estimate_upper)
         init = np.concatenate((point, estimate_point, ref))
         scenario.set_init(
@@ -306,13 +308,16 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
         ref = run_ref(ref, computation_step)
     return traj
 
-def verify_step(point, Ec, Er):
+def verify_step(point, Ec, Er, ref):
+    # print(C_step, step, i, point)
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
-    estimate_low, estimate_high = get_vision_estimation(point, Ec, Er)
-    init_low = np.concatenate((point, estimate_low, ref))
-    init_high = np.concatenate((point, estimate_high, ref))
+    estimate_low, estimate_high = get_vision_estimation_partition(copy.deepcopy(partition), Ec, Er)
+    
+    init_low = np.concatenate((partition[0,:], estimate_low, ref))
+    init_high = np.concatenate((partition[1,:], estimate_high, ref))
+
     init = np.vstack((init_low, init_high))       
 
     fixed_wing_scenario.set_init(
@@ -326,103 +331,38 @@ def verify_step(point, Ec, Er):
     # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
     # "-2 \leq myball1.x + myball2.x \leq 5"
     traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
-    return traces
 
-def get_partitions(hull: List[np.ndarray])->List[np.ndarray]:
-    # Given a list of rectangles,
-    # Get the list of corresponding partitions
-    bounding_box = get_bounding_box_partitions(hull)
-    x_partition_size = int((bounding_box[1,0]-bounding_box[0,0])/10)+1
-    y_partition_size = int((bounding_box[1,1]-bounding_box[0,1])/2)+1
-    z_partition_size = int((bounding_box[1,2]-bounding_box[0,2])/5)+1
-    yaw_partition_size = int((bounding_box[1,3]-bounding_box[0,3])/0.005)+1
-    pitch_partition_size = int((bounding_box[1,4]-bounding_box[0,4])/0.005)+1
-    v_partition_size = int((bounding_box[1,5]-bounding_box[0,5])/0.01)+1
+
+    return np.array(traces.root.trace['a1'])
+
+
+@ray.remote
+def verify_step_remote(partition, Ec, Er, ref):
+    # print(C_step, step, i, point)
+    fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
+    aircraft = FixedWingAgent3("a1")
+    fixed_wing_scenario.add_agent(aircraft)
+    estimate_low, estimate_high = get_vision_estimation_partition(copy.deepcopy(partition), Ec, Er)
     
-    x_range = np.linspace(bounding_box[0,0], bounding_box[1,0], x_partition_size)
-    y_range = np.linspace(bounding_box[0,1], bounding_box[1,1], y_partition_size)
-    z_range = np.linspace(bounding_box[0,2], bounding_box[1,2], z_partition_size)
-    yaw_range = np.linspace(bounding_box[0,3], bounding_box[1,3], yaw_partition_size)
-    pitch_range = np.linspace(bounding_box[0,4], bounding_box[1,4], pitch_partition_size)
-    v_range = np.linspace(bounding_box[0,5], bounding_box[1,5], v_partition_size)
+    init_low = np.concatenate((partition[0,:], estimate_low, ref))
+    init_high = np.concatenate((partition[1,:], estimate_high, ref))
 
-    used_partitions = []
-    partition_map = np.zeros((
-        len(x_range)-1,
-        len(y_range)-1,
-        len(z_range)-1,
-        len(yaw_range)-1,
-        len(pitch_range)-1,
-        len(v_range)-1,
-    ))                 
-    for partition in hull:
-        x_indices_list = []
-        for i in range(len(x_range)-1):
-            if (partition[0,0]>=x_range[i] and partition[0,0]<=x_range[i+1]) or \
-                (partition[1,0]>=x_range[i] and partition[1,0]<=x_range[i+1]) or \
-                (partition[0,0]<=x_range[i] and partition[1,0]>=x_range[i+1]):
-                x_indices_list.append(i)
-        
-        y_indices_list = []
-        for i in range(len(y_range)-1):
-            if (partition[0,1]>=y_range[i] and partition[0,1]<=y_range[i+1]) or \
-                (partition[1,1]>=y_range[i] and partition[1,1]<=y_range[i+1]) or \
-                (partition[0,1]<=y_range[i] and partition[1,1]>=y_range[i+1]):
-                y_indices_list.append(i)
+    init = np.vstack((init_low, init_high))       
 
-        z_indices_list = []
-        for i in range(len(z_range)-1):
-            if (partition[0,2]>=z_range[i] and partition[0,2]<=z_range[i+1]) or \
-                (partition[1,2]>=z_range[i] and partition[1,2]<=z_range[i+1]) or \
-                (partition[0,2]<=z_range[i] and partition[1,2]>=z_range[i+1]):
-                z_indices_list.append(i)
+    fixed_wing_scenario.set_init(
+        [init],
+        [
+            (FixedWingMode.Normal,)
+        ],
+    )
+    # TODO: WE should be able to initialize each of the balls separately
+    # this may be the cause for the VisibleDeprecationWarning
+    # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+    # "-2 \leq myball1.x + myball2.x \leq 5"
+    traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
 
-        yaw_indices_list = []
-        for i in range(len(yaw_range)-1):
-            if (partition[0,3]>=yaw_range[i] and partition[0,3]<=yaw_range[i+1]) or \
-                (partition[1,3]>=yaw_range[i] and partition[1,3]<=yaw_range[i+1]) or \
-                (partition[0,3]<=yaw_range[i] and partition[1,3]>=yaw_range[i+1]):
-                yaw_indices_list.append(i)
 
-        pitch_indices_list = []
-        for i in range(len(pitch_range)-1):
-            if (partition[0,4]>=pitch_range[i] and partition[0,4]<=pitch_range[i+1]) or \
-                (partition[1,4]>=pitch_range[i] and partition[1,4]<=pitch_range[i+1]) or \
-                (partition[0,4]<=pitch_range[i] and partition[1,4]>=pitch_range[i+1]):
-                pitch_indices_list.append(i)
-
-        v_indices_list = []
-        for i in range(len(v_range)-1):
-            if (partition[0,5]>=v_range[i] and partition[0,5]<=v_range[i+1]) or \
-                (partition[1,5]>=v_range[i] and partition[1,5]<=v_range[i+1]) or \
-                (partition[0,5]<=v_range[i] and partition[1,5]>=v_range[i+1]):
-                v_indices_list.append(i)
-
-        new_partitions = list(itertools.product(x_indices_list, y_indices_list, z_indices_list, yaw_indices_list, pitch_indices_list, v_indices_list))
-
-        for npar in new_partitions:
-            if partition_map[npar]!=1:
-                partition_map[npar]==1
-                part = np.array([
-                    [
-                        x_range[npar[0]], 
-                        y_range[npar[1]], 
-                        z_range[npar[2]], 
-                        yaw_range[npar[3]], 
-                        pitch_range[npar[4]], 
-                        v_range[npar[5]]
-                    ],
-                    [
-                        x_range[npar[0]+1], 
-                        y_range[npar[1]+1], 
-                        z_range[npar[2]+1], 
-                        yaw_range[npar[3]+1], 
-                        pitch_range[npar[4]+1], 
-                        v_range[npar[5]+1]
-                    ],
-                ])
-                used_partitions.append(part)
-    return used_partitions
+    return np.array(traces.root.trace['a1'])
 
 def apply_model_partition(model, partition, Ec, Er):
     dim = model['dim']
@@ -509,8 +449,8 @@ def get_next_init(traces_list: List[AnalysisTree])->List[np.ndarray]:
     # Export the last rectangle in each reachable set
     res_list = []
     for trace in traces_list:
-        low = trace.nodes[0].trace['a1'][-2][1:7]
-        high = trace.nodes[0].trace['a1'][-1][1:7]
+        low = trace[-2][1:7]
+        high = trace[-1][1:7]
         res_list.append(np.array([low, high]))
     return res_list
 
@@ -523,6 +463,102 @@ def get_bounding_box_partitions(hull: List[np.ndarray]) -> np.ndarray:
     lb = np.min(hull_array, axis=0)
     return np.vstack((lb, ub))
 
+def get_partitions(hull: List[np.ndarray])->List[np.ndarray]:
+    # Given a list of rectangles,
+    # Get the list of corresponding partitions
+    bounding_box = get_bounding_box_partitions(hull)
+    x_partition_size = max(int((bounding_box[1,0]-bounding_box[0,0])/2)+1,2)
+    y_partition_size = max(int((bounding_box[1,1]-bounding_box[0,1])/2)+1,2)
+    z_partition_size = max(int((bounding_box[1,2]-bounding_box[0,2])/1)+1,2)
+    yaw_partition_size = max(int((bounding_box[1,3]-bounding_box[0,3])/0.01)+1,2)
+    pitch_partition_size = max(int((bounding_box[1,4]-bounding_box[0,4])/0.001)+1,2)
+    v_partition_size = max(int((bounding_box[1,5]-bounding_box[0,5])/0.005)+1,2)
+    
+    x_range = np.linspace(bounding_box[0,0], bounding_box[1,0], x_partition_size)
+    y_range = np.linspace(bounding_box[0,1], bounding_box[1,1], y_partition_size)
+    z_range = np.linspace(bounding_box[0,2], bounding_box[1,2], z_partition_size)
+    yaw_range = np.linspace(bounding_box[0,3], bounding_box[1,3], yaw_partition_size)
+    pitch_range = np.linspace(bounding_box[0,4], bounding_box[1,4], pitch_partition_size)
+    v_range = np.linspace(bounding_box[0,5], bounding_box[1,5], v_partition_size)
+
+    used_partitions = []
+    partition_map = np.zeros((
+        len(x_range)-1,
+        len(y_range)-1,
+        len(z_range)-1,
+        len(yaw_range)-1,
+        len(pitch_range)-1,
+        len(v_range)-1,
+    ))                 
+    for partition in hull:
+        x_indices_list = []
+        for i in range(len(x_range)-1):
+            if (partition[0,0]>=x_range[i] and partition[0,0]<=x_range[i+1]) or \
+                (partition[1,0]>=x_range[i] and partition[1,0]<=x_range[i+1]) or \
+                (partition[0,0]<=x_range[i] and partition[1,0]>=x_range[i+1]):
+                x_indices_list.append(i)
+        
+        y_indices_list = []
+        for i in range(len(y_range)-1):
+            if (partition[0,1]>=y_range[i] and partition[0,1]<=y_range[i+1]) or \
+                (partition[1,1]>=y_range[i] and partition[1,1]<=y_range[i+1]) or \
+                (partition[0,1]<=y_range[i] and partition[1,1]>=y_range[i+1]):
+                y_indices_list.append(i)
+
+        z_indices_list = []
+        for i in range(len(z_range)-1):
+            if (partition[0,2]>=z_range[i] and partition[0,2]<=z_range[i+1]) or \
+                (partition[1,2]>=z_range[i] and partition[1,2]<=z_range[i+1]) or \
+                (partition[0,2]<=z_range[i] and partition[1,2]>=z_range[i+1]):
+                z_indices_list.append(i)
+
+        yaw_indices_list = []
+        for i in range(len(yaw_range)-1):
+            if (partition[0,3]>=yaw_range[i] and partition[0,3]<=yaw_range[i+1]) or \
+                (partition[1,3]>=yaw_range[i] and partition[1,3]<=yaw_range[i+1]) or \
+                (partition[0,3]<=yaw_range[i] and partition[1,3]>=yaw_range[i+1]):
+                yaw_indices_list.append(i)
+
+        pitch_indices_list = []
+        for i in range(len(pitch_range)-1):
+            if (partition[0,4]>=pitch_range[i] and partition[0,4]<=pitch_range[i+1]) or \
+                (partition[1,4]>=pitch_range[i] and partition[1,4]<=pitch_range[i+1]) or \
+                (partition[0,4]<=pitch_range[i] and partition[1,4]>=pitch_range[i+1]):
+                pitch_indices_list.append(i)
+
+        v_indices_list = []
+        for i in range(len(v_range)-1):
+            if (partition[0,5]>=v_range[i] and partition[0,5]<=v_range[i+1]) or \
+                (partition[1,5]>=v_range[i] and partition[1,5]<=v_range[i+1]) or \
+                (partition[0,5]<=v_range[i] and partition[1,5]>=v_range[i+1]):
+                v_indices_list.append(i)
+
+        new_partitions = list(itertools.product(x_indices_list, y_indices_list, z_indices_list, yaw_indices_list, pitch_indices_list, v_indices_list))
+
+        for npar in new_partitions:
+            if partition_map[npar]!=1:
+                partition_map[npar]=1
+                part = np.array([
+                    [
+                        x_range[npar[0]], 
+                        y_range[npar[1]], 
+                        z_range[npar[2]], 
+                        yaw_range[npar[3]], 
+                        pitch_range[npar[4]], 
+                        v_range[npar[5]]
+                    ],
+                    [
+                        x_range[npar[0]+1], 
+                        y_range[npar[1]+1], 
+                        z_range[npar[2]+1], 
+                        yaw_range[npar[3]+1], 
+                        pitch_range[npar[4]+1], 
+                        v_range[npar[5]+1]
+                    ],
+                ])
+                used_partitions.append(part)
+    return used_partitions
+
 if __name__ == "__main__":
     
     fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
@@ -532,9 +568,10 @@ if __name__ == "__main__":
     aircraft = FixedWingAgent3("a1")
     fixed_wing_scenario.add_agent(aircraft)
     # x, y, z, yaw, pitch, v
+    ray.init(num_cpus=12,log_to_driver=False)
     state = np.array([
-        [-3050.0, -20, 110.0, 0-0.01, -np.deg2rad(3)-0.01, 10-0.01], 
-        [-3010.0, 20, 130.0, 0+0.01, -np.deg2rad(3)+0.01, 10+0.01]
+        [-3020.0, -5, 118.0, 0-0.001, -np.deg2rad(3)-0.001, 10-0.01], 
+        [-3010.0, 5, 122.0, 0+0.001, -np.deg2rad(3)+0.001, 10+0.01]
     ])
     tmp = [
         [state[0,0], state[1,0]],
@@ -551,11 +588,14 @@ if __name__ == "__main__":
     num_dim = state.shape[1]
 
     # Parameters
-    num_sample = 200
+    num_sample = 150
     computation_steps = 0.1
     time_steps = 0.01
     C_compute_step = 80
-    C_num = 15
+    C_num = 10
+    parallel = True
+    Ec = [0.85] 
+    Er = [0.15]
 
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
@@ -568,44 +608,64 @@ if __name__ == "__main__":
         # try:
             reachable_set = []
             for step in range(C_compute_step):
+                print(">>>>>>>>>>>>>>>>", C_step, step)
                 partitions = get_partitions(hull)
+
+                task_list = []
                 traces_list = []
+                print(len(partitions))
                 for i in range(len(partitions)):
-                    partition = partitions[i]
-                    print(C_step, step, i, partition)
-                    estimate_low, estimate_high = get_vision_estimation_partition(copy.deepcopy(partition), [0.85], [0.35])
                     
-                    init_low = np.concatenate((partition[0,:], estimate_low, ref))
-                    init_high = np.concatenate((partition[1,:], estimate_high, ref))
+                    partition = partitions[i]
+                    
+                    if parallel:
+                        task_list.append(verify_step_remote.remote(partition, Ec, Er, ref))
+                    else:
+                        print(C_step, step, i, partition)
+                        trace = verify_step(partition, Ec, Er, ref)
+                        traces_list.append(trace)
 
-                    init = np.vstack((init_low, init_high))       
+                    # estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.35])
 
-                    fixed_wing_scenario.set_init(
-                        [init],
-                        [
-                            (FixedWingMode.Normal,)
-                        ],
-                    )
-                    # TODO: WE should be able to initialize each of the balls separately
-                    # this may be the cause for the VisibleDeprecationWarning
-                    # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
-                    # "-2 \leq myball1.x + myball2.x \leq 5"
-                    traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
-                    traces_list.append(traces)
+                    # init_low = np.concatenate((point, estimate_low, ref))
+                    # init_high = np.concatenate((point, estimate_high, ref))
+                    # init = np.vstack((init_low, init_high))       
 
+                    # fixed_wing_scenario.set_init(
+                    #     [init],
+                    #     [
+                    #         (FixedWingMode.Normal,)
+                    #     ],
+                    # )
+                    # # TODO: WE should be able to initialize each of the balls separately
+                    # # this may be the cause for the VisibleDeprecationWarning
+                    # # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+                    # # "-2 \leq myball1.x + myball2.x \leq 5"
+                    # traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+                    # traces_list.append(traces)
+
+                if parallel:
+                    traces_list = ray.get(task_list)
+                # hull2, vertex_sample2 = get_next_poly(traces_list)
                 hull = get_next_init(traces_list)
-
+                # box1 = get_bounding_box(hull)
+                # box2 = get_bounding_box(hull2)
+                # if (box1 != box2).any():
+                #     print('stop')
+                # plt.figure(6)
+                # plt.plot([step*0.1, step*0.1],[box[0,-1],box[1,-1]],'g')
+                # state_low = next_low 
+                # state_high = next_high 
                 ref = run_ref(ref, computation_steps)
-
-                
+            
             next_init = get_bounding_box_partitions(hull)
             # last_rect = reachable_set[-1]
             # next_init = np.array(last_rect)[:,1:]
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
             C_list.append(C_set)
 
-            # with open('computed_cone_large.pickle','wb+') as f:
-            #     pickle.dump(C_list, f)
+            with open('computed_cone_large.pickle','wb+') as f:
+                pickle.dump(C_list, f)
 
             # tmp = [
             #     [next_init[0,0], next_init[1,0]],

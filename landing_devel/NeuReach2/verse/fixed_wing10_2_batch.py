@@ -411,129 +411,150 @@ if __name__ == "__main__":
     Ec2 = [0.05, 0.15, 0.25]
     Er1 = [0.05, 0.15]
     Er2 = [0.05, 0.15]
-    Ec = [0.55, 0.45] 
+    Ec = [1.00, 0.05] 
     Er = [0.05, 0.05]
 
-    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+    combs = list(itertools.product(Ec1, Ec2, Er1, Er2))
+    print(combs)
 
-    C_list = [np.hstack((np.array([[0],[0]]),state))]
-    # point_idx_list_list = []
-    # point_list_list = []
+    for i in range(len(combs)):
+        state = np.array([
+            [-3020.0, -5, 118.0, 0-0.001, -np.deg2rad(3)-0.001, 10-0.01], 
+            [-3010.0, 5, 122.0, 0+0.001, -np.deg2rad(3)+0.001, 10+0.01]
+        ])
+        tmp = [
+            [state[0,0], state[1,0]],
+            [state[0,1], state[1,1]],
+            [state[0,2], state[1,2]],
+            [state[0,3], state[1,3]],
+            [state[0,4], state[1,4]],
+            [state[0,5], state[1,5]],
+        ]
+        vertices = np.array(list(itertools.product(*tmp)))
+        hull = scipy.spatial.ConvexHull(vertices)
+        Ec = [combs[i][0], combs[i][1]]
+        Er = [combs[i][2], combs[i][3]]
+        if Ec[1] - Er[1] < 0:
+            continue 
+        ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
-    for C_step in range(C_num):
-        # try:
-            reachable_set = []
-            for step in range(C_compute_step):
-                print(">>>>>>>>>>>>>>>>", C_step, step)
-                box = get_bounding_box(hull)
-                state_low = box[0,:]
-                state_high = box[1,:]
+        C_list = [np.hstack((np.array([[0],[0]]),state))]
+        # point_idx_list_list = []
+        # point_list_list = []
 
-                reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
+        for C_step in range(C_num):
+            # try:
+                reachable_set = []
+                for step in range(C_compute_step):
+                    print(">>>>>>>>>>>>>>>>", C_step, step)
+                    box = get_bounding_box(hull)
+                    state_low = box[0,:]
+                    state_high = box[1,:]
 
-                traces_list = []
-                point_list = []
-                point_idx_list = []
-                
-                # if step == 37:
-                #     print('stop')
+                    reachable_set.append([np.insert(state_low, 0, step*computation_steps), np.insert(state_high, 0, step*computation_steps)])
 
-                if step == 0:
-                    # vertex_num = int(num_sample*0.05)
-                    # sample_num = num_sample - vertex_num
-                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
-                    vertex_sample = hull.points[hull.vertices,:]
-                    # edge_sample = get_edge_samples(vertex_sample)
-                    sample_sample = sample_point_poly(hull, num_sample)
-                    samples = np.vstack((vertex_sample, sample_sample))
-                else:
-                    # vertex_num = int(num_sample*0.5)
-                    # sample_num = num_sample - vertex_num
-                    # vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
-                    # vertex_sample = hull.points[vertex_idxs,:]
-                    # sample_sample = sample_point_poly(hull, sample_num)
-                    # samples = np.vstack((vertex_sample, sample_sample))
-
-                    sample_sample = sample_point_poly(hull, num_sample)
-                    samples = np.vstack((vertex_sample, sample_sample))
-                    # samples = vertex_sample
-                
-                point_idx = np.argmax(hull.points[:,1])
-                samples = np.vstack((samples, hull.points[point_idx,:]))
-                # samples = sample_point_poly(hull, num_sample)
-                
-                point_idx = np.argmax(hull.points[:,0])
-                samples = np.vstack((samples, hull.points[point_idx,:]))
-                point_idx = np.argmin(hull.points[:,0])
-                samples = np.vstack((samples, hull.points[point_idx,:]))
-
-                task_list = []
-                traces_list = []
-                for i in range(samples.shape[0]):
-
-                    point = samples[i,:]
+                    traces_list = []
+                    point_list = []
+                    point_idx_list = []
                     
-                    if parallel:
-                        task_list.append(verify_step_remote.remote(point, Ec, Er, ref))
+                    # if step == 37:
+                    #     print('stop')
+
+                    if step == 0:
+                        # vertex_num = int(num_sample*0.05)
+                        # sample_num = num_sample - vertex_num
+                        # vertex_idxs = np.random.choice(hull.vertices, vertex_num)
+                        vertex_sample = hull.points[hull.vertices,:]
+                        sample_sample = sample_point_poly(hull, num_sample)
+                        samples = np.vstack((vertex_sample, sample_sample))
                     else:
-                        print(C_step, step, i, point)
-                        trace = verify_step(point, Ec, Er, ref)
-                        traces_list.append(trace)
+                        # vertex_num = int(num_sample*0.5)
+                        # sample_num = num_sample - vertex_num
+                        # vertex_idxs = np.random.choice(hull.vertices, vertex_num, replace=False)
+                        # vertex_sample = hull.points[vertex_idxs,:]
+                        # sample_sample = sample_point_poly(hull, sample_num)
+                        # samples = np.vstack((vertex_sample, sample_sample))
 
-                    # estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.35])
+                        sample_sample = sample_point_poly(hull, num_sample)
+                        samples = np.vstack((vertex_sample, sample_sample))
+                        # samples = vertex_sample
+                    
+                    point_idx = np.argmax(hull.points[:,1])
+                    samples = np.vstack((samples, hull.points[point_idx,:]))
+                    # samples = sample_point_poly(hull, num_sample)
+                    
+                    point_idx = np.argmax(hull.points[:,0])
+                    samples = np.vstack((samples, hull.points[point_idx,:]))
+                    point_idx = np.argmin(hull.points[:,0])
+                    samples = np.vstack((samples, hull.points[point_idx,:]))
 
-                    # init_low = np.concatenate((point, estimate_low, ref))
-                    # init_high = np.concatenate((point, estimate_high, ref))
-                    # init = np.vstack((init_low, init_high))       
+                    task_list = []
+                    traces_list = []
+                    for i in range(samples.shape[0]):
 
-                    # fixed_wing_scenario.set_init(
-                    #     [init],
-                    #     [
-                    #         (FixedWingMode.Normal,)
-                    #     ],
-                    # )
-                    # # TODO: WE should be able to initialize each of the balls separately
-                    # # this may be the cause for the VisibleDeprecationWarning
-                    # # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
-                    # # "-2 \leq myball1.x + myball2.x \leq 5"
-                    # traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
-                    # traces_list.append(traces)
+                        point = samples[i,:]
+                        
+                        if parallel:
+                            task_list.append(verify_step_remote.remote(point, Ec, Er, ref))
+                        else:
+                            print(C_step, step, i, point)
+                            trace = verify_step(point, Ec, Er, ref)
+                            traces_list.append(trace)
 
-                if parallel:
-                    traces_list = ray.get(task_list)
-                # hull2, vertex_sample2 = get_next_poly(traces_list)
-                hull, vertex_sample = get_next_poly(traces_list)
-                # box1 = get_bounding_box(hull)
-                # box2 = get_bounding_box(hull2)
-                # if (box1 != box2).any():
-                #     print('stop')
-                # plt.figure(6)
-                # plt.plot([step*0.1, step*0.1],[box[0,-1],box[1,-1]],'g')
-                # state_low = next_low 
-                # state_high = next_high 
-                ref = run_ref(ref, computation_steps)
-            
-            next_init = get_bounding_box(hull)
-            # last_rect = reachable_set[-1]
-            # next_init = np.array(last_rect)[:,1:]
-            C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
-            C_list.append(C_set)
+                        # estimate_low, estimate_high = get_vision_estimation(point, [0.85], [0.35])
 
-            with open('computed_cone_065_005_045_005.pickle','wb+') as f:
-                pickle.dump(C_list, f)
+                        # init_low = np.concatenate((point, estimate_low, ref))
+                        # init_high = np.concatenate((point, estimate_high, ref))
+                        # init = np.vstack((init_low, init_high))       
 
-            tmp = [
-                [next_init[0,0], next_init[1,0]],
-                [next_init[0,1], next_init[1,1]],
-                [next_init[0,2], next_init[1,2]],
-                [next_init[0,3], next_init[1,3]],
-                [next_init[0,4], next_init[1,4]],
-                [next_init[0,5], next_init[1,5]],
-            ]
-            vertices = np.array(list(itertools.product(*tmp)))
-            hull = scipy.spatial.ConvexHull(vertices)
-        # except:
-        #     break
+                        # fixed_wing_scenario.set_init(
+                        #     [init],
+                        #     [
+                        #         (FixedWingMode.Normal,)
+                        #     ],
+                        # )
+                        # # TODO: WE should be able to initialize each of the balls separately
+                        # # this may be the cause for the VisibleDeprecationWarning
+                        # # TODO: Longer term: We should initialize by writing expressions like "-2 \leq myball1.x \leq 5"
+                        # # "-2 \leq myball1.x + myball2.x \leq 5"
+                        # traces = fixed_wing_scenario.verify(computation_steps, time_steps, params={'bloating_method':'GLOBAL'})
+                        # traces_list.append(traces)
+
+                    if parallel:
+                        traces_list = ray.get(task_list)
+                    # hull2, vertex_sample2 = get_next_poly(traces_list)
+                    hull, vertex_sample = get_next_poly(traces_list)
+                    # box1 = get_bounding_box(hull)
+                    # box2 = get_bounding_box(hull2)
+                    # if (box1 != box2).any():
+                    #     print('stop')
+                    # plt.figure(6)
+                    # plt.plot([step*0.1, step*0.1],[box[0,-1],box[1,-1]],'g')
+                    # state_low = next_low 
+                    # state_high = next_high 
+                    ref = run_ref(ref, computation_steps)
+                
+                next_init = get_bounding_box(hull)
+                # last_rect = reachable_set[-1]
+                # next_init = np.array(last_rect)[:,1:]
+                C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
+                C_list.append(C_set)
+
+                with open(f'./res/computed_cone_{int(Ec[0]*100):03d}_{int(Er[0]*100):03d}_{int(Ec[1]*100):03d}_{int(Er[1]*100):03d}.pickle','wb+') as f:
+                    pickle.dump(C_list, f)
+
+                tmp = [
+                    [next_init[0,0], next_init[1,0]],
+                    [next_init[0,1], next_init[1,1]],
+                    [next_init[0,2], next_init[1,2]],
+                    [next_init[0,3], next_init[1,3]],
+                    [next_init[0,4], next_init[1,4]],
+                    [next_init[0,5], next_init[1,5]],
+                ]
+                vertices = np.array(list(itertools.product(*tmp)))
+                hull = scipy.spatial.ConvexHull(vertices)
+            # except:
+            #     break
 
     ray.shutdown()
 

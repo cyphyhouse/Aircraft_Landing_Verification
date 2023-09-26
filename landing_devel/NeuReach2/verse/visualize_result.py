@@ -20,6 +20,8 @@ from verse import Scenario, ScenarioConfig
 
 import os 
 
+model_radius_decay = lambda r, r_max: (1/np.sqrt(r_max))*np.sqrt(r) # Input to this function is the radius of environmental parameters
+
 class Faces():
     def __init__(self,tri, sig_dig=12, method="convexhull"):
         self.method=method
@@ -100,11 +102,11 @@ def plot_polytope_3d(A, b, ax = None, edgecolor = 'k', color = 'red', trans = 0.
 
 script_dir = os.path.realpath(os.path.dirname(__file__))
 
-model_x_name = '../models/model_x.json'
-model_y_name = '../models/model_y.json'
-model_z_name = '../models/model_z.json'
-model_yaw_name = '../models/model_yaw.json'
-model_pitch_name = '../models/model_pitch.json'
+model_x_name = '../models/model_x2.json'
+model_y_name = '../models/model_y2.json'
+model_z_name = '../models/model_z2.json'
+model_yaw_name = '../models/model_yaw2.json'
+model_pitch_name = '../models/model_pitch2.json'
 
 with open(os.path.join(script_dir, model_x_name), 'r') as f:
     model_x = json.load(f)
@@ -132,9 +134,9 @@ class FixedWingMode(Enum):
 
 def apply_model(model, point, Ec, Er):
     dim = model['dim']
-    coef_cc = model['coef_center_center']
-    coef_cr = model['coef_center_radius']
-    coef_r = model['coef_radius']
+    ccc = model['coef_center_center']
+    ccr = model['coef_center_radius']
+    cr = model['coef_radius']
 
     if dim == 'x':
         point = point[0]
@@ -147,39 +149,48 @@ def apply_model(model, point, Ec, Er):
     elif dim == 'pitch':
         point = point[(0,4),]
 
-    model_radius_decay = lambda r: (1/np.sqrt(0.35))*np.sqrt(r)
     if dim == 'x':
         x = point
-        ec = Ec[0]
-        er = Er[0]
-        center_center = coef_cc[0] * x + coef_cc[1] * ec + coef_cc[2]
-        center_radius = coef_cr[0] \
-            + x*coef_cr[1] \
-            + ec*coef_cr[2] \
-            + x*ec*coef_cr[3] \
-            + x**2*coef_cr[4]\
-            + ec**2*coef_cr[4]
-        radius = (coef_r[0]+coef_r[1]*x) * model_radius_decay(er)
+        ec = Ec
+        er = Er
+        center_center = ccc[0]*x + ccc[1]*ec[0] + ccc[2]*ec[1] + ccc[3]
+        center_radius = ccr[0] \
+            + x*ccr[1] \
+            + ec[0]*ccr[2] \
+            + ec[1]*ccr[3] \
+            + x*ec[0]*ccr[4] \
+            + x*ec[1]*ccr[5] \
+            + ec[0]*ec[1]*ccr[6] \
+            + x**2*ccr[7]\
+            + ec[0]**2*ccr[8]\
+            + ec[1]**2*ccr[9]
+        radius = (cr[0] + cr[1]*x)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
+        
         return center_center, center_radius + radius 
     else:
         x = point[0]
         y = point[1]
-        ec = Ec[0]
-        er = Er[0]
-        center_center = coef_cc[0]*x+coef_cc[1]*y+coef_cc[2]*ec+coef_cc[3]
-        center_radius = coef_cr[0] \
-            + x*coef_cr[1] \
-            + y*coef_cr[2] \
-            + ec*coef_cr[3] \
-            + x*ec*coef_cr[4] \
-            + y*ec*coef_cr[5] \
-            + x*y*coef_cr[6] \
-            + x**2*coef_cr[7]\
-            + y**2*coef_cr[8] \
-            + ec**2*coef_cr[9]
-        radius = (coef_r[0] + coef_r[1]*x + coef_r[2]*y)*model_radius_decay(er)
+        ec = Ec
+        er = Er
+        center_center = ccc[0]*x + ccc[1]*y + ccc[2]*ec[0] + ccc[3]*ec[1] + ccc[4]
+        center_radius = ccr[0] \
+            + x*ccr[1] \
+            + y*ccr[2] \
+            + ec[0]*ccr[3] \
+            + ec[1]*ccr[4] \
+            + x*ec[0]*ccr[5] \
+            + y*ec[0]*ccr[6] \
+            + x*ec[1]*ccr[7] \
+            + y*ec[1]*ccr[8] \
+            + x*y*ccr[9] \
+            + ec[0]*ec[1]*ccr[10] \
+            + x**2*ccr[11] \
+            + y**2*ccr[12] \
+            + ec[0]**2*ccr[13] \
+            + ec[1]**2*ccr[14]
+        radius = (cr[0] + cr[1]*x + cr[2]*y)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
         return center_center, center_radius+radius
-        
+
 def get_vision_estimation(point: np.ndarray, Ec: np.ndarray, Er: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     x_c, x_r = apply_model(model_x, point, Ec, Er)
     y_c, y_r = apply_model(model_y, point, Ec, Er)
@@ -226,7 +237,7 @@ if __name__ == "__main__":
     ax.set_ylim(-20, 20)
     ax.set_zlim(110, 130)
 
-    fn = os.path.join(script_dir, 'computed_cone_085_35_2.pickle')
+    fn = os.path.join(script_dir, './res/computed_cone_065_005_045_005.pickle')
     with open(fn, 'rb') as f:
         C_list_085_35 = pickle.load(f)
     C_list_085_35_truncate = C_list_085_35[:12]
@@ -237,27 +248,27 @@ if __name__ == "__main__":
         poly = pc.box2poly(pos_rect.T)
         plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k')
 
-    fn = os.path.join(script_dir, 'computed_cone_085_25_2.pickle')
-    with open(fn, 'rb') as f:
-        C_list_085_25 = pickle.load(f)
-    C_list_085_25_truncate = C_list_085_25[:12]
-    for i in range(len(C_list_085_25_truncate)):
-        rect = C_list_085_25[i]
+    # fn = os.path.join(script_dir, 'computed_cone_085_25_2.pickle')
+    # with open(fn, 'rb') as f:
+    #     C_list_085_25 = pickle.load(f)
+    # C_list_085_25_truncate = C_list_085_25[:12]
+    # for i in range(len(C_list_085_25_truncate)):
+    #     rect = C_list_085_25[i]
 
-        pos_rect = rect[:,1:4]
-        poly = pc.box2poly(pos_rect.T)
-        plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
+    #     pos_rect = rect[:,1:4]
+    #     poly = pc.box2poly(pos_rect.T)
+    #     plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='b')
 
-    fn = os.path.join(script_dir, 'computed_cone_085_15_2.pickle')
-    with open(fn, 'rb') as f:
-        C_list_085_15 = pickle.load(f)
-    C_list_085_15_truncate = C_list_085_15[:12]
-    for i in range(len(C_list_085_15_truncate)):
-        rect = C_list_085_15[i]
+    # fn = os.path.join(script_dir, 'computed_cone_085_15_2.pickle')
+    # with open(fn, 'rb') as f:
+    #     C_list_085_15 = pickle.load(f)
+    # C_list_085_15_truncate = C_list_085_15[:12]
+    # for i in range(len(C_list_085_15_truncate)):
+    #     rect = C_list_085_15[i]
 
-        pos_rect = rect[:,1:4]
-        poly = pc.box2poly(pos_rect.T)
-        plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='g')
+    #     pos_rect = rect[:,1:4]
+    #     poly = pc.box2poly(pos_rect.T)
+    #     plot_polytope_3d(poly.A, poly.b, ax, trans=0.1, edgecolor='k', color='g')
 
     # fn = os.path.join(script_dir, 'computed_cone_085_05.pickle')
     # with open(fn, 'rb') as f:
@@ -313,7 +324,7 @@ if __name__ == "__main__":
         for k in range(len(traj)-1):
             total += 1
             point = traj[k][1:]
-            lb, ub = get_vision_estimation(point, [0.85], [0.35])
+            lb, ub = get_vision_estimation(point, [0.55,0.45], [0.05, 0.05])
             est_point = est[k]
             if any((lb>est_point) | (est_point>ub)):
                 tmp = (lb>est_point) | (est_point>ub)
@@ -352,24 +363,24 @@ if __name__ == "__main__":
                 if j not in unsafe_idx_list:
                     unsafe_idx_list.append(j)
 
-    for i in range(len(C_list_085_25)):
-        rect = C_list_085_25[i]
-        for j, traj in enumerate(vcs_sim_trajectories):
-            if not (
-                rect[0,1]<traj[i*80][1]<rect[1,1] and \
-                rect[0,2]<traj[i*80][2]<rect[1,2] and \
-                rect[0,3]<traj[i*80][3]<rect[1,3] and \
-                rect[0,4]<traj[i*80][4]<rect[1,4] and \
-                rect[0,5]<traj[i*80][5]<rect[1,5]
-            ):
-                print(rect[0,1]<traj[i*80][1]<rect[1,1]) 
-                print(rect[0,2]<traj[i*80][2]<rect[1,2]) 
-                print(rect[0,3]<traj[i*80][3]<rect[1,3]) 
-                print(rect[0,4]<traj[i*80][4]<rect[1,4]) 
-                print(rect[0,5]<traj[i*80][5]<rect[1,5])
-                print(25, i, j, vcs_sim_init[j])
-                if j not in unsafe_idx_list:
-                    unsafe_idx_list.append(j)
+    # for i in range(len(C_list_085_25)):
+    #     rect = C_list_085_25[i]
+    #     for j, traj in enumerate(vcs_sim_trajectories):
+    #         if not (
+    #             rect[0,1]<traj[i*80][1]<rect[1,1] and \
+    #             rect[0,2]<traj[i*80][2]<rect[1,2] and \
+    #             rect[0,3]<traj[i*80][3]<rect[1,3] and \
+    #             rect[0,4]<traj[i*80][4]<rect[1,4] and \
+    #             rect[0,5]<traj[i*80][5]<rect[1,5]
+    #         ):
+    #             print(rect[0,1]<traj[i*80][1]<rect[1,1]) 
+    #             print(rect[0,2]<traj[i*80][2]<rect[1,2]) 
+    #             print(rect[0,3]<traj[i*80][3]<rect[1,3]) 
+    #             print(rect[0,4]<traj[i*80][4]<rect[1,4]) 
+    #             print(rect[0,5]<traj[i*80][5]<rect[1,5])
+    #             print(25, i, j, vcs_sim_init[j])
+    #             if j not in unsafe_idx_list:
+    #                 unsafe_idx_list.append(j)
 
     # for i in range(len(C_list_085_15)):
     #     rect = C_list_085_15[i]
@@ -413,7 +424,7 @@ if __name__ == "__main__":
     #             if j not in unsafe_idx_list:
     #                 unsafe_idx_list.append(j)
 
-    for idx in unsafe_idx_list:
+    for idx in range(len(vcs_sim_trajectories)):
         traj = np.array(vcs_sim_trajectories[idx])
         ax.plot(traj[:,1], traj[:,2], traj[:,3], linewidth=1, color='b')
         ax.scatter(traj[::80,1], traj[::80,2], traj[::80,3], marker='x', color='m', s=30)
