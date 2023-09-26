@@ -1,8 +1,8 @@
-from model_x2 import compute_model_x
-from model_y2 import compute_model_y
-from model_z2 import compute_model_z
-from model_yaw2 import compute_model_yaw
-from model_pitch2 import compute_model_pitch
+from models.model_x2 import compute_model_x
+from models.model_y2 import compute_model_y
+from models.model_z2 import compute_model_z
+from models.model_yaw2 import compute_model_yaw
+from models.model_pitch2 import compute_model_pitch
 import os 
 import pickle 
 import numpy as np
@@ -35,11 +35,11 @@ def get_all_models(data):
         state_array[i*num:(i+1)*num,:] = state_list[i,:]
         trace_array[i*num:(i+1)*num,:] = trace_list[i] 
 
-    model_x = compute_model_x(state_array, trace_array, E_array, 0.5, 0.99)
-    model_y = compute_model_y(state_array, trace_array, E_array, 0.5, 0.99)
-    model_z = compute_model_z(state_array, trace_array, E_array, 0.5, 0.99)
-    model_yaw = compute_model_yaw(state_array, trace_array, E_array, 0.5, 0.99)
-    model_pitch = compute_model_pitch(state_array, trace_array, E_array, 0.5, 0.99)
+    model_x = compute_model_x(state_array, trace_array, E_array, 0.5, 0.5)
+    model_y = compute_model_y(state_array, trace_array, E_array, 0.5, 0.5)
+    model_z = compute_model_z(state_array, trace_array, E_array, 0.5, 0.5)
+    model_yaw = compute_model_yaw(state_array, trace_array, E_array, 0.5, 0.5)
+    model_pitch = compute_model_pitch(state_array, trace_array, E_array, 0.5, 0.5)
 
     return model_x, model_y, model_z, model_yaw, model_pitch
 

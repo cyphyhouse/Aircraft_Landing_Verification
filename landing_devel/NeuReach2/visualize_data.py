@@ -57,10 +57,10 @@ for i in range(state_list.shape[0]):
     e1_seg = e_list[i,:,0]
     e2_seg = e_list[i,:,1]
     idx = np.where(
-        (e2_seg>0.4) & \
-        (e2_seg<0.5) & \
-        (e1_seg>0.5) & \
-        (e1_seg<0.6))
+        (e2_seg>0.2) & \
+        (e2_seg<0.3) & \
+        (e1_seg>0.7) & \
+        (e1_seg<0.8))
     trace_seg = trace_seg[idx]
     state_seg = state_seg[idx]
     plt.plot(state_seg, trace_seg, 'b*')

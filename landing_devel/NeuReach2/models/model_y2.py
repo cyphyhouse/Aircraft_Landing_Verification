@@ -11,6 +11,7 @@ dim = 1
 model_radius_decay = lambda r, r_max: (1/np.sqrt(r_max))*np.sqrt(r) # Input to this function is the radius of environmental parameters
 
 def compute_model_y(data, pcc=0.9, pcr=0.95, pr=0.95):
+    dim = 1
     state_list = []
     Er_list = []
     Ec_list = []

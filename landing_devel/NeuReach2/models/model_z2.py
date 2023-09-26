@@ -10,7 +10,8 @@ import json
 dim = 2
 model_radius_decay = lambda r, r_max: (1/np.sqrt(r_max))*np.sqrt(r) # Input to this function is the radius of environmental parameters
 
-def compute_model_y(data, pcc=0.9, pcr=0.95, pr=0.95):
+def compute_model_z(data, pcc=0.9, pcr=0.95, pr=0.95):
+    dim = 2
     state_list = []
     Er_list = []
     Ec_list = []
@@ -66,6 +67,8 @@ def compute_model_y(data, pcc=0.9, pcr=0.95, pr=0.95):
                         state_list_process = np.vstack((state_list_process,X_partition[tmp<percentile,:]))
                         Ec_list_process = np.vstack((Ec_list_process,E_partition[tmp<percentile]))
                         trace_mean_list_process = np.concatenate((trace_mean_list_process,trace_mean_partition[tmp<percentile]))
+                    else:
+                        print('aa')
     print(total_num)
     X_process = np.hstack((state_list_process.reshape((-1,2)), Ec_list_process))
     Y_process = trace_mean_list_process
@@ -215,7 +218,7 @@ if __name__ == "__main__":
     state_list = np.array(state_list)
     trace_mean_list = np.array(trace_mean_list)
 
-    ccc, ccr, cr = compute_model_y(data, pcc = 0.5, pcr=0.9, pr=0.95)
+    ccc, ccr, cr = compute_model_z(data, pcc = 0.5, pcr=0.95, pr=0.95)
     # ccc = mcc.coef_.tolist()+[mcc.intercept_]
     res = {
         'dim': 'z',

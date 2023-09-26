@@ -10,7 +10,8 @@ import json
 dim = 3
 model_radius_decay = lambda r, r_max: (1/np.sqrt(r_max))*np.sqrt(r) # Input to this function is the radius of environmental parameters
 
-def compute_model_y(data, pcc=0.9, pcr=0.95, pr=0.95):
+def compute_model_yaw(data, pcc=0.9, pcr=0.95, pr=0.95):
+    dim = 3
     state_list = []
     Er_list = []
     Ec_list = []
@@ -215,7 +216,8 @@ if __name__ == "__main__":
     state_list = np.array(state_list)
     trace_mean_list = np.array(trace_mean_list)
 
-    ccc, ccr, cr = compute_model_y(data, pcc = 0.5, pcr=0.9, pr=0.9)
+    # ccc, ccr, cr = compute_model_yaw(data, pcc = 0.5, pcr=0.9, pr=0.95)
+    ccc, ccr, cr = compute_model_yaw(data, pcc = 0.5, pcr=0.85, pr=0.87)
     # ccc = mcc.coef_.tolist()+[mcc.intercept_]
     res = {
         'dim': 'yaw',
@@ -223,7 +225,7 @@ if __name__ == "__main__":
         'coef_center_radius':ccr.tolist(),
         'coef_radius': cr.tolist()
     }
-    with open(os.path.join(script_dir,'model_yaw2.json'),'w+') as f:
+    with open(os.path.join(script_dir,'model_yaw3.json'),'w+') as f:
         json.dump(res, f, indent=4)
 
     sample_contained = 0
@@ -314,7 +316,7 @@ if __name__ == "__main__":
             + ec[1]**2*ccr[14]
         radius = (cr[0] + cr[1]*x + cr[2]*y)*model_radius_decay(er[0], 0.35)*model_radius_decay(er[1], 0.25)
         traces = trace_list[i]
-        print(center_radius, radius)
+        # print(center_radius, radius)
         for j in range(trace_list[i].shape[0]):
             x_est = trace_list[i][j,dim]
             if x_est<center_center+center_radius+radius and \

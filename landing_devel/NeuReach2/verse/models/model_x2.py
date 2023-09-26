@@ -25,7 +25,7 @@ def compute_model_x(state_array, trace_array, E_array, pc=0.9, pr=0.95):
                                 (E_array[:,1]>Ep2[k]) &\
                                 (E_array[:,1]<(Ep2[k]+0.1)))[0]
                 X_partition = state_array[idx, 0]
-                E_partition = E_list[idx,:]
+                E_partition = E_array[idx,:]
                 total_num += X_partition.size
                 trace_partition = trace_array[idx,0]
                 tmp = np.abs(trace_partition - X_partition)
@@ -70,8 +70,8 @@ def compute_model_x(state_array, trace_array, E_array, pc=0.9, pr=0.95):
     min_cc = 0
     min_cr = 0
     min_r = 0
-    for i in range(state_list.shape[0]):
-        x = state_list[i,0]
+    for i in range(state_array.shape[0]):
+        x = state_array[i,0]
         center_center = cc[0]*x + cc[1]
         if center_center < min_cc:
             min_cc = center_center

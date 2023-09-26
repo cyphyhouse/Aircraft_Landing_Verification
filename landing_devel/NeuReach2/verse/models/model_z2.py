@@ -31,7 +31,7 @@ def compute_model_z(state_array, trace_array, E_array, pc=0.9, pr=0.95):
                                     (E_array[:,1]>Ep2[l]) &\
                                     (E_array[:,1]<(Ep2[l]+0.1)))[0]
                     X_partition = state_array[idx,: ][:, (0, dim)]
-                    E_partition = E_list[idx,:]
+                    E_partition = E_array[idx,:]
                     total_num += X_partition.size
                     trace_partition = trace_array[idx,dim]
                     tmp = np.abs(trace_partition - X_partition[:,1])
@@ -80,9 +80,9 @@ def compute_model_z(state_array, trace_array, E_array, pc=0.9, pr=0.95):
     cc = mcc.coef_.tolist()+[mcc.intercept_]
     min_cc = 0
     min_r = 0
-    for i in range(state_list.shape[0]):
-        x = state_list[i,0]
-        y = state_list[i, dim]
+    for i in range(state_array.shape[0]):
+        x = state_array[i,0]
+        y = state_array[i, dim]
         center_center = cc[0]*x + cc[1]*y + cc[2]
         if center_center < min_cc:
             min_cc = center_center

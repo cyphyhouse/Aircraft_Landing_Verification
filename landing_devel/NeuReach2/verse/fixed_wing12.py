@@ -18,6 +18,7 @@ import itertools
 import scipy.spatial
 from datetime import datetime 
 from verse.analysis.verifier import ReachabilityMethod
+from get_all_models import get_all_models
 
 import pickle 
 import json 
@@ -71,7 +72,7 @@ def sample_point(low: np.ndarray, high: np.ndarray) -> np.ndarray:
 
 def apply_model(model, point):
     dim = model['dim']
-    cc = model['coef_center_center']
+    cc = model['coef_center']
     cr = model['coef_radius']
 
     if dim == 'x':
@@ -259,6 +260,9 @@ def verify_step_remote(point, M, computation_steps, time_steps, ref):
     # tmp = pickle.dumps(traces.root.trace['a1'])
     return np.array(traces.root.trace['a1'])
 
+def check_containment(post_rect, R, idx):
+    return 'safe'
+
 def compute_and_check(X_0, M, R):
     # x, y, z, yaw, pitch, v
     ray.init(num_cpus=12,log_to_driver=False)
@@ -286,7 +290,8 @@ def compute_and_check(X_0, M, R):
     C_compute_step = 80
     C_num = 10
     parallel = True
-
+    time_steps = 0.01
+    
     ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
 
     C_list = [np.hstack((np.array([[0],[0]]),state))]
@@ -360,7 +365,7 @@ def compute_and_check(X_0, M, R):
             C_set = np.hstack((np.array([[C_step+1],[C_step+1]]), next_init))
             
             # TODO: Check containment of C_set and R
-            res = check_containment(C_set, R)
+            res = check_containment(C_set, R, C_step)
             if res == 'unsafe' or res == 'unknown':
                 return res, C_list
 
@@ -385,4 +390,106 @@ def compute_and_check(X_0, M, R):
 
 if __name__ == "__main__":
     
+    X0 = np.array([
+        [-3020.0, -5, 118.0, 0-0.001, -np.deg2rad(3)-0.001, 10-0.01], 
+        [-3010.0, 5, 122.0, 0+0.001, -np.deg2rad(3)+0.001, 10+0.01]
+    ])
     
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    data_file_path = os.path.join(script_dir, '../data_train2.pickle')
+    with open(data_file_path,'rb') as f:
+        data = pickle.load(f)
+
+    M = get_all_models(data)
+
+    res, C_list = compute_and_check(X0, M, [])
+
+    computation_steps = 0.1
+    time_steps = 0.01
+    C_compute_step = 80
+    C_num = 5
+
+    for C_rect in C_list:
+        # rect_low = C_rect[0]
+        # rect_high = C_rect[1]
+
+        low = C_rect[0]
+        high = C_rect[1]
+        step_time = low[0]*C_compute_step*computation_steps
+        plt.figure(0)
+        plt.plot(
+            [low[1], high[1], high[1], low[1], low[1]], 
+            [low[2], low[2], high[2], high[2], low[2]],
+            'b'
+        )
+        plt.figure(1)
+        plt.plot(
+            [step_time, step_time], [low[1], high[1]],
+            'b'
+        )
+        plt.figure(2)
+        plt.plot(
+            [step_time, step_time], [low[2], high[2]],
+            'b'
+        )
+        plt.figure(3)
+        plt.plot(
+            [step_time, step_time], [low[3], high[3]],
+            'b'
+        )
+        plt.figure(4)
+        plt.plot(
+            [step_time, step_time], [low[4], high[4]],
+            'b'
+        )
+        plt.figure(5)
+        plt.plot(
+            [step_time, step_time], [low[5], high[5]],
+            'b'
+        )
+        plt.figure(6)
+        plt.plot(
+            [step_time, step_time], [low[6], high[6]],
+            'b'
+        )
+
+    # state = np.array([
+    #     [-3050.0, -20, 110.0, 0-0.0001, -np.deg2rad(3)-0.0001, 10-0.0001], 
+    #     [-3010.0, 20, 130.0, 0+0.0001, -np.deg2rad(3)+0.0001, 10+0.0001]
+    # ])
+    state = np.array([
+        [-3020.0, -5, 118.0, 0-0.001, -np.deg2rad(3)-0.001, 10-0.01], 
+        [-3010.0, 5, 122.0, 0+0.001, -np.deg2rad(3)+0.001, 10+0.01]
+    ])
+    ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
+    
+    time_horizon = computation_steps*C_num*C_compute_step
+
+    # fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False, reachability_method=ReachabilityMethod.DRYVR_DISC)) 
+    # # fixed_wing_scenario = Scenario(ScenarioConfig(parallel=False)) 
+    # script_path = os.path.realpath(os.path.dirname(__file__))
+    # aircraft = FixedWingAgent3("a1")
+    # fixed_wing_scenario.add_agent(aircraft)
+
+    # for i in range(20):
+    #     init_point = sample_point(state[0,:], state[1,:])
+    #     init_ref = copy.deepcopy(ref)
+    #     trace = run_vision_sim(fixed_wing_scenario, init_point, init_ref, time_horizon, computation_steps, time_steps, Ec, Er)
+    #     trace = np.array(trace)
+    #     plt.figure(0)
+    #     plt.plot(trace[:,1], trace[:,2], 'r')
+    #     plt.figure(1)
+    #     plt.plot(trace[:,0], trace[:,1], 'r')
+    #     plt.figure(2)
+    #     plt.plot(trace[:,0], trace[:,2], 'r')
+    #     plt.figure(3)
+    #     plt.plot(trace[:,0], trace[:,3], 'r')
+    #     plt.figure(4)
+    #     plt.plot(trace[:,0], trace[:,4], 'r')
+    #     plt.figure(5)
+    #     plt.plot(trace[:,0], trace[:,5], 'r')
+    #     plt.figure(6)
+    #     plt.plot(trace[:,0], trace[:,6], 'r')
+
+    plt.show()
+       
