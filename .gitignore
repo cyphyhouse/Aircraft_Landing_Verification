@@ -9,3 +9,6 @@ landing_devel/NeuReach/log/
 **.png
 **.npy
 landing_devel/NeuReach2/log/
+landing_devel/NeuReach2/verse/res/
+landing_devel/NeuReach2/verse/backup/
+landing_devel/NeuReach2/data/

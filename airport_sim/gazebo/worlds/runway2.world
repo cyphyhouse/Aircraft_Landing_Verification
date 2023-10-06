@@ -1,3 +1,4 @@
+<?xml version="1.0" ?>
 <sdf version='1.7'>
   <world name='default'>
     <scene>
@@ -28,6 +29,31 @@
         <falloff>0</falloff>
       </spot>
     </light>
+    <light type="spot" name="spot_light">
+      <pose>1000 500 300 0 1.4 0</pose>
+      <diffuse>100 100 100 100</diffuse>
+      <specular>149 149 149 149</specular>
+      <attenuation>
+        <range>8000</range>
+        <linear>0.0</linear>
+        <constant>0.3</constant>
+        <quadratic>0.0</quadratic>
+      </attenuation>
+      <direction>0 0 -1</direction>
+      <spot>
+        <inner_angle>0.1</inner_angle>
+        <outer_angle>0.5</outer_angle>
+        <falloff>1.2</falloff>
+      </spot>
+      <cast_shadows>false</cast_shadows>
+    </light>
+    <!-- <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 100 0 0.0 0.0 0.0</pose>
+      <diffuse>1.0 1.0 1.0 1.0</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-1.0 0.0 -0.2</direction>
+    </light> -->
     <model name='ground_plane'>
       <static>1</static>
       <link name='link'>
@@ -3794,7 +3820,7 @@
         </link>
       </model>
       <light name='sun'>
-        <pose>0 0 10 0 -0 0</pose>
+        <pose>0 100 10 0 -0 0</pose>
       </light>
     </state>
     <model name='ground_plane_0'>

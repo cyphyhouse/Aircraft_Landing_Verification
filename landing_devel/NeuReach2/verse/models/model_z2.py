@@ -15,21 +15,21 @@ def compute_model_z(state_array, trace_array, E_array, pc=0.9, pr=0.95):
     E_array_process = np.zeros((0,2))
     Xp0 = np.arange(-3000, -2000, 200)
     Xp1 = np.arange(-100, 100, 20)
-    Ep1 = np.arange(0.5, 1.2, 0.1)
-    Ep2 = np.arange(0,0.5,0.1)
+    Ep1 = np.arange(0.2, 1.2, 0.2)
+    Ep2 = np.arange(-0.1,0.6,0.2)
     total_num = 0
     for i in range(Xp0.shape[0]):
         for j in range(Xp1.shape[0]):
             for k in range(Ep1.shape[0]):
                 for l in range(Ep2.shape[0]):
                     idx = np.where((state_array[:,0]>Xp0[i]) &\
-                                    (state_array[:,0]<(Xp0[i]+100)) &\
+                                    (state_array[:,0]<(Xp0[i]+200)) &\
                                     (state_array[:,dim]>Xp1[j]) &\
-                                    (state_array[:,dim]<(Xp1[j]+10)) &\
+                                    (state_array[:,dim]<(Xp1[j]+20)) &\
                                     (E_array[:,0]>Ep1[k]) &\
-                                    (E_array[:,0]<(Ep1[k]+0.1)) &\
+                                    (E_array[:,0]<(Ep1[k]+0.2)) &\
                                     (E_array[:,1]>Ep2[l]) &\
-                                    (E_array[:,1]<(Ep2[l]+0.1)))[0]
+                                    (E_array[:,1]<(Ep2[l]+0.2)))[0]
                     X_partition = state_array[idx,: ][:, (0, dim)]
                     E_partition = E_array[idx,:]
                     total_num += X_partition.size
@@ -69,9 +69,9 @@ def compute_model_z(state_array, trace_array, E_array, pc=0.9, pr=0.95):
     X_radius = np.hstack((
         X1.reshape((-1,1)),
         X2.reshape((-1,1)),
-        (X1*X2).reshape((-1,1)),
-        (X1**2).reshape((-1,1)),
-        (X2**2).reshape((-1,1))
+        # (X1*X2).reshape((-1,1)),
+        # (X1**2).reshape((-1,1)),
+        # (X2**2).reshape((-1,1))
     ))
     model_radius = sm.QuantReg(Y_radius, sm.add_constant(X_radius))
     result = model_radius.fit(q=quantile)
@@ -86,7 +86,7 @@ def compute_model_z(state_array, trace_array, E_array, pc=0.9, pr=0.95):
         center_center = cc[0]*x + cc[1]*y + cc[2]
         if center_center < min_cc:
             min_cc = center_center
-        radius = cr[0] + x*cr[1] + y*cr[2] + x*y*cr[3] + x**2*cr[4] + y**2*cr[5]
+        radius = cr[0] + x*cr[1] + y*cr[2] 
         if radius < min_r:
             min_r = radius
     cr[0] += (-min_r)
@@ -112,7 +112,7 @@ def compute_model_z(state_array, trace_array, E_array, pc=0.9, pr=0.95):
 
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    data_file_path = os.path.join(script_dir, '../../data_train2.pickle')
+    data_file_path = os.path.join(script_dir, '../../data_train3.pickle')
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
 
@@ -168,7 +168,7 @@ if __name__ == "__main__":
 
     print(sample_contained/total_sample)
 
-    data_file_path = os.path.join(script_dir, '../../data_eval2.pickle')
+    data_file_path = os.path.join(script_dir, '../../data_eval3.pickle')
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
 

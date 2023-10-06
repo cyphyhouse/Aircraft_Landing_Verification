@@ -11,19 +11,19 @@ def compute_model_x(state_array, trace_array, E_array, pc=0.9, pr=0.95):
     state_array_process = np.array([])
     trace_array_process = np.array([])
     E_array_process = np.zeros((0,2))
-    Xp = np.arange(-3000, -2000, 100)
-    Ep1 = np.arange(0.5, 1.2, 0.1)
-    Ep2 = np.arange(0,0.5,0.1)
+    Xp = np.arange(-3000, -2000, 200)
+    Ep1 = np.arange(0.2, 1.2, 0.2)
+    Ep2 = np.arange(-0.1,0.6,0.2)
     total_num = 0
     for i in range(Xp.shape[0]):
         for j in range(Ep1.shape[0]):
             for k in range(Ep2.shape[0]):
                 idx = np.where((state_array[:,0]>Xp[i]) &\
-                                (state_array[:,0]<(Xp[i]+100)) &\
+                                (state_array[:,0]<(Xp[i]+200)) &\
                                 (E_array[:,0]>Ep1[j]) &\
-                                (E_array[:,0]<(Ep1[j]+0.1)) &\
+                                (E_array[:,0]<(Ep1[j]+0.2)) &\
                                 (E_array[:,1]>Ep2[k]) &\
-                                (E_array[:,1]<(Ep2[k]+0.1)))[0]
+                                (E_array[:,1]<(Ep2[k]+0.2)))[0]
                 X_partition = state_array[idx, 0]
                 E_partition = E_array[idx,:]
                 total_num += X_partition.size
@@ -101,7 +101,7 @@ def compute_model_x(state_array, trace_array, E_array, pc=0.9, pr=0.95):
 
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    data_file_path = os.path.join(script_dir, '../../data_train2.pickle')
+    data_file_path = os.path.join(script_dir, '../../data_train3.pickle')
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
 
@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     print(sample_contained/total_sample)
 
-    data_file_path = os.path.join(script_dir, '../../data_eval2.pickle')
+    data_file_path = os.path.join(script_dir, '../../data_eval3.pickle')
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
 

@@ -41,12 +41,12 @@ class VisionData(data.Dataset):
 
         self.config = config 
 
-        # self.X0s = [self.config.sample_X0() for _ in range(num_X0s)]
-        self.X0s = []
-        for _ in range(num_X0s):
-            X01, X02 = self.config.sample_2X0()
-            self.X0s.append(X01)
-            self.X0s.append(X02)
+        self.X0s = [self.config.sample_X0() for _ in range(num_X0s)]
+        # self.X0s = []
+        # for _ in range(num_X0s):
+        #     X01, X02 = self.config.sample_2X0()
+        #     self.X0s.append(X01)
+        #     self.X0s.append(X02)
 
         use_precomputed_data = False
         if data_file is not None:
@@ -107,7 +107,31 @@ def get_vision_dataloader(config, args):
     
     return train_loader, val_loader
 
+# def task(fn):
+#     tmp = VisionData(num_X0s = 10, num_traces = 1, config=AutoLand, data_file = fn, use_data=False)
+        
+
 if __name__ == "__main__":
     import autoland_system as AutoLand
+    import multiprocessing
     rospy.init_node('aircraft_landing')
-    tmp = VisionData(num_X0s = 10000, num_traces = 20, config=AutoLand, data_file = 'data_train_2.pickle', use_data=False)
+    
+    tmp = VisionData(num_X0s = 100, num_traces = 1, config=AutoLand, data_file = 'data_grounding_exp1.pickle', use_data=False)
+    
+    # for i in range(10):
+    #     fn = f'./data/data_train{i}.pickle'
+    #     tmp = VisionData(num_X0s = 10000, num_traces = 1, config=AutoLand, data_file = fn, use_data=False)
+    #     del tmp
+        # process = multiprocessing.Process(target = task, args = (fn,))
+        # process.start()
+        # process.join()
+
+    # fn_idx_list = [0,1,2,5]
+    # total_data = []
+    # for idx in fn_idx_list:
+    #     fn = f'./data/data_train{idx}.pickle'
+    #     with open(fn, 'rb') as f:
+    #         total_data += pickle.load(f)
+
+    # with open('./data_train6_shrink.pickle', 'wb+') as f:
+    #     pickle.dump(total_data, f)

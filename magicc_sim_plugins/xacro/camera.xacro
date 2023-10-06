@@ -58,6 +58,7 @@
           <distortionT1>0.0</distortionT1>
           <distortionT2>0.0</distortionT2>
         </plugin>
+        <!-- <plugin name="lensflare" filename="libLensFlareSensorPlugin.so"/> -->
       </sensor>
     </gazebo>
   </xacro:macro>

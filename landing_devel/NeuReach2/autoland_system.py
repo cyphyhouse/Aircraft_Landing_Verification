@@ -21,6 +21,7 @@ import os
 import matplotlib.pyplot as plt 
 import cv2 
 import imgaug.augmenters as iaa 
+from scipy.spatial.transform import Rotation 
 
 body_height = 0.77
 pitch_offset = 0
@@ -36,6 +37,30 @@ def set_snow_properties(img: np.ndarray, snow_value: float) -> None:
     aug = iaa.Snowflakes(density = (density, density))
     img_aug = aug(image = img)
     return img_aug
+
+def set_spotlight_properties(splotlight_angle: float) -> None:
+    GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
+    rospy.wait_for_service(GZ_SET_LIGHT_PROPERTIES)
+    yaw = splotlight_angle
+    R = Rotation.from_euler('xyz',[0,1.4, yaw])
+    x,y,z,w = R.as_quat()
+    try:
+        set_light_properties_srv = \
+            rospy.ServiceProxy(GZ_SET_LIGHT_PROPERTIES, SetLightProperties)
+        resp = set_light_properties_srv(
+            light_name='spot_light',
+            cast_shadows=False,
+            diffuse=ColorRGBA(100,100,100,100),
+            specular=ColorRGBA(149, 149, 149, 149),
+            attenuation_constant=0.3,
+            attenuation_linear=0.0,
+            attenuation_quadratic=0.0,
+            direction=Vector3(0, 0, -1),
+            pose=Pose(position=Point(1000, 500, 300), orientation=Quaternion(x,y,z,w))
+        )
+        # TODO Check response
+    except rospy.ServiceException as e:
+        rospy.logwarn("Service call failed: %s" % e)
 
 def set_light_properties(light_value: float) -> None:
     GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
@@ -58,8 +83,8 @@ def set_light_properties(light_value: float) -> None:
     except rospy.ServiceException as e:
         rospy.logwarn("Service call failed: %s" % e)
 
-e_param_list = [set_light_properties]
-e_img_updater_list = [set_rain_properties]
+e_param_list = [set_light_properties, set_spotlight_properties]
+e_img_updater_list = []
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -126,6 +151,7 @@ class Perception:
             cv_image = self.bridge.imgmsg_to_cv2(img_msg, 'passthrough')
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
             self.image = copy.deepcopy(cv_image)
+            del cv_image
             self.image_updated = True
         except CvBridgeError as e:
             rospy.logerr("CvBridge Error: {0}".format(e))
@@ -157,7 +183,7 @@ class Perception:
         # kp_img = self.add_noise_to_image(kp_img)
   
         cv2.imshow("Image Window", kp_img)
-        cv2.waitKey(1000)
+        cv2.waitKey(10)
 
     def vision_estimation(self, cv_image):
         # cv2.imwrite('tmp.png', cv_image)
@@ -214,6 +240,8 @@ class Perception:
             print("Pose Estimation Failed.")
 
         # self.show_image(cv_image, keypoints)
+        del cv_image
+        del img
 
     def wait_img_update(self):
         while not self.image_updated:
@@ -238,7 +266,7 @@ class Perception:
 
         return img
 
-    def set_percept(self, point: np.ndarray, e_param: np.ndarray) -> np.ndarray:
+    def set_percept(self, point: np.ndarray, e_param: np.ndarray, fn = None) -> np.ndarray:
         # Set aircraft to pos
         self.set_environment(e_param)
 
@@ -247,6 +275,8 @@ class Perception:
         self.wait_img_update()
 
         img = self.image
+        if fn is not None:
+            cv2.imwrite(fn, img)
         img = self.apply_img_update(img, e_param)
         self.vision_estimation(img)
 
@@ -264,6 +294,8 @@ class Perception:
         #     print(">>>>>> Estimated Corrupted ", estimated_state)
         #     estimated_state = point 
         #     self.error_idx.append(self.idx)
+
+        del img
         
         return estimated_state
 
@@ -304,9 +336,9 @@ def sample_2X0():
     lb, ub, Elb, Eub, Ermax = (
         [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
         [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.5, 0],
-        [1.2, 0.5],
-        [0.35, 0.25],
+        [0.2, -0.1],
+        [1.2, 0.6],
+        [0.1, 0.1],
     )
 
     x = sample_pose()
@@ -330,20 +362,21 @@ def sample_X0() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     lb, ub, Elb, Eub, Ermax = (
         [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
         [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.5,0],
-        [1.2, 0.5],
-        [0.35, 0.25],
+        [0.2, -0.1],
+        [1.2, 0.6],
+        [0.1, 0.1],
     )
 
     # x = sample_box(lb, ub)
     x = sample_pose()
     Ec = sample_box(Elb, Eub)
-    Er = np.random.uniform(0, Ermax)
-    if Ec-Er<Elb:
-        Er = Ec-Elb 
-    elif Ec+Er>Eub:
-        Er = Eub-Ec
-    return (x, Ec, Er)
+    Er1 = np.random.uniform(0, Ermax)
+    for i in range(len(Er1)):
+        if Ec[i]-Er1[i]<Elb[i]:
+            Er1[i] = Ec[i]-Elb[i]
+        elif Ec[i]+Er1[i]>Eub[i]:
+            Er1[i] = Eub[i]-Ec[i]
+    return (x, Ec, Er1)
 
 def sample_x0(X0: Tuple[np.ndarray, np.ndarray, np.ndarray]):
     x, Ec, Er = X0
@@ -364,10 +397,9 @@ if __name__ == "__main__":
 
     perception = Perception()
 
-    x = [-2851.1846498132927, 46.743851209170955, 109.99733644558349, 0.08398311235112048, -0.1333963449351654, 0]
-    e = [1.00548329 + np.random.uniform(-0.11618985,0.11618985)]
+    x = [-2500, 0, 120, 0, np.deg2rad(-3), 0]
+    e = [1.2, 0.3]
     x0 = (x,e)
 
-    res = simulate(x0, perception)
-    print(x0)
-    print(res)
+    res = perception.set_percept(x, e, fn='img_12_03.png')
+ 
