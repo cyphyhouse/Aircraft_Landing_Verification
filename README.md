@@ -20,7 +20,21 @@ catkin_make
 ```
 Two folders ``./devel`` and ``./build`` will be generated. 
 
-## Running experiments
+## Obtain pretrained weights
+Download the pretrained weights of the keypoint detector from 
+```
+https://drive.google.com/file/d/1SvxcQDpmdmogz8YMhao6maXSMECIDaeH/view?usp=sharing
+```
+The pretrained weight should be placed under folder 
+```
+src/landing_devel/
+```
+The keypoint detector is based on unet and the code for training the detector can be found at
+```
+https://github.com/cyphyhouse/Pytorch-UNet.git
+```
+
+## Running closed loop simulation
 After the installation finished, open two terminals. In the first terminal, run command 
 ```
 source devel/setup.bash
@@ -34,12 +48,12 @@ Then in the second terminal, run command
 ```
 source devel/setup.bash
 ```
-Then go to folder ``src/landing_devel`` by command 
+Then go to folder ``src/landing_devel/NeuReach2/verse`` by command 
 ```
-cd src/landing_devel
+cd src/landing_devel/NeuReach2/verse
 ```
 and run command 
 ```
-python3 update_pos.py
+python3 vision_based_simulation3.py
 ```
-to start the dynamic and vision pipeline. 
+to closed loop simulation with vision pipeline. 
