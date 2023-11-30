@@ -398,8 +398,8 @@ if __name__ == "__main__":
     perception = Perception()
 
     x = [-2500, 0, 120, 0, np.deg2rad(-3), 0]
-    e = [1.2, 0.3]
+    e = [1.2, 0.5]
     x0 = (x,e)
 
-    res = perception.set_percept(x, e, fn='img_12_03.png')
+    res = perception.set_percept(x, e, fn='img_12_05.png')
  

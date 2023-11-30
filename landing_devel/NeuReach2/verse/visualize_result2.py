@@ -349,9 +349,11 @@ if __name__ == "__main__":
         ax.plot(traj[:800,1], traj[:800,2], traj[:800,3], linewidth=1, color='r')
         ax.scatter(traj[:801:80,1], traj[:801:80,2], traj[:801:80,3], marker='x', color='m', s=30)
     print(len(unsafe_idx_list))
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
+    ax.set_xlabel('x', fontsize = 22)
+    ax.set_ylabel('y', fontsize = 22)
+    ax.set_zlabel('z', fontsize = 22)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    ax.tick_params(axis='both', which='minor', labelsize=18)
 
     # tmp_sim_trajectories = vcs_sim_trajectories[:10] + vcs_sim_trajectories[19:29]
     # with open(os.path.join(script_dir,'vcs_sim.pickle'),'rb') as f:
@@ -428,6 +430,8 @@ if __name__ == "__main__":
     ax.set_yticklabels(np.round(np.arange(0.2, 1.25, 0.1),2), fontsize=14)
     plt.xlabel('Spotlight yaw', fontsize=16)
     plt.ylabel('Ambient light intensity', fontsize=16)
+    cb = plt.colorbar()
+    cb.ax.tick_params(labelsize=12)
     # plt.xticks(list(range(0,14,2)), np.round(np.arange(-0.05,0.6,0.1),2))
     # plt.yticks(list(range(0,20,2)), np.round(np.arange(0.25, 1.2, 0.1),2))
     plt.show()

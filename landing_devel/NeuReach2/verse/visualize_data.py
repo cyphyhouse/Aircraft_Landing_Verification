@@ -8,7 +8,7 @@ import statsmodels.api as sm
 import json 
 from fixed_wing12 import pre_process_data, refineEnv, computeContract, partitionE, remove_data
 
-dim = 0
+dim = 3
 
 def apply_model_batch(model, point):
     dim = model['dim']
@@ -123,7 +123,7 @@ for i in range(3):
 
     tmp_data = remove_data(data_eval, E)
     tmp_state, tmp_trace, tmp_E = tmp_data
-
+    print(len(tmp_state))
     c1,r1 = apply_model_batch(M[0], tmp_state)
     c2,r2 = apply_model_batch(M[1], tmp_state)
     c3,r3 = apply_model_batch(M[2], tmp_state)
@@ -203,19 +203,22 @@ data = pre_process_data(data)
 # tmp_data = remove_data(data, E)
 tmp_state, tmp_trace, tmp_E = data
 # ax.scatter(tmp_state[:,0], tmp_state[:,dim], tmp_trace[:,dim], 'b*')
-plt.scatter(tmp_state[:,dim], tmp_trace[:,dim], color = '#8dd3c7', label='ground env')
+plt.scatter(tmp_state[:,dim], tmp_trace[:,dim], color = '#8dd3c7', label='nominal env')
 
 if dim == 0:
-    plt.xlabel('Ground Truth x', fontsize=16)
-    plt.ylabel('Estimated x', fontsize=16)
+    plt.xlabel('Ground Truth x', fontsize=18)
+    plt.ylabel('Estimated x', fontsize=18)
 elif dim == 1:
-    plt.xlabel('Ground Truth y', fontsize=16)
-    plt.ylabel('Estimated y', fontsize=16)
+    plt.xlabel('Ground Truth y', fontsize=18)
+    plt.ylabel('Estimated y', fontsize=18)
 elif dim == 2:
-    plt.xlabel('Ground Truth z', fontsize=16)
-    plt.ylabel('Estimated z', fontsize=16)
+    plt.xlabel('Ground Truth z', fontsize=18)
+    plt.ylabel('Estimated z', fontsize=18)
 elif dim == 3:
-    plt.xlabel('Ground Truth $\psi$', fontsize=16)
-    plt.ylabel('Estimated $\psi$', fontsize=16)
+    plt.xlabel('Ground Truth $\psi$', fontsize=18)
+    plt.ylabel('Estimated $\psi$', fontsize=18)
 plt.legend(fontsize=16)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+
 plt.show()

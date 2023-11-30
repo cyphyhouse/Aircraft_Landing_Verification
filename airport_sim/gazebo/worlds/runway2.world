@@ -30,7 +30,7 @@
       </spot>
     </light>
     <light type="spot" name="spot_light">
-      <pose>1000 500 300 0 1.4 0</pose>
+      <pose>1000 500 300 0 1.4 0.3</pose>
       <diffuse>100 100 100 100</diffuse>
       <specular>149 149 149 149</specular>
       <attenuation>

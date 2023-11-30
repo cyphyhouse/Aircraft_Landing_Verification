@@ -334,10 +334,11 @@ if __name__ == "__main__":
         # else:
         ax.scatter(traj[:801:80,1], traj[:801:80,2], traj[:801:80,3], marker='x', color='m', s=30)
 
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-
+    ax.set_xlabel('x', fontsize = 22)
+    ax.set_ylabel('y', fontsize = 22)
+    ax.set_zlabel('z', fontsize = 22)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    ax.tick_params(axis='both', which='minor', labelsize=18)
     # with open(os.path.join(script_dir, '../data_train_exp1.pickle'), 'rb') as f:
     #     data = pickle.load(f)
     # data = pre_process_data(data)
@@ -396,12 +397,21 @@ if __name__ == "__main__":
 
     # plt.imshow(rgba_image)
     plt.figure(1)
-    e_plane = np.zeros((20,14))
+    e_plane = -np.ones((20,14))
     for Ep in E:
         idx1 = int(round((Ep[0,0]-0.2)/0.05))
         idx2 = int(round((Ep[0,1]+0.1)/0.05))
         e_plane[idx1, idx2] = 1
-    plt.imshow(e_plane)
+    rgba_image = np.zeros((20, 14, 4))  # 4 channels: R, G, B, A
+    rgba_image[..., :3] = plt.cm.viridis(e_plane)[..., :3]  # Apply a colormap    
+    mask = np.where(e_plane<0)
+    rgba_image[..., 3] = 1.0  # Set alpha to 1 (non-transparent)
+
+    # Apply the mask to make some pixels transparent
+    rgba_image[mask[0], mask[1], :3] = 1  # Set alpha to 0 (transparent) for masked pixels
+
+    plt.imshow(rgba_image)
+
 
     ax = plt.gca()
     ax.set_xticks(np.round(np.arange(0,16,2)-0.5,1))
