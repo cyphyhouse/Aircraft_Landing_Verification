@@ -458,7 +458,7 @@ if __name__ == "__main__":
     # ])
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(script_dir, 'exp1_res_safe.pickle'), 'rb') as f:
+    with open(os.path.join(script_dir, 'exp1_res_safe_alt_ref.pickle'), 'rb') as f:
         M, E, C_list = pickle.load(f)
 
     # for i, C_rect in enumerate(C_list):
@@ -470,14 +470,14 @@ if __name__ == "__main__":
     traj_list = []
     estimate_traj_list = []
     init_list = []
-    for i in range(1):
+    for i in range(10):
         vision.idx=i
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-        time_horizon = 50
+        time_horizon = 100
 
-        # e = sample_environmental_parameters(E)
-        e = [1.0, 0.0]
+        e = sample_environmental_parameters(E)
+        # e = [0.5, 0.0]
         set_light_properties(e[0])
         set_spotlight_properties(e[1])
         init_list.append((init_point, e))
@@ -490,11 +490,11 @@ if __name__ == "__main__":
         except rospy.exceptions.ROSInterruptException:
             rospy.loginfo("Stop updating aircraft positions.")
             
-        # with open('vcs_sim_exp1_safecomp.pickle','wb+') as f:
-        #     pickle.dump(traj_list, f)
-        # with open('vcs_estimate_exp1_safecomp.pickle','wb+') as f:
-        #     pickle.dump(estimate_traj_list, f)
-        # with open('vcs_init_exp1_safecomp.pickle', 'wb+') as f:
-        #     pickle.dump(init_list, f)
+        with open('vcs_sim_exp1_safecomp_alt_ref.pickle','wb+') as f:
+            pickle.dump(traj_list, f)
+        with open('vcs_estimate_exp1_safecomp_alt_ref.pickle','wb+') as f:
+            pickle.dump(estimate_traj_list, f)
+        with open('vcs_init_exp1_safecomp_alt_ref.pickle', 'wb+') as f:
+            pickle.dump(init_list, f)
 
     print(vision.error_idx)

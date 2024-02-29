@@ -1,4 +1,4 @@
-# Implement Algorithm 1 described in Paper
+# Implement Algorithm 1 described in Paper with different refinement strategy
 
 from verse.plotter.plotter2D import *
 # from fixed_wing_agent import FixedWingAgent
@@ -524,7 +524,13 @@ def visualize_outlier(num_outlier_list, E, idx = 0):
     plt.savefig(f'./{idx}.png')
 
 def refineEnv(E_in, M, data, id = 0, vis = False):
+    # E = np.array(copy.deepcopy(E_in))
+
     E = copy.deepcopy(E_in)
+    E = np.array(E)
+    E_center_list = np.zeros((E.shape[0], 2))
+    E_center_list[:,0] = np.sum(E[:,:,0],axis=1)/2
+    E_center_list[:,1] = np.sum(E[:,:,1],axis=1)/2
     state_array, trace_array, E_array = data 
 
     # # Compute bound for every data
@@ -542,7 +548,7 @@ def refineEnv(E_in, M, data, id = 0, vis = False):
     #     yawc.reshape((-1,1)), 
     #     pitchc.reshape((-1,1))
     # ))
-    dist_array = np.linalg.norm(state_array[:,:5]-trace_array[:,:5], axis=1)
+    dist_array = np.linalg.norm(E_array-np.array([1.0,0.0]), axis=1)
 
     # Get environmental parameters of those points 
     percentile = np.percentile(dist_array, 90)
@@ -560,10 +566,13 @@ def refineEnv(E_in, M, data, id = 0, vis = False):
             (E_array[idx,1]<E[:,1,1])
         )[0]
         num_outlier_list[contains] += 1
-    sorted_outlier = np.argsort(num_outlier_list)
-    delete_outlier = sorted_outlier[-10:] 
+    # sorted_outlier = np.argsort(num_outlier_list)
+    # delete_outlier = sorted_outlier[-10:] 
     if vis:
         visualize_outlier(num_outlier_list, E, id)
+    dist_array = np.linalg.norm(E_center_list-np.array([1.0, 0.0]),axis=1)
+    sorted_dist = np.argsort(dist_array)
+    delete_outlier = sorted_dist[-5:]
     E = np.delete(E, delete_outlier, axis=0)
     return E 
 
@@ -709,14 +718,14 @@ if __name__ == "__main__":
         data = pickle.load(f)
     data = pre_process_data(data)
     
-    for i in range(10):
-        E = refineEnv(E, None, data, i)
+    for i in range(52):
+        E = refineEnv(E, None, data, i, vis=True)
     M_out = computeContract(data, E)
 
     M_out, E_out, Part, C_list = findM(X0, E, R1, data)
 
-    # with open('tmp.pickle', 'wb+') as f:
-    #     pickle.dump((M_out, E_out, C_list), f)
+    with open('vcs_estimate_exp1_safe_alt_ref.pickle', 'wb+') as f:
+        pickle.dump((M_out, E_out, C_list), f)
 
     refineEnv(E_out, M_out, data)
 

@@ -54,11 +54,11 @@ from scipy.spatial.transform import Rotation
 from gazebo_msgs.srv import SpawnModel
 from geometry_msgs.msg import Pose
 
-def set_rain_properties(img: np.ndarray, rain_value: float) -> None:
-    density = rain_value*0.5
-    aug = iaa.Rain(drop_size=(0.02, 0.02), speed=(0.1,0.1), nb_iterations=(2,2), density=(density,density))
-    img_aug = aug(image = img)
-    return img_aug
+# def set_rain_properties(img: np.ndarray, rain_value: float) -> None:
+#     density = rain_value*0.5
+#     aug = iaa.Rain(drop_size=(0.02, 0.02), speed=(0.1,0.1), nb_iterations=(2,2), density=(density,density))
+#     img_aug = aug(image = img)
+#     return img_aug
 
 def set_light_properties(light_value: float) -> None:
     GZ_SET_LIGHT_PROPERTIES = "/gazebo/set_light_properties"
@@ -194,6 +194,22 @@ class Perception:
         self.state = None
         self.error_idx = []
         self.idx = None
+        self.env = None 
+
+    def set_rain_properties(self, img: np.ndarray, rain_value: float) -> np.ndarray:
+        density = rain_value*0.5
+        aug = iaa.Rain(drop_size=(0.02, 0.02), speed=(0.1,0.1), nb_iterations=(2,2), density=(density,density))
+        img_aug = aug(image = img)
+        return img_aug
+
+    def set_snow_properties(self, img: np.ndarray, snow_value: float) -> np.ndarray:
+        density = snow_value*0.5
+        aug = iaa.Snowflakes(density = (density, density))
+        img_aug = aug(image = img)
+        return img_aug
+
+    def set_env(self, e):
+        self.env = e
 
     def state_callback(self, msg):
         pos = msg.pose[1].position
@@ -302,7 +318,8 @@ class Perception:
         self.wait_img_update()
 
         img = self.image
-        # img = set_rain_properties(img, e[0])
+        img = self.set_rain_properties(img, self.env[0])
+        img = self.set_snow_properties(img, self.env[1])
         self.vision_estimation(img)
 
         estimated_state = np.array([
@@ -358,8 +375,8 @@ def run_vision_sim(scenario, init_point, init_ref, time_horizon, computation_ste
     return traj, estimate_traj
 
 def get_complement(E):
-    e1_range =  np.round(np.arange(0.2, 1.2, 0.05),2)
-    e2_range = np.round(np.arange(-0.1, 0.6, 0.05),2) 
+    e1_range = np.round(np.arange(0.0, 0.1, 0.005),2)
+    e2_range = np.round(np.arange(0.0, 0.1, 0.005),2) 
     E = np.round(E, 2)
     E_comp = []
     for e1 in e1_range:
@@ -370,7 +387,7 @@ def get_complement(E):
                     notin = False 
                     break
             if notin:
-                E_comp.append(np.array([[e1, e2], [e1+0.05, e2+0.05]]))
+                E_comp.append(np.array([[e1, e2], [e1+0.005, e2+0.005]]))
             
     return np.array(E_comp)
 
@@ -458,7 +475,7 @@ if __name__ == "__main__":
     # ])
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(script_dir, 'exp1_res_safe.pickle'), 'rb') as f:
+    with open(os.path.join(script_dir, 'exp1_res_safe_rain_snow.pickle'), 'rb') as f:
         M, E, C_list = pickle.load(f)
 
     # for i, C_rect in enumerate(C_list):
@@ -470,17 +487,18 @@ if __name__ == "__main__":
     traj_list = []
     estimate_traj_list = []
     init_list = []
-    for i in range(1):
+    for i in range(10):
         vision.idx=i
         init_point = sample_point(state[0,:], state[1,:])
         init_ref = np.array([-3000.0, 0, 120.0, 0, -np.deg2rad(3), 10])
-        time_horizon = 50
+        time_horizon = 100
 
-        # e = sample_environmental_parameters(E)
-        e = [1.0, 0.0]
-        set_light_properties(e[0])
-        set_spotlight_properties(e[1])
+        e = sample_environmental_parameters(E)
+        # # e = [0.5, 0.0]
+        # set_light_properties(e[0])
+        # set_spotlight_properties(e[1])
         init_list.append((init_point, e))
+        vision.set_env(e)
 
         try:
             # Run simulation.
@@ -490,11 +508,11 @@ if __name__ == "__main__":
         except rospy.exceptions.ROSInterruptException:
             rospy.loginfo("Stop updating aircraft positions.")
             
-        # with open('vcs_sim_exp1_safecomp.pickle','wb+') as f:
-        #     pickle.dump(traj_list, f)
-        # with open('vcs_estimate_exp1_safecomp.pickle','wb+') as f:
-        #     pickle.dump(estimate_traj_list, f)
-        # with open('vcs_init_exp1_safecomp.pickle', 'wb+') as f:
-        #     pickle.dump(init_list, f)
+        with open('vcs_sim_exp1_safecomp_rain_snow.pickle','wb+') as f:
+            pickle.dump(traj_list, f)
+        with open('vcs_estimate_exp1_safecomp_rain_snow.pickle','wb+') as f:
+            pickle.dump(estimate_traj_list, f)
+        with open('vcs_init_exp1_safecomp_rain_snow.pickle', 'wb+') as f:
+            pickle.dump(init_list, f)
 
     print(vision.error_idx)

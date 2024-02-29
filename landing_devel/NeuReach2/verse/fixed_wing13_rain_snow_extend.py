@@ -1,4 +1,4 @@
-# Implement Algorithm 1 described in Paper
+# Implement Algorithm 1 described in Paper with different refinement strategy
 
 from verse.plotter.plotter2D import *
 # from fixed_wing_agent import FixedWingAgent
@@ -18,7 +18,7 @@ import itertools
 import scipy.spatial
 from datetime import datetime 
 from verse.analysis.verifier import ReachabilityMethod
-from get_all_models import get_all_models
+from get_all_models_rain_snow_extend import get_all_models
 from models.model_pitch2 import compute_model_pitch
 
 import pickle 
@@ -505,14 +505,14 @@ def refineState(X, idx):
     return P1, P2
 
 def visualize_outlier(num_outlier_list, E, idx = 0):
-    full_e = np.ones((20, 14))*(-1)
+    full_e = np.ones((20, 30))*(-1)
     for i in range(len(E)):
         E_part = E[i]
-        idx1 = round((E_part[0,0]-0.2)/0.05)
-        idx2 = round((E_part[0,1]-(-0.1))/0.05)
+        idx1 = round((E_part[0,0]-0.0)/0.05)
+        idx2 = round((E_part[0,1]-0.0)/0.001)
         full_e[idx1, idx2] = num_outlier_list[i]
     full_e = full_e/np.max(full_e)
-    rgba_image = np.zeros((20, 14, 4))  # 4 channels: R, G, B, A
+    rgba_image = np.zeros((20, 30, 4))  # 4 channels: R, G, B, A
     rgba_image[..., :3] = plt.cm.viridis(full_e)[..., :3]  # Apply a colormap    
     mask = np.where(full_e<0)
     rgba_image[..., 3] = 1.0  # Set alpha to 1 (non-transparent)
@@ -624,8 +624,8 @@ def pre_process_data(data):
 
 def partitionE(E):
     partition_list = []
-    E1 = np.arange(E[0,0], E[1,0]+0.01, 0.05)
-    E2 = np.arange(E[0,1], E[1,1]+0.01, 0.05)
+    E1 = np.arange(E[0,0], E[1,0]+0.0001, 0.05)
+    E2 = np.arange(E[0,1], E[1,1]+0.0001, 0.001)
 
     for i in range(len(E1)-1):
         for j in range(len(E2)-1):
@@ -697,28 +697,29 @@ if __name__ == "__main__":
     ])
     
     E = np.array([
-        [0.2, -0.1],
-        [1.2, 0.6]
+        [0.0, 0.0],
+        [1.0, 0.03]
     ])
 
     E = partitionE(E)
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    data_file_path = os.path.join(script_dir, '../data_train_exp1.pickle')
+    data_file_path = os.path.join(script_dir, '../data_train_exp1_rain_snow_extend.pickle')
+    # data_file_path = os.path.join(script_dir, '../data_train_exp1_rain_snow.pickle')
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
     data = pre_process_data(data)
     
-    for i in range(10):
-        E = refineEnv(E, None, data, i)
+    for i in range(45):
+        E = refineEnv(E, None, data, i, vis=True)
     M_out = computeContract(data, E)
 
     M_out, E_out, Part, C_list = findM(X0, E, R1, data)
 
-    # with open('tmp.pickle', 'wb+') as f:
-    #     pickle.dump((M_out, E_out, C_list), f)
+    with open('exp1_res_safe_rain_snow_extend.pickle', 'wb+') as f:
+        pickle.dump((M_out, E_out, C_list), f)
 
-    refineEnv(E_out, M_out, data)
+    # refineEnv(E_out, M_out, data)
 
     # M = computeContract(data, E)
     # with open(os.path.join(script_dir, 'computed_model.pickle'), 'rb') as f:

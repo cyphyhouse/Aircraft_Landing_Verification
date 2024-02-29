@@ -29,7 +29,7 @@
         <falloff>0</falloff>
       </spot>
     </light>
-    <light type="spot" name="spot_light">
+    <!-- <light type="spot" name="spot_light">
       <pose>1000 500 300 0 1.4 0.3</pose>
       <diffuse>100 100 100 100</diffuse>
       <specular>149 149 149 149</specular>
@@ -46,7 +46,7 @@
         <falloff>1.2</falloff>
       </spot>
       <cast_shadows>false</cast_shadows>
-    </light>
+    </light> -->
     <!-- <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 100 0 0.0 0.0 0.0</pose>

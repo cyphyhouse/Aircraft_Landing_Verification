@@ -116,22 +116,22 @@ if __name__ == "__main__":
     import multiprocessing
     rospy.init_node('aircraft_landing')
     
-    tmp = VisionData(num_X0s = 100, num_traces = 1, config=AutoLand, data_file = 'data_grounding_exp1.pickle', use_data=False)
+    # # tmp = VisionData(num_X0s = 100, num_traces = 1, config=AutoLand, data_file = 'data_grounding_exp1.pickle', use_data=False)
     
     # for i in range(10):
-    #     fn = f'./data/data_train{i}.pickle'
+    #     fn = f'./data/data_train{i}_rain_snow_extend.pickle'
     #     tmp = VisionData(num_X0s = 10000, num_traces = 1, config=AutoLand, data_file = fn, use_data=False)
     #     del tmp
-        # process = multiprocessing.Process(target = task, args = (fn,))
-        # process.start()
-        # process.join()
+    #     # process = multiprocessing.Process(target = task, args = (fn,))
+    #     # process.start()
+    #     # process.join()
 
-    # fn_idx_list = [0,1,2,5]
-    # total_data = []
-    # for idx in fn_idx_list:
-    #     fn = f'./data/data_train{idx}.pickle'
-    #     with open(fn, 'rb') as f:
-    #         total_data += pickle.load(f)
+    fn_idx_list = [0,1,2,3,4,5,6,7,8,9]
+    total_data = []
+    for idx in fn_idx_list:
+        fn = f'./data/data_train{idx}_rain_snow_extend.pickle'
+        with open(fn, 'rb') as f:
+            total_data += pickle.load(f)
 
-    # with open('./data_train6_shrink.pickle', 'wb+') as f:
-    #     pickle.dump(total_data, f)
+    with open('./data_train_exp1_rain_snow_extend.pickle', 'wb+') as f:
+        pickle.dump(total_data, f)

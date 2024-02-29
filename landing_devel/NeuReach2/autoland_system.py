@@ -83,8 +83,10 @@ def set_light_properties(light_value: float) -> None:
     except rospy.ServiceException as e:
         rospy.logwarn("Service call failed: %s" % e)
 
-e_param_list = [set_light_properties, set_spotlight_properties]
-e_img_updater_list = []
+# e_param_list = [set_light_properties, set_spotlight_properties]
+e_param_list = []
+# e_img_updater_list = []
+e_img_updater_list = [set_rain_properties, set_snow_properties]
 
 def create_state_msd(x, y, z, roll, pitch, yaw):
     state_msg = ModelState()
@@ -183,7 +185,7 @@ class Perception:
         # kp_img = self.add_noise_to_image(kp_img)
   
         cv2.imshow("Image Window", kp_img)
-        cv2.waitKey(10)
+        cv2.waitKey(1)
 
     def vision_estimation(self, cv_image):
         # cv2.imwrite('tmp.png', cv_image)
@@ -239,9 +241,10 @@ class Perception:
         else:
             print("Pose Estimation Failed.")
 
-        # self.show_image(cv_image, keypoints)
-        del cv_image
+        self.show_image(cv_image, keypoints)
+        # del cv_image
         del img
+        return cv_image
 
     def wait_img_update(self):
         while not self.image_updated:
@@ -275,10 +278,10 @@ class Perception:
         self.wait_img_update()
 
         img = self.image
-        if fn is not None:
-            cv2.imwrite(fn, img)
         img = self.apply_img_update(img, e_param)
-        self.vision_estimation(img)
+        cv_img = self.vision_estimation(img)
+        if fn is not None:
+            cv2.imwrite(fn, cv_img)
 
         # x, y, z, yaw, pitch, roll
         estimated_state = np.array([
@@ -336,9 +339,9 @@ def sample_2X0():
     lb, ub, Elb, Eub, Ermax = (
         [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
         [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.2, -0.1],
-        [1.2, 0.6],
-        [0.1, 0.1],
+        [0.0, 0.0],
+        [0.05, 0.05],
+        [0.01, 0.01],
     )
 
     x = sample_pose()
@@ -362,9 +365,9 @@ def sample_X0() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     lb, ub, Elb, Eub, Ermax = (
         [-3000,-20,110, 0.0012853, 0.0396328, -0.0834173],
         [-2500,20,130, 0.0012853, 0.0396328, -0.0834173],
-        [0.2, -0.1],
-        [1.2, 0.6],
-        [0.1, 0.1],
+        [0.0, 0.0],
+        [1.0, 0.03],
+        [0.0, 0.0],
     )
 
     # x = sample_box(lb, ub)
@@ -398,8 +401,8 @@ if __name__ == "__main__":
     perception = Perception()
 
     x = [-2500, 0, 120, 0, np.deg2rad(-3), 0]
-    e = [1.2, 0.5]
+    e = [0.5, 0.03]
     x0 = (x,e)
 
-    res = perception.set_percept(x, e, fn='img_12_05.png')
+    res = perception.set_percept(x, e, fn='img_rain_snow_050_003.png')
  

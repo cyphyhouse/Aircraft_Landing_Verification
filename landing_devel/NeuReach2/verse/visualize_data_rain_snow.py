@@ -6,7 +6,7 @@ from scipy.optimize import curve_fit
 from sklearn.linear_model import LinearRegression, QuantileRegressor
 import statsmodels.api as sm 
 import json 
-from fixed_wing12 import pre_process_data, refineEnv, computeContract, partitionE, remove_data
+from fixed_wing13_rain_snow import pre_process_data, refineEnv, computeContract, partitionE, remove_data
 
 dim = 1
 
@@ -72,56 +72,32 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 #     model_z = M_out[2]
 
 E = np.array([
-    [0.2, -0.1],
-    [1.2, 0.6]
+    [0.0, 0.0],
+    [0.1, 0.1]
 ])
 
 E = partitionE(E)
 
-data_file_path = os.path.join(script_dir, '../data_train_exp1.pickle')
+data_file_path = os.path.join(script_dir, '../data/data_train0_rain_snow.pickle')
 with open(data_file_path,'rb') as f:
     data = pickle.load(f)
 data = pre_process_data(data)
 state_array, trace_array, E_array = data
 
-data_file_path = os.path.join(script_dir, '../data_eval_exp1.pickle')
-with open(data_file_path,'rb') as f:
-    data_eval = pickle.load(f)
-data_eval = pre_process_data(data_eval)
-state_eval, trace_eval, E_eval = data_eval
+# data_file_path = os.path.join(script_dir, '../data_eval_exp1.pickle')
+# with open(data_file_path,'rb') as f:
+#     data_eval = pickle.load(f)
+# data_eval = pre_process_data(data_eval)
+# state_eval, trace_eval, E_eval = data_eval
 
 fig = plt.figure()
 # ax = fig.add_subplot(projection='3d')
 color_list = ['#80b1d3', '#ffed6f', '#fb8072']
-labels = ['no shrink', '3 shrink', '6 shrink']
+labels = ['no refine', '3 refine', '6 refine']
 for i in range(3):
+    tmp_data = remove_data(data, E)
+
     M = computeContract(data, E)    
-
-        # for env in E_out:
-        #     # for j in range(trace_list.shape[1]):
-        #     trace_seg = trace_list[i,:,2]
-        #     state_seg = np.zeros(trace_seg.shape[0])
-        #     state_seg[:] = state_list[i,2]
-        #     tmp_seg = np.zeros(trace_seg.shape[0])
-        #     tmp_seg[:] = state_list[i,0]
-        #     e1_seg = e_list[i,:,0]
-        #     e2_seg = e_list[i,:,1]
-        #     idx = np.where(
-        #         (e2_seg>env[0,1]) & \
-        #         (e2_seg<env[1,1]) & \
-        #         (e1_seg>env[0,0]) & \
-        #         (e1_seg<env[1,0]))
-        #     if idx[0].size == 0:
-        #         continue
-        #     trace_seg = trace_seg[idx]
-        #     state_seg = state_seg[idx]
-        #     tmp_seg = tmp_seg[idx]
-        #     plt.plot(state_seg, trace_seg, 'b*')
-        #     tmp_data = np.hstack((tmp_seg.reshape((-1,1)), state_seg.reshape((-1,1))))
-    # tmp_data = remove_data(data, E)
-    # tmp_state, tmp_trace, tmp_E = tmp_data
-
-    tmp_data = remove_data(data_eval, E)
     tmp_state, tmp_trace, tmp_E = tmp_data
     print(len(tmp_state))
     c1,r1 = apply_model_batch(M[0], tmp_state)
@@ -129,28 +105,28 @@ for i in range(3):
     c3,r3 = apply_model_batch(M[2], tmp_state)
     c4,r4 = apply_model_batch(M[3], tmp_state)
     c5,r5 = apply_model_batch(M[4], tmp_state)
-    idx = np.where(
+    idx = np.where(~(
         (c1-r1<tmp_trace[:,0]) & (tmp_trace[:,0]<c1+r1) &\
         (c2-r2<tmp_trace[:,1]) & (tmp_trace[:,1]<c2+r2) &\
         (c3-r3<tmp_trace[:,2]) & (tmp_trace[:,2]<c3+r3) &\
         (c4-r4<tmp_trace[:,3]) & (tmp_trace[:,3]<c4+r4) &\
         (c5-r5<tmp_trace[:,4]) & (tmp_trace[:,4]<c5+r5)
-    )[0]
+    ))[0]
     print(">>>>> accuracy 1", len(idx)/tmp_trace.shape[0])
 
-    c1,r1 = apply_model_batch(M[0], state_eval)
-    c2,r2 = apply_model_batch(M[1], state_eval)
-    c3,r3 = apply_model_batch(M[2], state_eval)
-    c4,r4 = apply_model_batch(M[3], state_eval)
-    c5,r5 = apply_model_batch(M[4], state_eval)
+    c1,r1 = apply_model_batch(M[0], state_array)
+    c2,r2 = apply_model_batch(M[1], state_array)
+    c3,r3 = apply_model_batch(M[2], state_array)
+    c4,r4 = apply_model_batch(M[3], state_array)
+    c5,r5 = apply_model_batch(M[4], state_array)
     idx = np.where(
-        (c1-r1<trace_eval[:,0]) & (trace_eval[:,0]<c1+r1) &\
-        (c2-r2<trace_eval[:,1]) & (trace_eval[:,1]<c2+r2) &\
-        (c3-r3<trace_eval[:,2]) & (trace_eval[:,2]<c3+r3) &\
-        (c4-r4<trace_eval[:,3]) & (trace_eval[:,3]<c4+r4) &\
-        (c5-r5<trace_eval[:,4]) & (trace_eval[:,4]<c5+r5)
+        (c1-r1<trace_array[:,0]) & (trace_array[:,0]<c1+r1) &\
+        (c2-r2<trace_array[:,1]) & (trace_array[:,1]<c2+r2) &\
+        (c3-r3<trace_array[:,2]) & (trace_array[:,2]<c3+r3) &\
+        (c4-r4<trace_array[:,3]) & (trace_array[:,3]<c4+r4) &\
+        (c5-r5<trace_array[:,4]) & (trace_array[:,4]<c5+r5)
     )[0]
-    print(">>>>> accuracy 2", len(idx)/trace_eval.shape[0])
+    print(">>>>> accuracy 2", len(idx)/trace_array.shape[0])
 
     # c, r = apply_model_batch(M[dim], tmp_state)
     # ax.scatter(tmp_state[:,0], tmp_state[:,dim], c-r, 'g*')
@@ -160,7 +136,7 @@ for i in range(3):
     # if dim == 2:
     #     tmp_state[:,0] = -3000
     #     tmp_state[:,2] = np.linspace(40, 130, 10)
-    c,r = apply_model_batch(M[dim], state_eval)
+    c,r = apply_model_batch(M[dim], state_array)
     # c = c.reshape(tmp_state.shape)
     # r = r.reshape(X.shape)
     
@@ -169,7 +145,7 @@ for i in range(3):
     # plt.plot(state_eval[:,dim], c-r, color_list[i]+"*")
     # plt.plot(state_eval[:,dim], c+r, color_list[i]+"*")
     if dim != 0:
-        x, y1, y2 = get_bin_max_list(state_eval, c, r)
+        x, y1, y2 = get_bin_max_list(state_array, c, r)
     else:
         x = np.linspace(-3000, -2000, 1000)
         model = M[0]
@@ -184,26 +160,20 @@ for i in range(3):
     plt.plot(x, y2, color_list[i])
     plt.fill_between(x, y1, y2, color = color_list[i], alpha = 0.5, label=labels[i])
 
-    for i in range(3):
-        E = refineEnv(E, M, data)
+    for j in range(12):
+        E = refineEnv(E, M, data,i*12+j,False)
+    plt.scatter(tmp_state[:,dim], tmp_trace[:,dim], color = color_list[i], label='test data')
 
-data_file_path = os.path.join(script_dir, '../data_eval_exp1.pickle')
+data_file_path = os.path.join(script_dir, '../data/test_rain_snow.pickle')
 with open(data_file_path,'rb') as f:
     data = pickle.load(f)
 data = pre_process_data(data)
 # tmp_data = remove_data(data, E)
 tmp_state, tmp_trace, tmp_E = data
 # ax.scatter(tmp_state[:,0], tmp_state[:,dim], tmp_trace[:,dim], 'b*')
-plt.scatter(tmp_state[:,dim], tmp_trace[:,dim], color = '#bc80bd', label='test data')
 
-data_file_path = os.path.join(script_dir, '../data_grounding_exp1.pickle')
-with open(data_file_path,'rb') as f:
-    data = pickle.load(f)
-data = pre_process_data(data)
-# tmp_data = remove_data(data, E)
-tmp_state, tmp_trace, tmp_E = data
-# ax.scatter(tmp_state[:,0], tmp_state[:,dim], tmp_trace[:,dim], 'b*')
-plt.scatter(tmp_state[:,dim], tmp_trace[:,dim], color = '#8dd3c7', label='nominal env')
+# data_file_patsrc/landing_devel/NeuReach2/verse/get_all_models.pytmp_state[:,0], tmp_state[:,dim], tmp_trace[:,dim], 'b*')
+# plt.scatter(tmp_state[:,dim], tmp_trace[:,dim], color = '#8dd3c7', label='nominal env')
 
 if dim == 0:
     plt.xlabel('Ground Truth x', fontsize=18)
