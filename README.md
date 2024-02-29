@@ -29,7 +29,7 @@ The pretrained weight should be placed under folder
 ```
 src/landing_devel/
 ```
-The keypoint detector is based on unet and the code for training the detector can be found at
+The keypoint detector is already integrated in the repo. It is based on unet and the code for training the detector can be found at
 ```
 https://github.com/cyphyhouse/Pytorch-UNet.git
 ```
