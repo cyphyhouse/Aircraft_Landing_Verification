@@ -4,6 +4,8 @@ import torch
 from contraction_metric import Metric
 from torch.autograd import grad
 
+device = torch.device('cuda')
+
 def compute_ref(state, approaching_angle = 3):
     x,y,z,psi,theta,v = state
     xinit = -3000
@@ -68,33 +70,33 @@ def u(state):
 def pfpx(state: torch.FloatTensor):
     # state: N*6
     # return: N*6*6
-    res = torch.zeros((state.shape[0], 6, 6))
+    res = torch.zeros((state.shape[0], 6, 6)).cuda()
     for i in range(res.shape[0]):
         x,y,z,psi,theta,v = state[i,:] 
-        pfpx = torch.FloatTensor([0,0,0,0,0,0]).reshape((-1,1))
-        pfpy = torch.FloatTensor([0,0,0,0,0,0]).reshape((-1,1))
-        pfpz = torch.FloatTensor([0,0,0,0,0,0]).reshape((-1,1))
+        pfpx = torch.FloatTensor([0,0,0,0,0,0]).reshape((-1,1)).cuda()
+        pfpy = torch.FloatTensor([0,0,0,0,0,0]).reshape((-1,1)).cuda()
+        pfpz = torch.FloatTensor([0,0,0,0,0,0]).reshape((-1,1)).cuda()
         pfppsi = torch.FloatTensor([
             -v*torch.sin(psi)*torch.cos(theta), 
             v*torch.cos(psi)*torch.cos(theta), 
             0,0,0,0
-        ]).reshape((-1,1))
+        ]).reshape((-1,1)).cuda()
         pfptheta = torch.FloatTensor([
             -v*torch.cos(psi)*torch.sin(theta),
             -v*torch.sin(psi)*torch.sin(theta), 
             torch.cos(theta),
             0, 0, 0
-        ]).reshape((-1,1))
+        ]).reshape((-1,1)).cuda()
         pfpv = torch.FloatTensor([
             torch.cos(psi)*torch.cos(theta),
             torch.sin(psi)*torch.cos(theta),
             0,0,0,0
-        ]).reshape((-1,1))
+        ]).reshape((-1,1)).cuda()
         tmp = torch.hstack(
             (pfpx, pfpy, pfpz, pfppsi, pfptheta, pfpv)
-        )
+        ).cuda()
         res[i,:,:] = tmp
-    return res.cuda()
+    return res
 
 def pfpu(state):
     # state: N*6
@@ -107,7 +109,7 @@ def pfpu(state):
         [0,0,1,0,0,0],
         [1,0,0,0,0,0]
     ]).reshape(1,6,6).cuda()
-    res = template.repeat(state.shape[0], 1, 1)
+    res = template.repeat(state.shape[0], 1, 1).cuda()
     res = res+0*state.sum()
     return res
 
@@ -144,7 +146,7 @@ def Lpd_sample(LHS: torch.FloatTensor, num_sample = 10000):
     else:
         return torch.tensor(0.).type(z.type()).requires_grad_()
 
-def forward(metric: Metric, data: torch.FloatTensor, lamb):
+def forward(metric: Metric, data: torch.FloatTensor, lamb, Mub):
     M = metric(data).cuda()
 
     pfx = pfpx(data).cuda()
@@ -156,19 +158,22 @@ def forward(metric: Metric, data: torch.FloatTensor, lamb):
         pfu.transpose(1,2).matmul(M) + M.matmul(pfu) + \
         dmx +lamb*M)
     
-    loss = Lpd_sample(LHS)
-    return loss 
+    Lub = Lpd_sample(torch.eye(6, device = device)*Mub-M)
+    LLHS = Lpd_sample(LHS)
+    return LLHS+Lub 
 
 
 if __name__ == "__main__":
-    device = torch.device('cuda')
-    metric = Metric(6, 64)
-    metric = metric.to(device)
-
-    optimizer = torch.optim.Adam(metric.parameters(), lr=0.001)
     lamb = 1 
     N = 1000
     _iter = 10000
+    M_lb = 0.1 
+    M_ub = 10
+
+    metric = Metric(6, 64, M_lb)
+    metric = metric.to(device)
+
+    optimizer = torch.optim.Adam(metric.parameters(), lr=0.001)
 
     x = np.random.uniform(1500,3500, (N, 1))
     y = np.random.uniform(-100,100, (N, 1))
@@ -182,12 +187,18 @@ if __name__ == "__main__":
     data = torch.FloatTensor(data).cuda()
     data = data.requires_grad_()
 
+    final_model = None 
+    best_loss = float("inf")
     for i in range(_iter):
-        loss = forward(metric, data, lamb)
+        loss = forward(metric, data, lamb, M_ub)
         print(i, loss)
+        if loss < best_loss:
+            torch.save(metric.state_dict(), "./model.pth")
+            best_loss = loss 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
     # pfpx = 
     # pfpu = 
 
