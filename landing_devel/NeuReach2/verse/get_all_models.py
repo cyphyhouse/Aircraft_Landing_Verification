@@ -49,25 +49,66 @@ def pre_process_data(data):
         trace_array[i*num:(i+1)*num,:] = trace_list[i] 
     return state_array, trace_array, E_array 
 
+def apply_model_batch(model, point):
+    dim = model['dim']
+    cc = model['coef_center']
+    cr = model['coef_radius']
+
+    if dim == 'x':
+        point = point[:,0]
+    elif dim == 'y':
+        point = point[:,(0,1)]
+    elif dim == 'z':
+        point = point[:,(0,2)]
+    elif dim == 'yaw':
+        point = point[:,(0,3)]
+    elif dim == 'pitch':
+        point = point[:,(0,4)]
+
+    if dim == 'x':
+        x = point 
+        center = cc[0]*x+cc[1]
+        radius = cr[0]+x*cr[1]+x**2*cr[2]
+        return center, radius
+    elif dim == 'pitch' or dim == 'z':
+        x = point[:,0]
+        y = point[:,1]
+        center = cc[0]*x + cc[1]*y +cc[2]
+        radius = cr[0] + x*cr[1] + y*cr[2]
+        return center, radius
+    else:
+        x = point[:,0]
+        y = point[:,1]
+        center = cc[0]*x+cc[1]*y+cc[2]
+        radius = cr[0]+x*cr[1]+y*cr[2]+x*y*cr[3]+x**2*cr[4]+y**2*cr[5]
+        return center, radius
+
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    data_file_path = os.path.join(script_dir, '../data_train5.pickle')
+    data_file_path = os.path.join(script_dir, '../data_train_exp1.pickle')
     with open(data_file_path,'rb') as f:
         data = pickle.load(f)
     data = pre_process_data(data)
+    state_array, trace_array, E_array = data 
 
     model_x, model_y, model_z, model_yaw, model_pitch = get_all_models(data)
-    with open(os.path.join(script_dir, './models/model_x2.json'), 'w+') as f:
-        json.dump(model_x, f)
 
-    with open(os.path.join(script_dir, './models/model_y2.json'), 'w+') as f:
-        json.dump(model_y, f)
+    res_x = apply_model_batch(model_x, state_array)
+    res_y = apply_model_batch(model_y, state_array)
+    res_z = apply_model_batch(model_z, state_array)
+    res_yaw = apply_model_batch(model_yaw, state_array)
+    res_pitch = apply_model_batch(model_pitch, state_array)
+    # with open(os.path.join(script_dir, './models/model_x2.json'), 'w+') as f:
+    #     json.dump(model_x, f)
 
-    with open(os.path.join(script_dir, './models/model_z2.json'), 'w+') as f:
-        json.dump(model_z, f)
+    # with open(os.path.join(script_dir, './models/model_y2.json'), 'w+') as f:
+    #     json.dump(model_y, f)
 
-    with open(os.path.join(script_dir, './models/model_yaw2.json'), 'w+') as f:
-        json.dump(model_yaw, f)
+    # with open(os.path.join(script_dir, './models/model_z2.json'), 'w+') as f:
+    #     json.dump(model_z, f)
 
-    with open(os.path.join(script_dir, './models/model_pitch2.json'), 'w+') as f:
-        json.dump(model_pitch, f)
+    # with open(os.path.join(script_dir, './models/model_yaw2.json'), 'w+') as f:
+    #     json.dump(model_yaw, f)
+
+    # with open(os.path.join(script_dir, './models/model_pitch2.json'), 'w+') as f:
+    #     json.dump(model_pitch, f)
