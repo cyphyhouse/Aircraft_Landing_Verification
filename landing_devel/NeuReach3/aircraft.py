@@ -1,8 +1,19 @@
-from numpy import pi 
 import numpy as np 
 import torch 
 from contraction_metric import Metric
 from torch.autograd import grad
+from torch.utils.data import Dataset,DataLoader
+
+class StateDataset(Dataset):
+    def __init__(self, data):
+        self.data:torch.FloatTensor = data
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def __getitem__(self, idx):
+        data = self.data[idx,:]
+        return data, data
 
 device = torch.device('cuda')
 
@@ -28,12 +39,12 @@ def compute_ref(state, approaching_angle = 3):
     thetar = thetainit 
     vr = vinit 
     
-    return torch.FloatTensor([xr, yr, zr, psir, thetar, vr])
+    return torch.FloatTensor([xr, yr, zr, psir, thetar, vr]).cuda()
 
 def f(state,u):
     # state: bs*N*6
     # u: bs*N*6
-    res = torch.zeros(state.shape)
+    res = torch.zeros(state.shape).cuda()
     for i in range(state.shape[0]):
         x,y,z,psi,theta,v = state[i,:]
         a, beta, omega, un1, un2, un3 = u[i,:]
@@ -49,7 +60,7 @@ def f(state,u):
 def u(state):
     # state: bs*N*6
     # return: bs*N*6 
-    res = torch.zeros(state.shape)
+    res = torch.zeros(state.shape).cuda()
     for i in range(state.shape[0]):
         x,y,z,psi,theta,v = state[i] 
         xr, yr, zr, psir, thetar, vr = compute_ref(state[i])
@@ -165,8 +176,8 @@ def forward(metric: Metric, data: torch.FloatTensor, lamb, Mub):
 
 if __name__ == "__main__":
     lamb = 1 
-    N = 1000
-    _iter = 10000
+    N = 10000
+    epoch = 100
     M_lb = 0.1 
     M_ub = 10
 
@@ -187,17 +198,21 @@ if __name__ == "__main__":
     data = torch.FloatTensor(data).cuda()
     data = data.requires_grad_()
 
+    state_dataset = StateDataset(data)
+    train_dataloader = DataLoader(state_dataset, batch_size=100, shuffle=True)
+
     final_model = None 
     best_loss = float("inf")
-    for i in range(_iter):
-        loss = forward(metric, data, lamb, M_ub)
-        print(i, loss)
-        if loss < best_loss:
-            torch.save(metric.state_dict(), "./model.pth")
-            best_loss = loss 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    for i in range(epoch):
+        for j, (data, _) in enumerate(train_dataloader):
+            loss = forward(metric, data, lamb, M_ub)
+            print(i, j, loss)
+            if loss < best_loss:
+                torch.save(metric.state_dict(), "./model.pth")
+                best_loss = loss 
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
     # pfpx = 
     # pfpu = 
