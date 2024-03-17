@@ -157,7 +157,7 @@ def Lpd_sample(LHS: torch.FloatTensor, num_sample = 10000):
     else:
         return torch.tensor(0.).type(z.type()).requires_grad_()
 
-def forward(metric: Metric, data: torch.FloatTensor, lamb, Mub):
+def forward(metric: Metric, data: torch.FloatTensor, lamb, Mub, aux = 0):
     M = metric(data).cuda()
 
     pfx = pfpx(data).cuda()
@@ -167,24 +167,38 @@ def forward(metric: Metric, data: torch.FloatTensor, lamb, Mub):
 
     LHS = -(pfx.transpose(1,2).matmul(M) + M.matmul(pfx) + \
         pfu.transpose(1,2).matmul(M) + M.matmul(pfu) + \
-        dmx +lamb*M)
+        dmx +lamb*M) - torch.eye(6, device = device)*aux
     
     Lub = Lpd_sample(torch.eye(6, device = device)*Mub-M)
     LLHS = Lpd_sample(LHS)
-    return LLHS+Lub 
+    return LLHS+Lub, Lub, LLHS
 
 
 if __name__ == "__main__":
     lamb = 1 
     N = 10000
+    N_eval = 100
     epoch = 100
-    M_lb = 0.1 
-    M_ub = 10
+    M_lb = 0.1
+    M_ub = 0.2
+    aux = 1.0
 
     metric = Metric(6, 64, M_lb)
     metric = metric.to(device)
 
     optimizer = torch.optim.Adam(metric.parameters(), lr=0.001)
+
+    x_eval = np.random.uniform(1500,3500, (N_eval, 1))
+    y_eval = np.random.uniform(-100,100, (N_eval, 1))
+    z_eval = np.random.uniform(140,0, (N_eval, 1))
+    yaw_eval = np.random.uniform(-np.pi/6,np.pi/6, (N_eval, 1))
+    pitch_eval = np.random.uniform(-0.17453292519 ,0.17453292519 , (N_eval, 1))
+    v_eval = np.random.uniform(9,11, (N_eval, 1))
+    data_eval = np.hstack((x_eval,y_eval,z_eval,yaw_eval,pitch_eval,v_eval))
+
+    data_eval = torch.FloatTensor(data_eval).cuda()
+    data_eval = data_eval.requires_grad_()
+
 
     x = np.random.uniform(1500,3500, (N, 1))
     y = np.random.uniform(-100,100, (N, 1))
@@ -192,7 +206,6 @@ if __name__ == "__main__":
     yaw = np.random.uniform(-np.pi/6,np.pi/6, (N, 1))
     pitch = np.random.uniform(-0.17453292519 ,0.17453292519 , (N, 1))
     v = np.random.uniform(9,11, (N, 1))
-
     data = np.hstack((x,y,z,yaw,pitch,v))
 
     data = torch.FloatTensor(data).cuda()
@@ -205,15 +218,16 @@ if __name__ == "__main__":
     best_loss = float("inf")
     for i in range(epoch):
         for j, (data, _) in enumerate(train_dataloader):
-            loss = forward(metric, data, lamb, M_ub)
-            print(i, j, loss)
+            loss, lub, llhs = forward(metric, data, lamb, M_ub, aux)
+            print(i, j, loss.item(), lub.item(), llhs.item())
             if loss < best_loss:
                 torch.save(metric.state_dict(), "./model.pth")
                 best_loss = loss 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
+        loss_eval, _, _ = forward(metric, data_eval, lamb, M_ub, aux)
+        print(">>>>>>>", i, loss_eval)
     # pfpx = 
     # pfpu = 
 
