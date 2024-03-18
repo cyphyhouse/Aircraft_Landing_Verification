@@ -10,12 +10,18 @@ git clone https://github.com/yixjia/Aircraft_Landing_Verification.git src
 ```
 to clone the repo. Then go to the cloned directory and run command 
 ```
+cd src
+
+# Currently under src folder 
 git submodule init
 git submodule update
 ```
 to update all required submodules.
 Then in the ``aircraft_landing`` folder, run command 
 ```
+cd ..
+
+# Currently under aircraft_landing folder
 catkin_make 
 ```
 Two folders ``./devel`` and ``./build`` will be generated. 
